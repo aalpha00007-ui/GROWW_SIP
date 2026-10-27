@@ -49,10 +49,18 @@ jobs:
 
       # Groq's free plan caps tokens a day and one eval uses about a fifth of them, so the eval runs only
       # when something that changes the AI's behaviour changed: code, data, the schema or this workflow.
+      # "[run eval]" in the commit message runs it anyway, for a re-run from the terminal.
       - name: Did the AI change?
         id: changes
+        env:
+          # Through env, never pasted into the script: a commit message must not be able to run commands.
+          HEAD_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if printf '%s' "$HEAD_MESSAGE" | grep -qF '[run eval]'; then
+            echo "The commit message asks for the eval."
+            echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
           if [ "${{ github.event_name }}" = "pull_request" ]; then base="${{ github.event.pull_request.base.sha }}"; else base="${{ github.event.before }}"; fi
           if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
             echo "No earlier commit to compare with: running the eval."

@@ -74,7 +74,7 @@ A run takes 6-8 minutes and uses about a fifth of Groq's free daily tokens.
 
 **CI** (`.github/workflows/ci.yml`):
 - **Every push:** the type check, tests, `data:check` and `chunks:check`.
-- **When AI files change** (`src/pipeline`, `src/llm`, `src/eval`, `src/db`, `data/`, the workflow, or the dependencies): `db:verify` and `npm run eval` as well. The **Run workflow** button on the Actions tab always runs the eval.
+- **When AI files change** (`src/pipeline`, `src/llm`, `src/eval`, `src/db`, `data/`, the workflow, or the dependencies): `db:verify` and `npm run eval` as well. The **Run workflow** button on the Actions tab always runs the eval, as does a commit message containing `[run eval]` (for example `git commit --allow-empty -m "Re-run CI [run eval]"`).
 
 The eval needs three repository secrets: `DATABASE_URL`, `MISTRAL_API_KEY` and `GROQ_API_KEY`.
 
