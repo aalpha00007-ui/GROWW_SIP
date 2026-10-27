@@ -7,6 +7,9 @@
     "node": ">=22"
   },
   "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "data:check": "tsx src/pipeline/loading/cli.ts check",
     "db:setup": "tsx src/pipeline/loading/cli.ts setup",
     "db:verify": "tsx src/pipeline/loading/cli.ts verify",
@@ -19,11 +22,19 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@neondatabase/serverless": "1.2.0"
+    "@neondatabase/serverless": "1.2.0",
+    "next": "15.5.28",
+    "react": "19.1.10",
+    "react-dom": "19.1.10"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.9",
+    "@tailwindcss/postcss": "4.3.3",
     "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "postcss": "8.5.32",
+    "tailwindcss": "4.3.3",
     "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vitest": "5.0.4"

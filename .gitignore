@@ -4,3 +4,7 @@ node_modules/
 # Keys stay out of Git (PRD §3.4): DATABASE_URL, MISTRAL_API_KEY and GROQ_API_KEY live here.
 .env
 .env*.local
+
+# Next.js generates this on every build.
+next-env.d.ts
+*.tsbuildinfo

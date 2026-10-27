@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+/* GROWW_SIP's own palette (build spec §3): no real company's colours. Text contrast is at least 4.5:1. */
+@theme {
+  --color-ground: #f7f7fb;
+  --color-card: #ffffff;
+  --color-line: #e5e7eb;
+  --color-ink: #111827;
+  --color-muted: #4b5563;
+  --color-brand: #3f3d9e;
+  --color-brand-tint: #eeedfb;
+  --color-accent: #d97706;
+  --color-accent-tint: #fef3c7;
+  --color-accent-ink: #92400e;
+  --color-gain: #15803d;
+  --color-gain-tint: #dcfce7;
+  --color-gain-ink: #166534;
+  --color-loss: #b91c1c;
+  --color-loss-tint: #fee2e2;
+  --color-loss-ink: #991b1b;
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-ground);
+  color: var(--color-ink);
+}
+
+/* Numbers line up in columns and never jump width as they change. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

@@ -6,6 +6,23 @@ A goal anchor and an AI check-in ("Before you stop") for first-year SIP investor
 
 **Status (28 Oct 2026):** the backend is built and tested: data loading, chunking, retrieval and the eval (architecture phases 1-6). The Next.js screens and API routes come next (`src/app/` holds placeholders).
 
+## Run the app
+
+```
+npm run dev            # http://localhost:3000, with DATABASE_URL, MISTRAL_API_KEY and GROQ_API_KEY in .env or .env.local
+npm run build          # production build (Render runs this)
+npm start              # serve the production build
+```
+
+The welcome screen asks for the tick box "Facts only. No investment advice." and a demo investor (PRD F1). Starting copies that persona into a fresh investor. The httpOnly cookie `groww_sip_demo_id` then points every page at that copy, so testers never share data.
+
+Built so far:
+- the welcome screen
+- the app shell: a bottom tab bar on phones and a top bar from 1024 px
+- `POST /api/demo/start`.
+
+The tab pages are placeholders until their build step.
+
 ## Phase 1 · data loading
 
 Needs Node 22 or later.

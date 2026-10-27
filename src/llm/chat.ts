@@ -40,13 +40,13 @@ export interface ChatModelOptions {
   patient?: boolean;
 }
 
-export function mistralFromEnv(env: NodeJS.ProcessEnv = process.env, options: { patient?: boolean } = {}): Llm | null {
+export function mistralFromEnv(env: Record<string, string | undefined> = process.env, options: { patient?: boolean } = {}): Llm | null {
   if (!env.MISTRAL_API_KEY) return null;
   return createMistral({ apiKey: env.MISTRAL_API_KEY, model: env.MISTRAL_MODEL || DEFAULT_MISTRAL_MODEL, ...options });
 }
 
 /** The reader for call 1, or null when no GROQ_API_KEY is set (then Mistral reads too). */
-export function groqFromEnv(env: NodeJS.ProcessEnv = process.env, options: { patient?: boolean } = {}): Llm | null {
+export function groqFromEnv(env: Record<string, string | undefined> = process.env, options: { patient?: boolean } = {}): Llm | null {
   if (!env.GROQ_API_KEY) return null;
   return createGroq({ apiKey: env.GROQ_API_KEY, model: env.GROQ_MODEL || DEFAULT_GROQ_MODEL, ...options });
 }
