@@ -80,14 +80,21 @@ jobs:
 
       - name: Check the secrets are set
         if: steps.changes.outputs.run == 'true'
+        env:
+          # Only true or false, never a value: spots a key saved under Variables instead of Secrets.
+          IN_VARS_DATABASE_URL: ${{ vars.DATABASE_URL != '' }}
+          IN_VARS_MISTRAL_API_KEY: ${{ vars.MISTRAL_API_KEY != '' }}
+          IN_VARS_GROQ_API_KEY: ${{ vars.GROQ_API_KEY != '' }}
         run: |
           missing=0
           for name in DATABASE_URL MISTRAL_API_KEY GROQ_API_KEY; do
-            if [ -z "${!name}" ]; then
-              echo "::error::The repository secret $name is missing or empty (Settings > Secrets and variables > Actions)."
-              missing=1
+            if [ -n "${!name}" ]; then echo "$name is set"; continue; fi
+            missing=1
+            in_vars="IN_VARS_$name"
+            if [ "${!in_vars}" = "true" ]; then
+              echo "::error::$name is saved under Variables, not Secrets. Add it on the Secrets tab (Settings > Secrets and variables > Actions), then delete the variable."
             else
-              echo "$name is set"
+              echo "::error::The repository secret $name is missing or empty (Settings > Secrets and variables > Actions > Secrets tab)."
             fi
           done
           exit $missing
