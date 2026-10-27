@@ -230,6 +230,10 @@ export async function runEval(deps: EvalDeps, fixtures: { golden: GoldenRow[]; c
   // Reader, then writer, as ai_checks records them.
   const model = deps.reader ? `${deps.reader.model} + ${deps.llm.model}` : deps.llm.model;
   const readByBackup = deps.reader ? goldenResults.filter((g) => 'model' in g.got && g.got.model !== deps.reader!.model).length : 0;
+  // The score must be the reader's: one measured partly on the backup says nothing about the deployed reader.
+  if (readByBackup > 0) {
+    reasons.push(`the backup read ${readByBackup} golden posts because the reader failed (often its free daily limit); re-run the eval later`);
+  }
 
   // Written in one go, so /quality never reads a half-finished run.
   const runId = await deps.db.transaction(async (tx) => {

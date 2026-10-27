@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { Db } from '../db/client';
-import { createGroq, createMistral, GROQ_URL, LlmError, type ChatMessage, type Llm } from '../llm/chat';
+import { createGroq, createMistral, groqFromEnv, GROQ_URL, LlmError, mistralFromEnv, type ChatMessage, type Llm } from '../llm/chat';
 import { addDays } from '../pipeline/loading/dates';
 import { applyMarketFall } from '../pipeline/loading/market-fall';
 import { clonePersona } from '../pipeline/loading/personas';
@@ -358,5 +358,19 @@ describe('chat models (Mistral and Groq)', () => {
     const patient = createGroq({ apiKey: 'k', model: 'm', retryDelayMs: 0, patient: true, fetchImpl: async () => reply(statuses.shift()!) });
     expect(await patient.complete([], { temperature: 0 })).toBe('{"text":"hi"}');
     expect(statuses).toEqual([]);
+  });
+
+  it('gives up at once when a daily limit says to come back in hours', async () => {
+    let calls = 0;
+    const limited = () => (calls++, new Response('{}', { status: 429, headers: { 'retry-after': '3600' } }));
+    const patient = createGroq({ apiKey: 'k', model: 'm', patient: true, fetchImpl: async () => limited() });
+    await expect(patient.complete([], { temperature: 0 })).rejects.toThrow('Groq returned HTTP 429');
+    expect(calls).toBe(1);
+  });
+
+  it('defaults to the free-plan models (decision D4)', () => {
+    expect(mistralFromEnv({ MISTRAL_API_KEY: 'k' })?.model).toBe('ministral-8b-latest');
+    expect(groqFromEnv({ GROQ_API_KEY: 'k' })?.model).toBe('openai/gpt-oss-120b');
+    expect(groqFromEnv({})).toBeNull();
   });
 });

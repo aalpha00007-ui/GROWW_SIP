@@ -183,6 +183,7 @@ describe('with a reader (architecture decision D4)', () => {
     expect(r.model).toBe('reader-model + fake-model');
     expect(r.golden.results.map((g) => ('model' in g.got ? g.got.model : null))).toEqual(['reader-model', 'fake-model']);
     expect(r.golden.readByBackup).toBe(1);
+    expect(r.reasons).toEqual(['the backup read 1 golden posts because the reader failed (often its free daily limit); re-run the eval later']);
     expect(r.safety.passed).toBe(1);
     const [run] = (await db.query('SELECT model FROM eval_runs WHERE id = $1', [r.runId])).rows;
     expect(run).toEqual({ model: 'reader-model + fake-model' });
