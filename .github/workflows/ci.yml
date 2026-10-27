@@ -1,0 +1,101 @@
+# CI and the AI eval gate (PRD §7, architecture §8). Render deploys only after this passes
+# ("Auto-Deploy: After CI Checks Pass"), so a version that fails the eval never goes live.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # The "Run workflow" button on the Actions tab: always runs the eval.
+  workflow_dispatch:
+
+# One run at a time per branch, so two evals never share Groq's free tokens a minute.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Typecheck, tests and data
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run data:check
+      - run: npm run chunks:check
+
+  eval:
+    name: AI eval gate
+    needs: checks
+    # Pull requests from forks get no secrets, so they cannot run the eval.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Groq's free plan caps tokens a day and one eval uses about a fifth of them, so the eval runs only
+      # when something that changes the AI's behaviour changed: code, data, the schema or this workflow.
+      - name: Did the AI change?
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ "${{ github.event_name }}" = "pull_request" ]; then base="${{ github.event.pull_request.base.sha }}"; else base="${{ github.event.before }}"; fi
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "No earlier commit to compare with: running the eval."
+            echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          changed=$(git diff --name-only "$base" "${{ github.sha }}")
+          echo "Changed files:"; echo "$changed"
+          if echo "$changed" | grep -qE '^(src/(pipeline|llm|eval|db)/|data/|\.github/workflows/|package(-lock)?\.json$)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Eval skipped
+        if: steps.changes.outputs.run != 'true'
+        run: echo "No AI files changed (only docs, tests or screens), so the eval is skipped."
+
+      - name: Check the secrets are set
+        if: steps.changes.outputs.run == 'true'
+        run: |
+          missing=0
+          for name in DATABASE_URL MISTRAL_API_KEY GROQ_API_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::The repository secret $name is missing or empty (Settings > Secrets and variables > Actions)."
+              missing=1
+            else
+              echo "$name is set"
+            fi
+          done
+          exit $missing
+
+      - uses: actions/setup-node@v4
+        if: steps.changes.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - if: steps.changes.outputs.run == 'true'
+        run: npm ci
+
+      - name: Neon holds the seed
+        if: steps.changes.outputs.run == 'true'
+        run: npm run db:verify
+
+      - name: Eval (exits 1 when the gate fails)
+        if: steps.changes.outputs.run == 'true'
+        run: npm run eval
