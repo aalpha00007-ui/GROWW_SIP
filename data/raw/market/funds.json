@@ -1,0 +1,85 @@
+{
+  "source": "Build spec §7. All funds are made up and shown as simulated. walk = seeded random walk: start NAV, annual drift, annual volatility, and the fall over the last 4 weeks (fraction, low-high).",
+  "funds": [
+    {
+      "id": 1,
+      "name": "Banyan Flexi Cap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 500,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.72,
+      "walk": { "start": 52.4, "drift": 0.12, "vol": 0.15, "end_fall": [0.08, 0.12] }
+    },
+    {
+      "id": 2,
+      "name": "Kestrel Nifty 50 Index Fund",
+      "category": "Index",
+      "risk_level": "Very High",
+      "min_sip": 500,
+      "exit_load_text": "Nil",
+      "expense_ratio": 0.2,
+      "walk": { "start": 28.75, "drift": 0.11, "vol": 0.14, "end_fall": [0.08, 0.12] }
+    },
+    {
+      "id": 3,
+      "name": "Monsoon Midcap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 500,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.81,
+      "walk": { "start": 74.1, "drift": 0.15, "vol": 0.2, "end_fall": [0.08, 0.12] }
+    },
+    {
+      "id": 4,
+      "name": "Lotus ELSS Tax Saver Fund",
+      "category": "ELSS",
+      "risk_level": "Very High",
+      "min_sip": 500,
+      "exit_load_text": "Nil (3-year lock-in)",
+      "expense_ratio": 0.77,
+      "walk": { "start": 96.3, "drift": 0.13, "vol": 0.17, "end_fall": [0.08, 0.12] }
+    },
+    {
+      "id": 5,
+      "name": "Harbor Liquid Fund",
+      "category": "Liquid",
+      "risk_level": "Low to Moderate",
+      "min_sip": 500,
+      "exit_load_text": "Nil after 7 days",
+      "expense_ratio": 0.18,
+      "walk": { "start": 2875.4, "drift": 0.065, "vol": 0.004, "end_fall": null }
+    },
+    {
+      "id": 6,
+      "name": "Sundar Small Cap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 500,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.85,
+      "walk": { "start": 41.2, "drift": 0.17, "vol": 0.24, "end_fall": [0.08, 0.12] }
+    },
+    {
+      "id": 7,
+      "name": "Teak Balanced Advantage Fund",
+      "category": "Hybrid",
+      "risk_level": "Moderately High",
+      "min_sip": 500,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.79,
+      "walk": { "start": 33.6, "drift": 0.09, "vol": 0.09, "end_fall": [0.08, 0.12] }
+    },
+    {
+      "id": 8,
+      "name": "Cedar Large & Mid Cap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 500,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.74,
+      "walk": { "start": 61.85, "drift": 0.13, "vol": 0.16, "end_fall": [0.08, 0.12] }
+    }
+  ]
+}

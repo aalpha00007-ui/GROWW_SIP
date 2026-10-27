@@ -1,0 +1,29 @@
+{
+  "source": "Build spec §9, Step 4 no_advice. Matched case-insensitively against every AI answer; any match sends the investor to the fallback card. The Hindi (Devanagari) rows translate the spec's Hinglish rows (PRD §3.3 asks for English, Hindi and Hinglish).",
+  "patterns": [
+    { "lang": "en", "pattern": "recommend" },
+    { "lang": "en", "pattern": "you should (buy|sell|switch|invest in|stop|continue|hold)" },
+    { "lang": "en", "pattern": "better fund" },
+    { "lang": "en", "pattern": "best fund" },
+    { "lang": "en", "pattern": "top fund" },
+    { "lang": "en", "pattern": "switch to" },
+    { "lang": "en", "pattern": "guaranteed" },
+    { "lang": "en", "pattern": "assured" },
+    { "lang": "en", "pattern": "will (give|return|grow|double)" },
+    { "lang": "en", "pattern": "guarantee" },
+    { "lang": "en", "pattern": "will recover" },
+    { "lang": "hinglish", "pattern": "kharid lo" },
+    { "lang": "hinglish", "pattern": "bech do" },
+    { "lang": "hinglish", "pattern": "switch kar lo" },
+    { "lang": "hinglish", "pattern": "band kar do" },
+    { "lang": "hinglish", "pattern": "normal ho jayega" },
+    { "lang": "hinglish", "pattern": "recover ho jayega" },
+    { "lang": "hi", "pattern": "खरीद लो" },
+    { "lang": "hi", "pattern": "बेच दो" },
+    { "lang": "hi", "pattern": "स्विच कर लो" },
+    { "lang": "hi", "pattern": "बंद कर दो" },
+    { "lang": "hi", "pattern": "गारंटी" },
+    { "lang": "hi", "pattern": "नॉर्मल हो जाएगा" },
+    { "lang": "hi", "pattern": "रिकवर हो जाएगा" }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "key": "riya",
+  "display_name": "Riya, 27, salaried",
+  "mandates": [{ "bank_label": "Demo Bank savings", "method": "UPI" }],
+  "goals": [
+    { "ref": "home", "kind": "home", "name": "Home down payment", "target_from_sip": { "sip": "banyan", "instalments": 60 } },
+    { "ref": "emergency", "kind": "emergency", "name": "Emergency fund" }
+  ],
+  "sips": [
+    { "ref": "banyan", "fund": "Banyan Flexi Cap Fund", "amount": 2000, "day_of_month": 2, "started_months_ago": 7, "goal": "home" },
+    { "ref": "harbor", "fund": "Harbor Liquid Fund", "amount": 1000, "day_of_month": 10, "started_months_ago": 4, "goal": "emergency" },
+    { "ref": "kestrel", "fund": "Kestrel Nifty 50 Index Fund", "amount": 1500, "day_of_month": 15, "started_months_ago": 3 }
+  ]
+}

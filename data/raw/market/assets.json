@@ -1,0 +1,27 @@
+{
+  "source": "Build spec §7. Every name is invented and shown with \"sim.\"; none may match a real listed company. Prices: INR, except us_stock in USD; gold and silver per gram.",
+  "assets": [
+    { "id": 1, "kind": "stock", "name": "Quillstone Software", "symbol": "QUILL", "sector": "IT", "extra": {}, "walk": { "start": 1420, "drift": 0.14, "vol": 0.26 } },
+    { "id": 2, "kind": "stock", "name": "Pebblemoor Foods", "symbol": "PBMR", "sector": "FMCG", "extra": {}, "walk": { "start": 365, "drift": 0.09, "vol": 0.18 } },
+    { "id": 3, "kind": "stock", "name": "Brightfen Power", "symbol": "BFPWR", "sector": "Power", "extra": {}, "walk": { "start": 212, "drift": 0.12, "vol": 0.28 } },
+    { "id": 4, "kind": "stock", "name": "Ferncliff Pharma", "symbol": "FERNP", "sector": "Pharma", "extra": {}, "walk": { "start": 890, "drift": 0.1, "vol": 0.22 } },
+    { "id": 5, "kind": "stock", "name": "Anvilridge Steel", "symbol": "ANVRG", "sector": "Metals", "extra": {}, "walk": { "start": 148, "drift": 0.08, "vol": 0.32 } },
+    { "id": 6, "kind": "stock", "name": "Tidewick Logistics", "symbol": "TDWK", "sector": "Logistics", "extra": {}, "walk": { "start": 530, "drift": 0.11, "vol": 0.24 } },
+    { "id": 7, "kind": "stock", "name": "Saltmarsh Bank", "symbol": "SLTMB", "sector": "Banking", "extra": {}, "walk": { "start": 760, "drift": 0.1, "vol": 0.2 } },
+    { "id": 8, "kind": "stock", "name": "Larkspire Motors", "symbol": "LRKSP", "sector": "Auto", "extra": {}, "walk": { "start": 1185, "drift": 0.12, "vol": 0.25 } },
+    { "id": 9, "kind": "etf", "name": "Kestrel Nifty 50 ETF", "symbol": "KNIFTY", "sector": "Index", "extra": {}, "walk": { "start": 248, "drift": 0.11, "vol": 0.14 } },
+    { "id": 10, "kind": "etf", "name": "Cedar Bank ETF", "symbol": "CBANK", "sector": "Banking", "extra": {}, "walk": { "start": 512, "drift": 0.1, "vol": 0.18 } },
+    { "id": 11, "kind": "etf", "name": "Monsoon IT ETF", "symbol": "MITETF", "sector": "IT", "extra": {}, "walk": { "start": 41, "drift": 0.12, "vol": 0.22 } },
+    { "id": 12, "kind": "etf", "name": "Banyan Gold ETF", "symbol": "BGOLD", "sector": "Gold", "extra": {}, "walk": { "start": 96, "drift": 0.09, "vol": 0.13 } },
+    { "id": 13, "kind": "us_stock", "name": "Zephyrine Cloud", "symbol": "ZPHC", "sector": "Software", "extra": { "currency": "USD" }, "walk": { "start": 182.4, "drift": 0.13, "vol": 0.3 } },
+    { "id": 14, "kind": "us_stock", "name": "Orrimark Devices", "symbol": "ORMK", "sector": "Hardware", "extra": { "currency": "USD" }, "walk": { "start": 96.15, "drift": 0.1, "vol": 0.26 } },
+    { "id": 15, "kind": "us_stock", "name": "Bramblecart Retail", "symbol": "BRCT", "sector": "Retail", "extra": { "currency": "USD" }, "walk": { "start": 54.3, "drift": 0.07, "vol": 0.22 } },
+    { "id": 16, "kind": "us_stock", "name": "Velloran Biotech", "symbol": "VLRN", "sector": "Biotech", "extra": { "currency": "USD" }, "walk": { "start": 23.8, "drift": 0.05, "vol": 0.45 } },
+    { "id": 17, "kind": "us_stock", "name": "Duskwater Rail", "symbol": "DSKR", "sector": "Transport", "extra": { "currency": "USD" }, "walk": { "start": 131.6, "drift": 0.08, "vol": 0.2 } },
+    { "id": 18, "kind": "gold", "name": "Gold 24K", "symbol": "GOLD24", "sector": null, "extra": { "unit": "gram" }, "walk": { "start": 9850, "drift": 0.09, "vol": 0.13 } },
+    { "id": 19, "kind": "silver", "name": "Silver 999", "symbol": "SILV999", "sector": null, "extra": { "unit": "gram" }, "walk": { "start": 118, "drift": 0.08, "vol": 0.22 } },
+    { "id": 20, "kind": "bond", "name": "Banyan Infra Bond 2030", "symbol": "BIB30", "sector": "Infrastructure", "extra": { "coupon_pct": 7.6, "yield_pct": 7.45, "maturity": "2030-03-31" }, "walk": { "start": 1000, "drift": 0.01, "vol": 0.02 } },
+    { "id": 21, "kind": "bond", "name": "Teak Housing Finance Bond 2029", "symbol": "THF29", "sector": "Housing finance", "extra": { "coupon_pct": 8.1, "yield_pct": 7.9, "maturity": "2029-09-30" }, "walk": { "start": 1000, "drift": 0.01, "vol": 0.02 } },
+    { "id": 22, "kind": "bond", "name": "Cedar Civic Development Bond 2034", "symbol": "CCD34", "sector": "Government-style", "extra": { "coupon_pct": 7.2, "yield_pct": 7.1, "maturity": "2034-06-30" }, "walk": { "start": 1000, "drift": 0.01, "vol": 0.02 } }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "source": "Build spec §7: 1 open, 1 upcoming, 1 closed, all made up. Dates are days relative to the seed date.",
+  "ipos": [
+    { "id": 1, "name": "Wrenfield Textiles", "status": "open", "price_band": "Rs 118 - 124", "lot_size": 120, "opens_in_days": -2, "closes_in_days": 1 },
+    { "id": 2, "name": "Ospreyline Aviation Services", "status": "upcoming", "price_band": "Rs 305 - 321", "lot_size": 46, "opens_in_days": 6, "closes_in_days": 8 },
+    { "id": 3, "name": "Glenmoor Chemicals", "status": "closed", "price_band": "Rs 72 - 76", "lot_size": 195, "opens_in_days": -16, "closes_in_days": -14 }
+  ]
+}

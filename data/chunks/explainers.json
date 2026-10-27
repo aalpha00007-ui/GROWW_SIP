@@ -1,0 +1,40 @@
+{
+  "chunks": [
+    {
+      "id": "explainer:stop",
+      "key": "stop",
+      "title": "What stopping a SIP does",
+      "status": "approved",
+      "text": "Stopping a SIP ends the instalments that have not been paid yet. It does not refund any money and does not sell any units. The units you already bought stay invested in the fund, and their value keeps moving with the fund's NAV until you choose to redeem them. Redeeming is a separate step. To invest again later, you start a new SIP. If you only need a break, you can skip the next instalment or pause for 1 to 3 instalments instead.",
+      "source": "data/raw/explainers/stop.md",
+      "sha256": "95e2105b24fd9670a69362ac900707c6e051af9a06011503d6e969ab2a0bc01b"
+    },
+    {
+      "id": "explainer:skip",
+      "key": "skip",
+      "title": "What skipping an instalment does",
+      "status": "approved",
+      "text": "Skipping misses the next instalment only. Nothing is taken from your bank for that instalment, the SIP stays active, and the one after it goes ahead as usual. The units you already bought stay invested.",
+      "source": "data/raw/explainers/skip.md",
+      "sha256": "5f228c43d633e73c670df5db66e958b4db85af32c54f29b5eb6e281fbfd80aee"
+    },
+    {
+      "id": "explainer:pause",
+      "key": "pause",
+      "title": "What pausing a SIP does",
+      "status": "approved",
+      "text": "Pausing skips the next 1 to 3 instalments, as you choose. Nothing is taken from your bank during the pause, the SIP stays active, and instalments start again on their own after it. The units you already bought stay invested.",
+      "source": "data/raw/explainers/pause.md",
+      "sha256": "702fcaa7900396a58f5dcd5c880fb93b3c4a4bfb538af8ace8c0c107071155f2"
+    },
+    {
+      "id": "explainer:lower_amount",
+      "key": "lower_amount",
+      "title": "What lowering the SIP amount does",
+      "status": "approved",
+      "text": "Lowering the amount changes what each future instalment takes, down to the fund's minimum SIP amount. The SIP keeps running on the same date, and the units you already bought stay invested. You can change the amount again later.",
+      "source": "data/raw/explainers/lower_amount.md",
+      "sha256": "acbc2cd0c73cc892592b5a38d756854f32e6a7d644098b2fd2f08c950c691513"
+    }
+  ]
+}
