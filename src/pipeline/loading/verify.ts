@@ -52,7 +52,7 @@ export async function verifyDatabase(db: Db): Promise<Check[]> {
   for (const persona of personas) {
     const id = TEMPLATE_IDS[persona.key];
     const expected = persona.sips.reduce(
-      (sum, s) => sum + monthlyDueDates(addMonths(seededOn, -s.started_months_ago), s.day_of_month, seededOn).length - (s.skipped_instalments?.length ?? 0),
+      (sum, s) => sum + monthlyDueDates(addMonths(seededOn, -s.started_months_ago), s.day_of_month, addMonths(seededOn, -(s.stopped_months_ago ?? 0))).length - (s.skipped_instalments?.length ?? 0),
       0,
     );
     const sips = await n('SELECT count(*)::int AS n FROM sips WHERE investor_id = $1', [id]);

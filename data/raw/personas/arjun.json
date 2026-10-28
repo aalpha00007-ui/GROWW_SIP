@@ -1,11 +1,32 @@
 {
   "key": "arjun",
   "display_name": "Arjun, 31, freelancer, income varies",
-  "mandates": [{ "bank_label": "Demo Bank current", "method": "NACH" }],
+  "about": "Freelancer, income varies. One midcap SIP for a home, with a month already skipped.",
+  "mandates": [
+    {
+      "bank_label": "Demo Bank current",
+      "method": "NACH"
+    }
+  ],
   "goals": [
-    { "ref": "home", "kind": "home", "name": "Home down payment", "target_month": "2030-12" }
+    {
+      "ref": "home",
+      "kind": "home",
+      "name": "Home down payment",
+      "target_month": "2030-12"
+    }
   ],
   "sips": [
-    { "ref": "monsoon", "fund": "Monsoon Midcap Fund", "amount": 1500, "day_of_month": 10, "started_months_ago": 8, "goal": "home", "skipped_instalments": [5] }
+    {
+      "ref": "monsoon",
+      "fund": "Monsoon Midcap Fund",
+      "amount": 1500,
+      "day_of_month": 10,
+      "started_months_ago": 8,
+      "goal": "home",
+      "skipped_instalments": [
+        5
+      ]
+    }
   ]
 }

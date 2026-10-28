@@ -1,0 +1,12 @@
+{
+  "key": "dev",
+  "display_name": "Dev, 36, business owner",
+  "about": "A large monthly SIP: Rs 25,000 a month for retirement.",
+  "mandates": [{ "bank_label": "Demo Bank current", "method": "NACH" }],
+  "goals": [
+    { "ref": "retirement", "kind": "retirement", "name": "Retirement", "target_month": "2050-04" }
+  ],
+  "sips": [
+    { "ref": "banyan", "fund": "Banyan Flexi Cap Fund", "amount": 25000, "day_of_month": 1, "started_months_ago": 14, "goal": "retirement" }
+  ]
+}

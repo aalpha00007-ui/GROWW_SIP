@@ -56,7 +56,7 @@ describe('Home fund rows', () => {
       ['Lotus ELSS Tax Saver Fund', 'LE'],
       ['Monsoon Midcap Fund', 'MM'],
     ]);
-    expect(popular[0].nav).toMatch(/^Rs [\d,]+\.\d\d$/);
+    expect(popular[0].nav).toMatch(/^₹[\d,]+\.\d\d$/);
     await applyMarketFall(db, visitor);
     expect((await homeFunds(db, visitor)).popular.every((f) => f.change?.startsWith('-') && f.change.endsWith('(6.00%)'))).toBe(true);
   });

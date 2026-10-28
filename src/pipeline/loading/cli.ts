@@ -1,9 +1,10 @@
-// Phase 1 commands: `npm run data:check`, `npm run db:setup`, `npm run db:verify`, `npm run db:reset`.
+// Phase 1 commands: `npm run data:check`, `npm run db:setup`, `npm run db:verify`, `npm run db:reset`,
+// and `npm run db:migrate` (the schema only, no seed: safe on every deploy, keeps every visitor's data).
 import { connectNeon } from '../../db/client';
 import { loadEnvFiles } from '../../env';
 import { loadAdvicePatterns, loadEvalCases, loadExplainers, loadGoldenSet } from './fixtures';
 import { loadMarket, loadPersonas } from './raw';
-import { setupDatabase, wipeDatabase } from './seed';
+import { applySchema, setupDatabase, wipeDatabase } from './seed';
 import { verifyDatabase } from './verify';
 
 async function main(command: string | undefined): Promise<void> {
@@ -11,8 +12,8 @@ async function main(command: string | undefined): Promise<void> {
     checkData();
     return;
   }
-  if (command !== 'setup' && command !== 'verify' && command !== 'reset') {
-    throw new Error('Usage: cli.ts check | setup | verify | reset');
+  if (command !== 'setup' && command !== 'verify' && command !== 'reset' && command !== 'migrate') {
+    throw new Error('Usage: cli.ts check | setup | verify | reset | migrate');
   }
 
   loadEnvFiles();
@@ -21,7 +22,10 @@ async function main(command: string | undefined): Promise<void> {
 
   const db = connectNeon(url);
   try {
-    if (command === 'setup') {
+    if (command === 'migrate') {
+      await applySchema(db);
+      console.log('Schema applied (new tables and columns added; no data changed).');
+    } else if (command === 'setup') {
       checkData();
       const s = await setupDatabase(db);
       console.log(`\nDatabase ready, as of ${s.today}`);

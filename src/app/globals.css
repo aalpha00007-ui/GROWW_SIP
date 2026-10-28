@@ -80,3 +80,23 @@
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* The market strip drifts left at a reading pace; two copies of the row make the loop seamless. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-50% - 12px));
+  }
+}
+
+.marquee {
+  animation: marquee 60s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee {
+    animation: none;
+  }
+}

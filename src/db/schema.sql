@@ -195,6 +195,43 @@ CREATE TABLE IF NOT EXISTS eval_results (
   passed   boolean NOT NULL
 );
 
+-- Demo accounts (made by "Create demo account"): a username and a hashed 4-digit PIN, never an email,
+-- phone or real password. The account is an investor row, so deleting the investor deletes it all.
+CREATE TABLE IF NOT EXISTS accounts (
+  investor_id   uuid PRIMARY KEY REFERENCES investors(id) ON DELETE CASCADE,
+  username      text NOT NULL UNIQUE CHECK (username = lower(username)),
+  pin_hash      text NOT NULL,
+  failed_logins int NOT NULL DEFAULT 0,
+  locked_until  timestamptz NULL,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+
+-- One row per signed-in browser. The cookie holds a random token; only its SHA-256 is stored here.
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash  text PRIMARY KEY,
+  investor_id uuid NOT NULL REFERENCES investors(id) ON DELETE CASCADE,
+  expires_at  timestamptz NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- Sign-ups per network, for the rate limit. Only a salted hash of the IP address is kept.
+CREATE TABLE IF NOT EXISTS signup_attempts (
+  ip_hash    text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- What investors did, for the case study's funnel (npm run events). No free text, no personal data.
+CREATE TABLE IF NOT EXISTS app_events (
+  id          serial PRIMARY KEY,
+  investor_id uuid NOT NULL REFERENCES investors(id) ON DELETE CASCADE,
+  event       text NOT NULL CHECK (event IN (
+                'goal_step_shown', 'goal_saved', 'goal_skipped', 'sip_started', 'market_fall_simulated',
+                'dip_context_viewed', 'ai_question_asked', 'stop_checkin_opened', 'sip_stopped', 'sip_kept',
+                'goal_tooltip_dismissed')),
+  detail      jsonb NOT NULL DEFAULT '{}',
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
 -- The NAVs one visitor sees: the shared history plus their own demo market-fall days. A demo
 -- day wins over a shared row on the same date, so a fall the visitor made stays visible.
 CREATE OR REPLACE FUNCTION visible_nav_history(p_investor uuid)
@@ -215,3 +252,6 @@ CREATE INDEX IF NOT EXISTS sip_events_sip_idx ON sip_events (sip_id);
 CREATE INDEX IF NOT EXISTS instalments_sip_idx ON instalments (sip_id);
 CREATE INDEX IF NOT EXISTS demo_orders_investor_idx ON demo_orders (investor_id);
 CREATE INDEX IF NOT EXISTS ai_checks_investor_idx ON ai_checks (investor_id);
+CREATE INDEX IF NOT EXISTS sessions_investor_idx ON sessions (investor_id);
+CREATE INDEX IF NOT EXISTS signup_attempts_ip_idx ON signup_attempts (ip_hash, created_at);
+CREATE INDEX IF NOT EXISTS app_events_investor_idx ON app_events (investor_id, event);

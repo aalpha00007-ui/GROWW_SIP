@@ -163,7 +163,7 @@ describe('persona templates', () => {
 
   it('rebuilds templates on re-run without duplicating them', async () => {
     await setupDatabase(db, { today: TODAY });
-    expect(await count('SELECT count(*)::int AS n FROM investors WHERE id = ANY($1::uuid[])', [Object.values(TEMPLATE_IDS)])).toBe(3);
+    expect(await count('SELECT count(*)::int AS n FROM investors WHERE id = ANY($1::uuid[])', [Object.values(TEMPLATE_IDS)])).toBe(Object.keys(TEMPLATE_IDS).length);
     expect(await count('SELECT count(*)::int AS n FROM sips WHERE investor_id = $1', [TEMPLATE_IDS.riya])).toBe(3);
     expect(await count('SELECT count(*)::int AS n FROM funds')).toBe(8);
   });
@@ -276,5 +276,28 @@ describe('fixed text and eval fixtures', () => {
     expect(golden).toMatchObject({ labelled: 20, skipped: 0 });
     expect(golden.rows.map((r) => r.id)).toEqual(Array.from({ length: 20 }, (_, i) => `G${String(i + 1).padStart(2, '0')}`));
     expect(parseCsv('a,b\n"x, ""y""",z\r\n')).toEqual([['a', 'b'], ['x, "y"', 'z']]);
+  });
+});
+
+describe('the situation personas', () => {
+  it('gives Kabir no SIPs, Sana 2 instalments to go, Vikram a stopped SIP and Dev a large one', async () => {
+    const { retrieveFacts } = await import('../pipeline/retrieval/facts');
+    const sipOf = async (key: keyof typeof TEMPLATE_IDS) =>
+      (await db.query<{ id: number }>('SELECT id FROM sips WHERE investor_id = $1 ORDER BY id LIMIT 1', [TEMPLATE_IDS[key]])).rows[0];
+    expect(await sipOf('kabir')).toBeUndefined();
+
+    const sana = await retrieveFacts(db, TEMPLATE_IDS.sana, (await sipOf('sana')).id, TODAY);
+    if (sana.status !== 'ok') throw new Error(sana.status);
+    expect(sana.facts.instalments_planned! - sana.facts.instalments_paid).toBe(2);
+
+    const vikram = await retrieveFacts(db, TEMPLATE_IDS.vikram, (await sipOf('vikram')).id, TODAY);
+    expect(vikram.status).toBe('stopped');
+    if (vikram.status === 'not_found') throw new Error('not found');
+    // Started 10 months ago, stopped 2 months ago: 8 instalments, and the units are still held.
+    expect(vikram.facts).toMatchObject({ instalments_paid: 8, next_due_date: null });
+    expect(vikram.facts.current_value).toBeGreaterThan(0);
+
+    const dev = await retrieveFacts(db, TEMPLATE_IDS.dev, (await sipOf('dev')).id, TODAY);
+    expect(dev.status === 'ok' && dev.facts.amount).toBe(25_000);
   });
 });

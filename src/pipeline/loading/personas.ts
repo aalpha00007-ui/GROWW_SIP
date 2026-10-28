@@ -8,6 +8,10 @@ export const TEMPLATE_IDS: Record<PersonaKey, string> = {
   riya: '00000000-0000-4000-8000-000000000001',
   arjun: '00000000-0000-4000-8000-000000000002',
   meera: '00000000-0000-4000-8000-000000000003',
+  kabir: '00000000-0000-4000-8000-000000000004',
+  sana: '00000000-0000-4000-8000-000000000005',
+  vikram: '00000000-0000-4000-8000-000000000006',
+  dev: '00000000-0000-4000-8000-000000000007',
 };
 
 export function isTemplateId(investorId: string): boolean {
@@ -53,7 +57,8 @@ export async function insertTemplate(tx: Db, persona: PersonaSeed, ctx: Template
     );
     const sipId = rows[0].id;
 
-    const due = monthlyDueDates(started, sip.day_of_month, ctx.today);
+    const stoppedOn = sip.stopped_months_ago === undefined ? null : addMonths(ctx.today, -sip.stopped_months_ago);
+    const due = monthlyDueDates(started, sip.day_of_month, stoppedOn ?? ctx.today);
     const skipped = new Set(sip.skipped_instalments ?? []);
     const paid = due.filter((_, i) => !skipped.has(i + 1));
     await tx.query(
@@ -63,6 +68,10 @@ export async function insertTemplate(tx: Db, persona: PersonaSeed, ctx: Template
       [sipId, sip.amount, paid, paid.map((d) => valueOn(ctx.navs, fund.id, d, 'NAV'))],
     );
     instalments += paid.length;
+
+    if (stoppedOn) {
+      await tx.query("INSERT INTO sip_events (sip_id, kind, detail, created_at) VALUES ($1, 'cancelled', '{}', $2)", [sipId, `${stoppedOn}T09:00:00+05:30`]);
+    }
 
     for (const position of skipped) {
       const dueOn = due[position - 1];

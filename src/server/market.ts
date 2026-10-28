@@ -11,6 +11,9 @@ const INDICES = [
   { name: 'BANK NIFTY', fund: 'Banyan Flexi Cap Fund', level: 55_200 },
   { name: 'NIFTY MIDCAP', fund: 'Monsoon Midcap Fund', level: 57_300 },
   { name: 'FIN NIFTY', fund: 'Teak Balanced Advantage Fund', level: 26_100 },
+  { name: 'NIFTY NEXT 50', fund: 'Lotus ELSS Tax Saver Fund', level: 68_400 },
+  { name: 'NIFTY SMALLCAP', fund: 'Sundar Small Cap Fund', level: 17_900 },
+  { name: 'NIFTY IT', fund: 'Banyan Flexi Cap Fund', level: 37_200 },
 ];
 
 const POPULAR = ['Kestrel Nifty 50 Index Fund', 'Banyan Flexi Cap Fund', 'Lotus ELSS Tax Saver Fund', 'Monsoon Midcap Fund'];
@@ -36,8 +39,8 @@ interface FundMove {
   as_of: string;
 }
 
-/** Each fund's latest and previous NAV this visitor sees (demo falls included). */
-async function fundMoves(db: Db, investorId: string): Promise<FundMove[]> {
+/** Each fund's latest and previous NAV this visitor sees (demo falls included); null is a signed-out visitor. */
+async function fundMoves(db: Db, investorId: string | null): Promise<FundMove[]> {
   return (
     await db.query<FundMove>(
       `WITH v AS (
@@ -70,7 +73,7 @@ export interface MarketStrip {
   note: string;
 }
 
-export async function marketStrip(db: Db, investorId: string): Promise<MarketStrip> {
+export async function marketStrip(db: Db, investorId: string | null): Promise<MarketStrip> {
   const moves = await fundMoves(db, investorId);
   const [demo] = (
     await db.query<{ days: number }>('SELECT count(DISTINCT nav_date)::int AS days FROM demo_nav_history WHERE investor_id = $1', [investorId])
@@ -113,7 +116,7 @@ export async function homeFunds(db: Db, investorId: string): Promise<HomeFunds> 
           id: fund.id,
           name: fund.name,
           initials: fund.name.split(' ').slice(0, 2).map((word) => word[0]).join(''),
-          nav: `Rs ${TWO.format(Number(fund.latest))}`,
+          nav: `₹${TWO.format(Number(fund.latest))}`,
           change: dayChange(Number(fund.latest), fund.prev === null ? null : Number(fund.prev)),
         },
       ];

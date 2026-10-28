@@ -4,7 +4,7 @@ import type { WalkSpec } from './walk';
 
 export const DATA_DIR = path.join(process.cwd(), 'data');
 
-export const PERSONA_KEYS = ['riya', 'arjun', 'meera'] as const;
+export const PERSONA_KEYS = ['riya', 'arjun', 'meera', 'kabir', 'sana', 'vikram', 'dev'] as const;
 export type PersonaKey = (typeof PERSONA_KEYS)[number];
 
 const GOAL_KINDS = ['home', 'education', 'retirement', 'emergency', 'custom'] as const;
@@ -71,11 +71,15 @@ export interface SipSeed {
   goal?: string;
   /** 1-based positions of instalments that were skipped instead of paid. */
   skipped_instalments?: number[];
+  /** The SIP was stopped this many months ago: no instalments after that, units still held. */
+  stopped_months_ago?: number;
 }
 
 export interface PersonaSeed {
   key: PersonaKey;
   display_name: string;
+  /** The situation the welcome screen's persona card describes. */
+  about: string;
   mandates: { bank_label: string; method: 'UPI' | 'NACH' }[];
   goals: GoalSeed[];
   sips: SipSeed[];
@@ -156,10 +160,12 @@ export function loadPersonas(market: Market): PersonaSeed[] {
     const p = readJson(file);
     check(p.key === key, file, `key must be "${key}"`);
     check(isText(p.display_name), file, 'display_name is required');
+    check(isText(p.about), file, 'about is required');
 
     const persona: PersonaSeed = {
       key,
       display_name: p.display_name,
+      about: p.about,
       mandates: p.mandates ?? [],
       goals: p.goals ?? [],
       sips: p.sips ?? [],
@@ -199,6 +205,9 @@ export function loadPersonas(market: Market): PersonaSeed[] {
       check(Number.isInteger(s.day_of_month) && s.day_of_month >= 1 && s.day_of_month <= 28, file, `${where}: day_of_month must be 1-28`);
       check(Number.isInteger(s.started_months_ago) && s.started_months_ago >= 0 && s.started_months_ago < NAV_MONTHS, file, `${where}: started_months_ago must be 0-${NAV_MONTHS - 1} (NAV history covers ${NAV_MONTHS} months)`);
       check(s.goal === undefined || goalRefs.has(s.goal), file, `${where}: unknown goal "${s.goal}"`);
+      if (s.stopped_months_ago !== undefined) {
+        check(Number.isInteger(s.stopped_months_ago) && s.stopped_months_ago >= 0 && s.stopped_months_ago < s.started_months_ago, file, `${where}: stopped_months_ago must be 0-${s.started_months_ago - 1}`);
+      }
       for (const n of s.skipped_instalments ?? []) {
         check(Number.isInteger(n) && n >= 1 && n <= s.started_months_ago, file, `${where}: skipped instalment ${n} is outside 1-${s.started_months_ago}`);
       }

@@ -14,6 +14,7 @@
     "db:setup": "tsx src/pipeline/loading/cli.ts setup",
     "db:verify": "tsx src/pipeline/loading/cli.ts verify",
     "db:reset": "tsx src/pipeline/loading/cli.ts reset",
+    "db:migrate": "tsx src/pipeline/loading/cli.ts migrate",
     "chunks:build": "tsx src/pipeline/chunking/cli.ts build",
     "chunks:check": "tsx src/pipeline/chunking/cli.ts check",
     "retrieve": "tsx src/pipeline/retrieval/cli.ts",

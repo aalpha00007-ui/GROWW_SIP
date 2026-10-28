@@ -24,7 +24,7 @@ export default async function DemoLayout({ children }: { children: React.ReactNo
         <div className="mx-auto max-w-7xl px-4">
           <div className="flex items-center justify-between gap-6 py-2">
             <div className="flex items-center gap-8">
-              <Link href="/home" aria-label="GROWW prototype home" className="flex min-h-11 items-center">
+              <Link href="/home" aria-label="GROWW_SIP home" className="flex min-h-11 items-center">
                 <Logo />
               </Link>
               <ProductTabs />

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { groqFromEnv, mistralFromEnv } from '../llm/chat';
 import { getDb } from '../db/pool';
 import type { CheckInDeps } from '../pipeline/retrieval/checkin';
+import { SESSION_COOKIE, SESSION_DAYS } from './auth';
 
 export const noVisitor = () => NextResponse.json({ error: 'Start the demo first.' }, { status: 401 });
 
@@ -21,6 +22,23 @@ export function reply({ status, ...body }: { status: number } & object) {
 export async function idParam(params: Promise<{ id: string }>): Promise<number> {
   const { id } = await params;
   return /^\d{1,9}$/.test(id) ? Number(id) : NaN;
+}
+
+/** Signs the browser in: the session token in an httpOnly cookie, secure in production, for 7 days. */
+export function withSession(response: NextResponse, token: string): NextResponse {
+  response.cookies.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 60 * 60 * 24 * SESSION_DAYS,
+    path: '/',
+  });
+  return response;
+}
+
+export function withoutSession(response: NextResponse): NextResponse {
+  response.cookies.set(SESSION_COOKIE, '', { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 0, path: '/' });
+  return response;
 }
 
 /** The check-in's models: Groq reads the reason, Mistral writes the answer (decision D4). Server only. */

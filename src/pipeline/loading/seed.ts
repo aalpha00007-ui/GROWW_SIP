@@ -10,7 +10,7 @@ const SCHEMA_FILE = path.join(process.cwd(), 'src', 'db', 'schema.sql');
 
 /** Every table in schema.sql, dependents first. */
 export const TABLES = [
-  'eval_results', 'eval_runs', 'ai_checks', 'watchlist', 'demo_orders', 'ipo_applications', 'ipos',
+  'app_events', 'signup_attempts', 'sessions', 'accounts', 'eval_results', 'eval_runs', 'ai_checks', 'watchlist', 'demo_orders', 'ipo_applications', 'ipos',
   'asset_prices', 'assets', 'mandates', 'cart_items', 'lumpsums', 'instalments', 'sip_events', 'sips',
   'goals', 'demo_nav_history', 'investors', 'nav_history', 'funds',
 ];
@@ -40,7 +40,7 @@ export async function setupDatabase(db: Db, options: { today?: string } = {}): P
   const navs = new Map(market.funds.map((f) => [f.id, randomWalk(f.walk, navDates, WALK_SEED + f.id, 4)]));
   const prices = new Map(market.assets.map((a) => [a.id, randomWalk(a.walk, priceDates, WALK_SEED + 1000 + a.id, 2)]));
 
-  await db.exec(fs.readFileSync(SCHEMA_FILE, 'utf8'));
+  await applySchema(db);
 
   return db.transaction(async (tx) => {
     for (const f of market.funds) {
@@ -98,6 +98,11 @@ export async function setupDatabase(db: Db, options: { today?: string } = {}): P
       personas: personaCounts,
     };
   });
+}
+
+/** schema.sql only: every statement is safe to re-run, so a deploy runs it before the app starts. */
+export async function applySchema(db: Db): Promise<void> {
+  await db.exec(fs.readFileSync(SCHEMA_FILE, 'utf8'));
 }
 
 /** Drops every table and function. `npm run db:setup` rebuilds them. */

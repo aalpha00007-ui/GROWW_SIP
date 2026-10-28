@@ -6,6 +6,7 @@ import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
 import { OPTIONS } from '@/pipeline/retrieval/checkin';
 import { idParam } from '@/server/api';
+import { toRupeeSign } from '@/server/money';
 import { loadSip, sipView } from '@/server/sip';
 import { currentVisitor } from '@/server/visitor';
 
@@ -26,8 +27,7 @@ export default async function StopPage({ params }: { params: Promise<{ id: strin
 
       <section className="rounded-xl border border-primary bg-primary-soft p-4">
         <p className="text-sm font-semibold text-primary">{sip.fund}</p>
-        {/* A no-break space keeps "Rs 14,000" on one line. */}
-        <p className="mt-1 text-lg font-bold">{sip.goalLine.replaceAll('Rs ', 'Rs ')}</p>
+        <p className="mt-1 text-lg font-bold">{toRupeeSign(sip.goalLine)}</p>
       </section>
 
       {sip.status === 'stopped' ? (

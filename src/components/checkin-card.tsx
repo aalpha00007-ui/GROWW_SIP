@@ -2,6 +2,7 @@
 // the facts table and the official links. Every card says when its numbers are from.
 import Link from 'next/link';
 import type { CheckInCard } from '@/server/checkin-card';
+import { toRupeeSign } from '@/server/money';
 import { Signed } from './signed';
 
 export function CheckInCardView({ card }: { card: CheckInCard }) {
@@ -12,7 +13,7 @@ export function CheckInCardView({ card }: { card: CheckInCard }) {
           <span className="font-semibold text-ink">What I understood:</span> {card.understood}
         </p>
       )}
-      <p className={`whitespace-pre-line ${card.understood ? 'mt-3' : ''} ${card.outcome === 'answer' ? '' : 'font-semibold'}`}>{card.text}</p>
+      <p className={`whitespace-pre-line ${card.understood ? 'mt-3' : ''} ${card.outcome === 'answer' ? '' : 'font-semibold'}`}>{toRupeeSign(card.text)}</p>
 
       {card.appLink && (
         <Link href={card.appLink.href} className="mt-3 inline-flex min-h-11 items-center font-semibold text-primary underline">
@@ -25,7 +26,7 @@ export function CheckInCardView({ card }: { card: CheckInCard }) {
           {card.facts.map((line) => (
             <div key={line.label} className="flex justify-between gap-3 px-3 py-2">
               <dt className="text-muted">{line.label}</dt>
-              <dd className="tabular text-right font-medium">{/^[+-]/.test(line.value) ? <Signed value={line.value} /> : line.value}</dd>
+              <dd className="tabular text-right font-medium">{/^[+-]/.test(line.value) ? <Signed value={toRupeeSign(line.value)} /> : toRupeeSign(line.value)}</dd>
             </div>
           ))}
         </dl>

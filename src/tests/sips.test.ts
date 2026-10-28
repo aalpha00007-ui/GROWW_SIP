@@ -53,13 +53,13 @@ describe('the SIP page (PRD F5)', () => {
     const sip = await view(r.id, r.banyan);
     expect(sip).toMatchObject({
       fund: 'Banyan Flexi Cap Fund',
-      amount: 'Rs 2,000 a month',
+      amount: '₹2,000 a month',
       status: 'active',
       goalHeader: 'This SIP is for Home down payment · by Mar 2031 · 53 instalments to go',
       paidLabel: '7 instalments paid · 0 skipped',
       nextDue: '2 Nov 2026',
       skipLabel: 'Skip the 2 Nov 2026 instalment',
-      amountRange: 'From Rs 500 to Rs 1,00,000',
+      amountRange: 'From ₹500 to ₹1,00,000',
       notes: [],
     });
     expect(sip.pauseChoices.map((c) => c.label)).toEqual([
@@ -68,7 +68,7 @@ describe('the SIP page (PRD F5)', () => {
       '3 instalments (2 Nov 2026 to 2 Jan 2027)',
     ]);
     expect(sip.history).toHaveLength(7);
-    expect(sip.history[0]).toEqual({ date: '2 Oct 2026', amount: 'Rs 2,000', label: 'Paid' });
+    expect(sip.history[0]).toEqual({ date: '2 Oct 2026', amount: '₹2,000', label: 'Paid' });
     expect((await view(r.id, r.harbor)).goalHeader).toBe('This SIP is for Emergency fund · no target date');
     expect((await view(r.id, r.kestrel)).goalHeader).toBe('No goal yet');
   });
@@ -111,24 +111,24 @@ describe('Skip, pause and change amount', () => {
     expect((await skipNext(db, r.id, r.banyan, TODAY)).status).toBe(400);
     expect((await pauseSip(db, r.id, r.banyan, 1, TODAY)).status).toBe(400);
 
-    // The AI's facts and Home see the paused instalments as skipped: 7 paid, 2 paused, 51 to go at Rs 2,000.
+    // The AI's facts and Home see the paused instalments as skipped: 7 paid, 2 paused, 51 to go at ₹2,000.
     const lookup = await retrieveFacts(db, r.id, r.banyan, TODAY);
     expect(lookup.status === 'ok' && lookup.facts).toMatchObject({ instalments_skipped: 2, next_due_date: '2027-01-02' });
-    expect((await homeView(db, r.id, TODAY)).goals[0].planned).toBe('Rs 1,16,000');
+    expect((await homeView(db, r.id, TODAY)).goals[0].planned).toBe('₹1,16,000');
   });
 
   it('changes the amount within the limits and recomputes what is planned', async () => {
     const r = await riya();
-    const range = { status: 400, error: 'Enter a whole amount from Rs 500 to Rs 1,00,000.' };
+    const range = { status: 400, error: 'Enter a whole amount from ₹500 to ₹1,00,000.' };
     expect(await changeAmount(db, r.id, r.banyan, 50, TODAY)).toEqual(range);
     expect(await changeAmount(db, r.id, r.banyan, 1500.5, TODAY)).toEqual(range);
     expect(await changeAmount(db, r.id, r.banyan, 100_001, TODAY)).toEqual(range);
     expect(await changeAmount(db, r.id, r.banyan, '1000', TODAY)).toEqual(range);
-    expect(await changeAmount(db, r.id, r.banyan, 2000, TODAY)).toEqual({ status: 400, error: 'Your SIP is already Rs 2,000 a month.' });
-    expect(await changeAmount(db, r.id, r.banyan, 1000, TODAY)).toEqual({ status: 200, message: 'Your SIP is now Rs 1,000 a month, from the 2 Nov 2026 instalment.' });
-    expect((await view(r.id, r.banyan)).amount).toBe('Rs 1,000 a month');
-    // Rs 14,000 already in, plus 53 to go at Rs 1,000. Nothing was stored but the new amount and the event.
-    expect((await homeView(db, r.id, TODAY)).goals[0].planned).toBe('Rs 67,000');
+    expect(await changeAmount(db, r.id, r.banyan, 2000, TODAY)).toEqual({ status: 400, error: 'Your SIP is already ₹2,000 a month.' });
+    expect(await changeAmount(db, r.id, r.banyan, 1000, TODAY)).toEqual({ status: 200, message: 'Your SIP is now ₹1,000 a month, from the 2 Nov 2026 instalment.' });
+    expect((await view(r.id, r.banyan)).amount).toBe('₹1,000 a month');
+    // ₹14,000 already in, plus 53 to go at ₹1,000. Nothing was stored but the new amount and the event.
+    expect((await homeView(db, r.id, TODAY)).goals[0].planned).toBe('₹67,000');
     const events = (await db.query<{ detail: object }>("SELECT detail FROM sip_events WHERE sip_id = $1 AND kind = 'amount_changed'", [r.banyan])).rows;
     expect(events.map((e) => e.detail)).toEqual([{ from: 2000, to: 1000 }]);
   });
@@ -151,7 +151,7 @@ describe('Stop (Stop anyway)', () => {
 
     const home = await homeView(db, r.id, TODAY);
     const card = home.goals[0];
-    expect(card).toMatchObject({ name: 'Home down payment', putIn: 'Rs 14,000', value: before.goals[0].value, planned: null, barPct: null, paidLabel: '7 instalments paid' });
+    expect(card).toMatchObject({ name: 'Home down payment', putIn: '₹14,000', value: before.goals[0].value, planned: null, barPct: null, paidLabel: '7 instalments paid' });
     expect(card.sips[0].label).toBe('Banyan Flexi Cap Fund · stopped');
     expect(home.summary).toEqual(before.summary);
     expect(home.comingUp.map((c) => c.sipId)).toEqual([r.harbor, r.kestrel]);

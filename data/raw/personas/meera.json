@@ -1,17 +1,54 @@
 {
   "key": "meera",
   "display_name": "Meera, 29, salaried",
-  "mandates": [{ "bank_label": "Demo Bank savings", "method": "UPI" }],
+  "about": "Two SIPs for one goal: retirement in 2056.",
+  "mandates": [
+    {
+      "bank_label": "Demo Bank savings",
+      "method": "UPI"
+    }
+  ],
   "goals": [
-    { "ref": "retirement", "kind": "retirement", "name": "Retirement", "target_month": "2056-03" }
+    {
+      "ref": "retirement",
+      "kind": "retirement",
+      "name": "Retirement",
+      "target_month": "2056-03"
+    }
   ],
   "sips": [
-    { "ref": "kestrel", "fund": "Kestrel Nifty 50 Index Fund", "amount": 3000, "day_of_month": 5, "started_months_ago": 11, "goal": "retirement" },
-    { "ref": "lotus", "fund": "Lotus ELSS Tax Saver Fund", "amount": 1000, "day_of_month": 20, "started_months_ago": 6, "goal": "retirement" }
+    {
+      "ref": "kestrel",
+      "fund": "Kestrel Nifty 50 Index Fund",
+      "amount": 3000,
+      "day_of_month": 5,
+      "started_months_ago": 11,
+      "goal": "retirement"
+    },
+    {
+      "ref": "lotus",
+      "fund": "Lotus ELSS Tax Saver Fund",
+      "amount": 1000,
+      "day_of_month": 20,
+      "started_months_ago": 6,
+      "goal": "retirement"
+    }
   ],
   "demo_orders": [
-    { "symbol": "QUILL", "side": "buy", "qty": 10, "days_ago": 45 },
-    { "symbol": "BFPWR", "side": "buy", "qty": 25, "days_ago": 20 }
+    {
+      "symbol": "QUILL",
+      "side": "buy",
+      "qty": 10,
+      "days_ago": 45
+    },
+    {
+      "symbol": "BFPWR",
+      "side": "buy",
+      "qty": 25,
+      "days_ago": 20
+    }
   ],
-  "watchlist": ["FERNP"]
+  "watchlist": [
+    "FERNP"
+  ]
 }

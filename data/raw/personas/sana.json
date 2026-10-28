@@ -1,0 +1,12 @@
+{
+  "key": "sana",
+  "display_name": "Sana, 34, salaried",
+  "about": "Close to her goal: a car, with 2 instalments to go.",
+  "mandates": [{ "bank_label": "Demo Bank savings", "method": "UPI" }],
+  "goals": [
+    { "ref": "car", "kind": "custom", "name": "Car", "target_from_sip": { "sip": "cedar", "instalments": 30 } }
+  ],
+  "sips": [
+    { "ref": "cedar", "fund": "Cedar Large & Mid Cap Fund", "amount": 4000, "day_of_month": 5, "started_months_ago": 28, "goal": "car" }
+  ]
+}

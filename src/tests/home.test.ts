@@ -1,11 +1,11 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { Db } from '../db/client';
-import { rupees } from '../pipeline/chunking/format';
 import { applyMarketFall } from '../pipeline/loading/market-fall';
 import { clonePersona } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
 import { homeView } from '../server/home';
+import { inr, toRupeeSign } from '../server/money';
 import { pgliteDb } from './pglite-db';
 
 const TODAY = '2026-10-27';
@@ -35,21 +35,21 @@ describe('Home (PRD F4)', () => {
       timeToGo: '4 years 5 months to go',
       paidLabel: '7 of 60 instalments paid',
       barPct: 11.7,
-      putIn: 'Rs 14,000',
-      // 7 paid + 53 to go, at Rs 2,000: what will have been put in, not what it will be worth.
-      planned: 'Rs 1,20,000',
-      sips: [{ id: banyan, label: 'Banyan Flexi Cap Fund · Rs 2,000 a month' }],
+      putIn: '₹14,000',
+      // 7 paid + 53 to go, at ₹2,000: what will have been put in, not what it will be worth.
+      planned: '₹1,20,000',
+      sips: [{ id: banyan, label: 'Banyan Flexi Cap Fund · ₹2,000 a month' }],
       dipSipId: banyan,
     });
     expect(emergency).toMatchObject({ targetMonth: null, timeToGo: 'No target date', paidLabel: '4 instalments paid', barPct: null, planned: null });
 
     expect(home.noGoal).toEqual({ text: '1 SIP has no goal yet', funds: ['Kestrel Nifty 50 Index Fund'], href: `/sips/${kestrel}/goal` });
     expect(home.comingUp).toEqual([
-      { sipId: banyan, date: '2 Nov 2026', fund: 'Banyan Flexi Cap Fund', amount: 'Rs 2,000' },
-      { sipId: harbor, date: '10 Nov 2026', fund: 'Harbor Liquid Fund', amount: 'Rs 1,000' },
-      { sipId: kestrel, date: '15 Nov 2026', fund: 'Kestrel Nifty 50 Index Fund', amount: 'Rs 1,500' },
+      { sipId: banyan, date: '2 Nov 2026', fund: 'Banyan Flexi Cap Fund', amount: '₹2,000' },
+      { sipId: harbor, date: '10 Nov 2026', fund: 'Harbor Liquid Fund', amount: '₹1,000' },
+      { sipId: kestrel, date: '15 Nov 2026', fund: 'Kestrel Nifty 50 Index Fund', amount: '₹1,500' },
     ]);
-    expect(home.summary).toMatchObject({ putIn: 'Rs 22,500', sipCount: '3 SIPs' });
+    expect(home.summary).toMatchObject({ putIn: '₹22,500', sipCount: '3 SIPs' });
   });
 
   it('shows the same value the AI is given for the SIP', async () => {
@@ -58,9 +58,10 @@ describe('Home (PRD F4)', () => {
     const lookup = await retrieveFacts(db, riya, banyan, TODAY);
     if (lookup.status !== 'ok') throw new Error(lookup.status);
     const card = (await homeView(db, riya, TODAY)).goals[0];
-    expect(card.value).toBe(rupees(lookup.facts.current_value));
-    expect(lookup.unit.text).toContain(`- Value today: ${card.value}`);
-    expect(lookup.unit.text).toContain(`- Change vs put in: ${card.change?.text}`);
+    // The screen shows ₹; the AI's facts say Rs. Same numbers either way.
+    expect(card.value).toBe(inr(lookup.facts.current_value));
+    expect(toRupeeSign(lookup.unit.text)).toContain(`- Value today: ${card.value}`);
+    expect(toRupeeSign(lookup.unit.text)).toContain(`- Change vs put in: ${card.change?.text}`);
   });
 
   it("adds up Meera's two SIPs on one Retirement card", async () => {
@@ -68,7 +69,7 @@ describe('Home (PRD F4)', () => {
     const [kestrel, lotus] = await sipIds(meera);
     const home = await homeView(db, meera, TODAY);
     expect(home.goals).toHaveLength(1);
-    expect(home.goals[0]).toMatchObject({ name: 'Retirement', targetMonth: 'by Mar 2056', putIn: 'Rs 39,000', dipSipId: kestrel });
+    expect(home.goals[0]).toMatchObject({ name: 'Retirement', targetMonth: 'by Mar 2056', putIn: '₹39,000', dipSipId: kestrel });
     expect(home.goals[0].sips.map((s) => s.id)).toEqual([kestrel, lotus]);
     expect(home.noGoal).toBeNull();
   });
@@ -76,9 +77,9 @@ describe('Home (PRD F4)', () => {
   it('counts a skipped month as not paid and not to come', async () => {
     const arjun = await clonePersona(db, 'arjun');
     const [card] = (await homeView(db, arjun, TODAY)).goals;
-    // 58 due dates from Mar 2026 to Dec 2030: 7 paid, 1 skipped, 50 to go at Rs 1,500.
-    expect(card).toMatchObject({ paidLabel: '7 of 58 instalments paid', putIn: 'Rs 10,500' });
-    expect(card.planned).toBe('Rs 85,500');
+    // 58 due dates from Mar 2026 to Dec 2030: 7 paid, 1 skipped, 50 to go at ₹1,500.
+    expect(card).toMatchObject({ paidLabel: '7 of 58 instalments paid', putIn: '₹10,500' });
+    expect(card.planned).toBe('₹85,500');
   });
 });
 

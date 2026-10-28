@@ -1,7 +1,8 @@
 // What the investor can do to a SIP (PRD F5, F7): skip, pause, change the amount, stop, set the goal.
 // Each one is a fact in sip_events; nothing stores a status or a total. Errors are plain English.
 import type { Db } from '../db/client';
-import { dayMonthYear, monthYear, rupees } from '../pipeline/chunking/format';
+import { dayMonthYear, monthYear } from '../pipeline/chunking/format';
+import { inr } from './money';
 import { addMonths, isIsoDate, monthStart } from '../pipeline/loading/dates';
 import { findPii } from '../pipeline/retrieval/pii';
 import { goalYearChoices, joinAnd, loadSip, MAX_AMOUNT, upcomingDueDates, type SipState } from './sip';
@@ -46,15 +47,15 @@ export async function changeAmount(db: Db, investorId: string, sipId: number, am
   if (!sip) return NOT_FOUND;
   if (sip.status === 'stopped') return STOPPED;
   if (typeof amount !== 'number' || !Number.isInteger(amount) || amount < sip.minSip || amount > MAX_AMOUNT) {
-    return { status: 400, error: `Enter a whole amount from ${rupees(sip.minSip)} to ${rupees(MAX_AMOUNT)}.` };
+    return { status: 400, error: `Enter a whole amount from ${inr(sip.minSip)} to ${inr(MAX_AMOUNT)}.` };
   }
-  if (amount === sip.facts.amount) return { status: 400, error: `Your SIP is already ${rupees(amount)} a month.` };
+  if (amount === sip.facts.amount) return { status: 400, error: `Your SIP is already ${inr(amount)} a month.` };
   await db.transaction(async (tx) => {
     await tx.query('UPDATE sips SET amount = $2 WHERE id = $1', [sipId, amount]);
     await tx.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'amount_changed', $2)", [sipId, { from: sip.facts.amount, to: amount }]);
   });
   const next = sip.facts.next_due_date;
-  return { status: 200, message: `Your SIP is now ${rupees(amount)} a month${next ? `, from the ${dayMonthYear(next)} instalment` : ''}.` };
+  return { status: 200, message: `Your SIP is now ${inr(amount)} a month${next ? `, from the ${dayMonthYear(next)} instalment` : ''}.` };
 }
 
 /**

@@ -1,0 +1,12 @@
+{
+  "key": "vikram",
+  "display_name": "Vikram, 30, salaried",
+  "about": "Stopped his small cap SIP 2 months ago, after a fall. His units are still invested.",
+  "mandates": [{ "bank_label": "Demo Bank savings", "method": "NACH" }],
+  "goals": [
+    { "ref": "wedding", "kind": "custom", "name": "Wedding", "target_month": "2028-02" }
+  ],
+  "sips": [
+    { "ref": "sundar", "fund": "Sundar Small Cap Fund", "amount": 3000, "day_of_month": 12, "started_months_ago": 10, "goal": "wedding", "stopped_months_ago": 2 }
+  ]
+}

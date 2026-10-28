@@ -2,7 +2,8 @@
 // retrieveFacts; the SIP's status is computed from sip_events, never stored (build spec §5).
 import type { Db } from '../db/client';
 import type { FactsUnit, SipFacts } from '../pipeline/chunking/facts';
-import { dayMonthYear, monthsBetween, monthYear, percent, rupees } from '../pipeline/chunking/format';
+import { dayMonthYear, monthsBetween, monthYear, percent } from '../pipeline/chunking/format';
+import { inr } from './money';
 import { addMonths, monthStart } from '../pipeline/loading/dates';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
 import { changeOf, type Change } from './home';
@@ -86,7 +87,7 @@ export interface SipView {
   id: number;
   fund: string;
   category: string;
-  /** 'Rs 2,000 a month' */
+  /** '₹2,000 a month' */
   amount: string;
   status: SipStatus;
   statusLabel: string;
@@ -113,7 +114,7 @@ export interface SipView {
   amountNow: number;
   minAmount: number;
   maxAmount: number;
-  /** 'From Rs 500 to Rs 1,00,000' */
+  /** 'From ₹500 to ₹1,00,000' */
   amountRange: string;
   history: { date: string; amount: string; label: string }[];
 }
@@ -140,7 +141,7 @@ export function sipView(state: SipState, today: string): SipView {
     id: facts.sip_id,
     fund: facts.fund_name,
     category: facts.fund_category,
-    amount: `${rupees(facts.amount)} a month`,
+    amount: `${inr(facts.amount)} a month`,
     status: state.status,
     statusLabel: { active: 'Active', paused: 'Paused', stopped: 'Stopped' }[state.status],
     notes,
@@ -148,8 +149,8 @@ export function sipView(state: SipState, today: string): SipView {
     hasGoal: facts.goal !== null,
     goalLine: state.goalLine,
     asOf: `Numbers as of ${dayMonthYear(facts.as_of)}`,
-    putIn: rupees(facts.invested),
-    value: rupees(facts.current_value),
+    putIn: inr(facts.invested),
+    value: inr(facts.current_value),
     change: changeOf([facts]),
     paidLabel: `${facts.instalments_paid} ${facts.instalments_paid === 1 ? 'instalment' : 'instalments'} paid · ${facts.instalments_skipped} skipped`,
     worstFall: facts.worst_fall_since_start_pct !== null ? percent(facts.worst_fall_since_start_pct) : null,
@@ -164,9 +165,9 @@ export function sipView(state: SipState, today: string): SipView {
     amountNow: facts.amount,
     minAmount: state.minSip,
     maxAmount: MAX_AMOUNT,
-    amountRange: `From ${rupees(state.minSip)} to ${rupees(MAX_AMOUNT)}`,
+    amountRange: `From ${inr(state.minSip)} to ${inr(MAX_AMOUNT)}`,
     history: [
-      ...state.paid.map((p) => ({ date: p.date, amount: rupees(p.amount), label: 'Paid' })),
+      ...state.paid.map((p) => ({ date: p.date, amount: inr(p.amount), label: 'Paid' })),
       ...state.marked.map((m) => ({
         date: m.date,
         amount: '',
@@ -204,7 +205,7 @@ export async function sipList(db: Db, investorId: string, today: string) {
       {
         id: facts.sip_id,
         fund: facts.fund_name,
-        amount: `${rupees(facts.amount)} a month`,
+        amount: `${inr(facts.amount)} a month`,
         goal: facts.goal ? facts.goal.name : 'No goal',
         hasGoal: facts.goal !== null,
         next: lookup.status === 'stopped' ? 'Stopped' : facts.next_due_date ? `Next instalment ${dayMonthYear(facts.next_due_date)}` : '',

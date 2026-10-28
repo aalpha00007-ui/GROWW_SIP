@@ -3,12 +3,13 @@
 // and is formatted here: the page prints these strings and does no maths (spec §5).
 import type { Db } from '../db/client';
 import type { SipFacts } from '../pipeline/chunking/facts';
-import { dayMonthYear, duration, monthsBetween, monthYear, percent, rupees, signedRupees } from '../pipeline/chunking/format';
+import { dayMonthYear, duration, monthsBetween, monthYear, percent } from '../pipeline/chunking/format';
+import { inr, signedInr } from './money';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
 
 export type Direction = 'up' | 'down' | 'flat';
 
-/** A change vs what was put in: '-Rs 810 (-5.8%)'. The page adds the arrow and colour from `direction`. */
+/** A change vs what was put in: '-₹810 (-5.8%)'. The page adds the arrow and colour from `direction`. */
 export interface Change {
   text: string;
   direction: Direction;
@@ -25,9 +26,9 @@ export interface GoalCard {
   paidLabel: string;
   /** Width of the paid-of-planned bar, 0-100; null without a target month. */
   barPct: number | null;
-  /** 'Rs 14,000' */
+  /** '₹14,000' */
   putIn: string;
-  /** What will have been put in by the target month if the SIPs carry on: 'Rs 1,20,000'. Never a value forecast. */
+  /** What will have been put in by the target month if the SIPs carry on: '₹1,20,000'. Never a value forecast. */
   planned: string | null;
   value: string;
   /** Null before the first instalment is paid. */
@@ -100,7 +101,7 @@ export async function homeView(db: Db, investorId: string, today: string): Promi
     comingUp: sips
       .flatMap(({ facts }) => (facts.next_due_date ? [{ facts, due: facts.next_due_date }] : []))
       .sort((a, b) => a.due.localeCompare(b.due) || a.facts.sip_id - b.facts.sip_id)
-      .map(({ facts, due }) => ({ sipId: facts.sip_id, date: dayMonthYear(due), fund: facts.fund_name, amount: rupees(facts.amount) })),
+      .map(({ facts, due }) => ({ sipId: facts.sip_id, date: dayMonthYear(due), fund: facts.fund_name, amount: inr(facts.amount) })),
     activeSips: sips.filter((s) => !s.stopped).length,
     goalCount: byGoal.size,
   };
@@ -132,19 +133,19 @@ function goalCard(id: number, group: GoalSip[], today: string): GoalCard {
     timeToGo: timeToGo(today, target_month),
     paidLabel: planned !== null ? `${paid} of ${planned} instalments paid` : `${paid} ${paid === 1 ? 'instalment' : 'instalments'} paid`,
     barPct: planned ? Math.min(100, Math.round((paid / planned) * 1000) / 10) : null,
-    putIn: rupees(sum(all, (f) => f.invested)),
-    planned: plannedPutIn !== null ? rupees(plannedPutIn) : null,
-    value: rupees(sum(all, (f) => f.current_value)),
+    putIn: inr(sum(all, (f) => f.invested)),
+    planned: plannedPutIn !== null ? inr(plannedPutIn) : null,
+    value: inr(sum(all, (f) => f.current_value)),
     change: changeOf(all),
-    sips: group.map(({ facts: f, stopped }) => ({ id: f.sip_id, label: `${f.fund_name} · ${stopped ? 'stopped' : `${rupees(f.amount)} a month`}` })),
+    sips: group.map(({ facts: f, stopped }) => ({ id: f.sip_id, label: `${f.fund_name} · ${stopped ? 'stopped' : `${inr(f.amount)} a month`}` })),
     dipSipId: main.invested > 0 ? main.sip_id : null,
   };
 }
 
 function summary(all: SipFacts[]): NonNullable<HomeView['summary']> {
   return {
-    value: rupees(sum(all, (f) => f.current_value)),
-    putIn: rupees(sum(all, (f) => f.invested)),
+    value: inr(sum(all, (f) => f.current_value)),
+    putIn: inr(sum(all, (f) => f.invested)),
     change: changeOf(all),
     sipCount: all.length === 1 ? '1 SIP' : `${all.length} SIPs`,
   };
@@ -157,7 +158,7 @@ export function changeOf(all: SipFacts[]): Change | null {
   const diff = sum(all, (f) => f.current_value) - invested;
   const whole = Math.round(diff);
   return {
-    text: `${signedRupees(diff)} (${percent((diff / invested) * 100, true)})`,
+    text: `${signedInr(diff)} (${percent((diff / invested) * 100, true)})`,
     direction: whole > 0 ? 'up' : whole < 0 ? 'down' : 'flat',
   };
 }

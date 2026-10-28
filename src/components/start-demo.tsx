@@ -47,14 +47,14 @@ export function StartDemo({ personas }: { personas: PersonaChoice[] }) {
         </span>
       </label>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {personas.map((p) => (
           <button
             key={p.key}
             type="button"
             disabled={!agreed || starting !== null}
             onClick={() => start(p.key)}
-            className="flex min-h-11 flex-col items-start rounded-xl border border-line bg-surface p-4 text-left transition enabled:hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex min-h-11 flex-col items-start rounded-xl border border-line bg-surface p-5 text-left transition enabled:hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span className="font-bold text-primary">{starting === p.key ? 'Starting…' : `Start as ${p.name.split(',')[0]}`}</span>
             <span className="mt-1 text-sm font-medium">{p.name}</span>
