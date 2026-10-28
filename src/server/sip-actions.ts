@@ -1,0 +1,144 @@
+// What the investor can do to a SIP (PRD F5, F7): skip, pause, change the amount, stop, set the goal.
+// Each one is a fact in sip_events; nothing stores a status or a total. Errors are plain English.
+import type { Db } from '../db/client';
+import { dayMonthYear, monthYear, rupees } from '../pipeline/chunking/format';
+import { addMonths, isIsoDate, monthStart } from '../pipeline/loading/dates';
+import { findPii } from '../pipeline/retrieval/pii';
+import { joinAnd, loadSip, MAX_AMOUNT, upcomingDueDates, type SipState } from './sip';
+
+export type ActionResult = { status: 200; message: string } | { status: 400 | 404; error: string };
+
+const NOT_FOUND = { status: 404, error: 'We could not find that SIP.' } as const;
+const STOPPED = { status: 400, error: 'This SIP is already stopped.' } as const;
+const PAUSED = { status: 400, error: 'This SIP is paused. Skip and pause work again once the pause ends.' } as const;
+
+/** Skip next: the next instalment is not taken; the SIP carries on after it. */
+export async function skipNext(db: Db, investorId: string, sipId: number, today: string): Promise<ActionResult> {
+  const sip = await loadSip(db, investorId, sipId, today);
+  if (!sip) return NOT_FOUND;
+  const blocked = notActive(sip);
+  if (blocked) return blocked;
+  const [skip, after] = upcomingDueDates(sip, 2);
+  await db.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'skipped', $2)", [sipId, { due_on: skip }]);
+  return { status: 200, message: `Skipped the ${dayMonthYear(skip)} instalment.${after ? ` The next one is on ${dayMonthYear(after)}.` : ''}` };
+}
+
+/** Pause: skip the next 1 to 3 instalments in one go (build spec §2E). */
+export async function pauseSip(db: Db, investorId: string, sipId: number, count: unknown, today: string): Promise<ActionResult> {
+  if (count !== 1 && count !== 2 && count !== 3) return { status: 400, error: 'Pause for 1, 2 or 3 instalments.' };
+  const sip = await loadSip(db, investorId, sipId, today);
+  if (!sip) return NOT_FOUND;
+  const blocked = notActive(sip);
+  if (blocked) return blocked;
+  const dates = upcomingDueDates(sip, count + 1);
+  const paused = dates.slice(0, count);
+  await db.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'paused', $2)", [sipId, { count, due_dates: paused }]);
+  const restart = dates[count];
+  return {
+    status: 200,
+    message: `Paused: ${joinAnd(paused.map(dayMonthYear))} will be skipped.${restart ? ` Instalments start again on ${dayMonthYear(restart)}.` : ''}`,
+  };
+}
+
+/** Change amount: from the next instalment on. Lowering is one of the options at Before you stop. */
+export async function changeAmount(db: Db, investorId: string, sipId: number, amount: unknown, today: string): Promise<ActionResult> {
+  const sip = await loadSip(db, investorId, sipId, today);
+  if (!sip) return NOT_FOUND;
+  if (sip.status === 'stopped') return STOPPED;
+  if (typeof amount !== 'number' || !Number.isInteger(amount) || amount < sip.minSip || amount > MAX_AMOUNT) {
+    return { status: 400, error: `Enter a whole amount from ${rupees(sip.minSip)} to ${rupees(MAX_AMOUNT)}.` };
+  }
+  if (amount === sip.facts.amount) return { status: 400, error: `Your SIP is already ${rupees(amount)} a month.` };
+  await db.transaction(async (tx) => {
+    await tx.query('UPDATE sips SET amount = $2 WHERE id = $1', [sipId, amount]);
+    await tx.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'amount_changed', $2)", [sipId, { from: sip.facts.amount, to: amount }]);
+  });
+  const next = sip.facts.next_due_date;
+  return { status: 200, message: `Your SIP is now ${rupees(amount)} a month${next ? `, from the ${dayMonthYear(next)} instalment` : ''}.` };
+}
+
+/**
+ * Stop (the UI says "Stop anyway"): no more instalments. Units stay invested. One tap, never blocked
+ * by the check-in (PRD §3.4); an aiCheckId records that the investor chose it after the card.
+ */
+export async function stopSip(db: Db, investorId: string, sipId: number, aiCheckId: unknown, today: string): Promise<ActionResult> {
+  if (aiCheckId !== undefined && aiCheckId !== null && !Number.isInteger(aiCheckId)) return { status: 400, error: 'That check-in id is not valid.' };
+  const sip = await loadSip(db, investorId, sipId, today);
+  if (!sip) return NOT_FOUND;
+  if (sip.status === 'stopped') return STOPPED;
+  await db.transaction(async (tx) => {
+    await tx.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'cancelled', $2)", [sipId, aiCheckId ? { ai_check_id: aiCheckId } : {}]);
+    if (aiCheckId) {
+      await tx.query("UPDATE ai_checks SET user_choice = 'cancel' WHERE id = $1 AND investor_id = $2 AND sip_id = $3", [aiCheckId, investorId, sipId]);
+    }
+  });
+  return { status: 200, message: 'Your SIP is stopped. No more instalments will be taken. Your units stay invested until you redeem them.' };
+}
+
+export const GOAL_KINDS = [
+  { kind: 'home', label: 'Home' },
+  { kind: 'education', label: 'Education' },
+  { kind: 'retirement', label: 'Retirement' },
+  { kind: 'emergency', label: 'Emergency fund' },
+  { kind: 'custom', label: 'Something else' },
+] as const;
+export const GOAL_NAME_MAX = 40;
+const MAX_YEARS_AHEAD = 50;
+
+/**
+ * Set, change or remove the goal (spec §2A chips). kind 'none' is "Not sure yet". A goal is a new row,
+ * so a goal shared with another SIP is left as it is for that SIP.
+ */
+export async function setGoal(db: Db, investorId: string, sipId: number, input: unknown, today: string): Promise<ActionResult> {
+  const body = (input ?? {}) as { kind?: unknown; name?: unknown; targetMonth?: unknown };
+  const sip = await loadSip(db, investorId, sipId, today);
+  if (!sip) return NOT_FOUND;
+  const before = (await db.query<{ goal_id: number | null }>('SELECT goal_id FROM sips WHERE id = $1', [sipId])).rows[0].goal_id;
+
+  if (body.kind === 'none') {
+    await db.transaction(async (tx) => {
+      await tx.query('UPDATE sips SET goal_id = NULL WHERE id = $1', [sipId]);
+      await tx.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'goal_changed', $2)", [sipId, { from_goal_id: before, to_goal_id: null }]);
+    });
+    return { status: 200, message: 'Goal removed. You can add one any time.' };
+  }
+
+  const choice = GOAL_KINDS.find((k) => k.kind === body.kind);
+  if (!choice) return { status: 400, error: 'Choose what this money is for.' };
+  // Same kind as now keeps the goal's own name ("Home down payment"); a new kind takes the chip's.
+  let name: string = sip.goalKind === choice.kind && sip.facts.goal ? sip.facts.goal.name : choice.label;
+  if (choice.kind === 'custom') {
+    name = typeof body.name === 'string' ? body.name.trim() : '';
+    if (name.length < 1 || name.length > GOAL_NAME_MAX) return { status: 400, error: `Name the goal in 1 to ${GOAL_NAME_MAX} characters.` };
+    if (findPii(name).found.length > 0) return { status: 400, error: "Please don't put personal details in a goal name." };
+  }
+
+  let target: string | null = null;
+  if (body.targetMonth !== undefined && body.targetMonth !== null) {
+    const first = typeof body.targetMonth === 'string' ? `${body.targetMonth}-01` : '';
+    const latest = addMonths(monthStart(today), MAX_YEARS_AHEAD * 12);
+    // The target must come after the first instalment and not be in the past.
+    const firstDue = sip.paid[0]?.date ?? sip.facts.next_due_date ?? today;
+    if (!isIsoDate(first) || first <= monthStart(today) || first <= monthStart(firstDue) || first > latest) {
+      return { status: 400, error: `Pick a target month from next month up to ${MAX_YEARS_AHEAD} years ahead.` };
+    }
+    target = first;
+  }
+
+  await db.transaction(async (tx) => {
+    const { rows } = await tx.query<{ id: number }>(
+      'INSERT INTO goals (investor_id, kind, name, target_month) VALUES ($1, $2, $3, $4) RETURNING id',
+      [investorId, choice.kind, name, target],
+    );
+    await tx.query('UPDATE sips SET goal_id = $2 WHERE id = $1', [sipId, rows[0].id]);
+    await tx.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'goal_changed', $2)", [sipId, { from_goal_id: before, to_goal_id: rows[0].id }]);
+  });
+  return { status: 200, message: `Saved: this SIP is for ${name}${target ? `, by ${monthYear(target)}` : ''}.` };
+}
+
+function notActive(sip: SipState): ActionResult | null {
+  if (sip.status === 'stopped') return STOPPED;
+  if (sip.status === 'paused') return PAUSED;
+  if (upcomingDueDates(sip, 1).length === 0) return { status: 400, error: 'There is no instalment ahead to skip.' };
+  return null;
+}

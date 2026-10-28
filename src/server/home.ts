@@ -63,22 +63,23 @@ export async function homeView(db: Db, investorId: string, today: string): Promi
     [investorId],
   );
   const lookups = await Promise.all(rows.map((r) => retrieveFacts(db, investorId, r.id, today)));
-  // No SIP can be stopped yet; once the stop flow exists, a stopped SIP's units still count here.
+  // A stopped SIP stays: its units are still invested, so they count in the goal and the summary.
   const sips = rows.flatMap((row, i) => {
     const lookup = lookups[i];
-    return lookup.status === 'ok' ? [{ row, facts: lookup.facts }] : [];
+    return lookup.status === 'not_found' ? [] : [{ row, facts: lookup.facts, stopped: lookup.status === 'stopped' }];
   });
 
   const [demo] = (
     await db.query<{ days: number }>('SELECT count(DISTINCT nav_date)::int AS days FROM demo_nav_history WHERE investor_id = $1', [investorId])
   ).rows;
 
-  const byGoal = new Map<number, { row: SipRow; facts: SipFacts }[]>();
+  const byGoal = new Map<number, GoalSip[]>();
   for (const sip of sips) {
     if (sip.row.goal_id === null) continue;
     byGoal.set(sip.row.goal_id, [...(byGoal.get(sip.row.goal_id) ?? []), sip]);
   }
-  const noGoal = sips.filter((s) => s.row.goal_id === null);
+  // A stopped SIP needs no goal, so only active ones count as "no goal yet".
+  const noGoal = sips.filter((s) => s.row.goal_id === null && !s.stopped);
   const asOf = sips.reduce<string | null>((latest, s) => (latest && latest > s.facts.as_of ? latest : s.facts.as_of), null);
 
   return {
@@ -100,14 +101,22 @@ export async function homeView(db: Db, investorId: string, today: string): Promi
   };
 }
 
-function goalCard(id: number, group: { row: SipRow; facts: SipFacts }[], today: string): GoalCard {
+interface GoalSip {
+  row: SipRow;
+  facts: SipFacts;
+  stopped: boolean;
+}
+
+function goalCard(id: number, group: GoalSip[], today: string): GoalCard {
   const { goal_name, target_month } = group[0].row;
   const all = group.map((g) => g.facts);
   const paid = sum(all, (f) => f.instalments_paid);
-  const planned = target_month ? sum(all, (f) => f.instalments_planned ?? 0) : null;
+  // A stopped SIP plans nothing more: it counts what was paid. With every SIP stopped there is no plan to show.
+  const planning = target_month !== null && group.some((g) => !g.stopped);
+  const planned = planning ? sum(group, (g) => (g.stopped ? g.facts.instalments_paid : (g.facts.instalments_planned ?? 0))) : null;
   // Instalments still to come, counted the way the facts unit counts them.
-  const plannedPutIn = target_month
-    ? sum(all, (f) => f.invested + Math.max(0, (f.instalments_planned ?? 0) - f.instalments_paid - f.instalments_skipped) * f.amount)
+  const plannedPutIn = planning
+    ? sum(group, ({ facts: f, stopped }) => f.invested + (stopped ? 0 : Math.max(0, (f.instalments_planned ?? 0) - f.instalments_paid - f.instalments_skipped) * f.amount))
     : null;
   const main = [...all].sort((a, b) => b.invested - a.invested || a.sip_id - b.sip_id)[0];
 
@@ -121,8 +130,8 @@ function goalCard(id: number, group: { row: SipRow; facts: SipFacts }[], today: 
     putIn: rupees(sum(all, (f) => f.invested)),
     planned: plannedPutIn !== null ? rupees(plannedPutIn) : null,
     value: rupees(sum(all, (f) => f.current_value)),
-    change: change(all),
-    sips: all.map((f) => ({ id: f.sip_id, label: `${f.fund_name} · ${rupees(f.amount)} a month` })),
+    change: changeOf(all),
+    sips: group.map(({ facts: f, stopped }) => ({ id: f.sip_id, label: `${f.fund_name} · ${stopped ? 'stopped' : `${rupees(f.amount)} a month`}` })),
     dipSipId: main.sip_id,
   };
 }
@@ -131,12 +140,13 @@ function summary(all: SipFacts[]): NonNullable<HomeView['summary']> {
   return {
     value: rupees(sum(all, (f) => f.current_value)),
     putIn: rupees(sum(all, (f) => f.invested)),
-    change: change(all),
+    change: changeOf(all),
     sipCount: all.length === 1 ? '1 SIP' : `${all.length} SIPs`,
   };
 }
 
-function change(all: SipFacts[]): Change | null {
+/** The change vs put in across these SIPs; null before anything is put in. */
+export function changeOf(all: SipFacts[]): Change | null {
   const invested = sum(all, (f) => f.invested);
   if (invested === 0) return null;
   const diff = sum(all, (f) => f.current_value) - invested;

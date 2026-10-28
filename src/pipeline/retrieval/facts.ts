@@ -5,8 +5,8 @@ import { addDays, addMonths, firstDueDate, monthlyDueDates, monthStart } from '.
 
 export type FactsLookup =
   | { status: 'not_found' }
-  | { status: 'stopped' }
-  | { status: 'ok'; facts: SipFacts; unit: FactsUnit; goalLine: string };
+  /** A stopped SIP still has facts: its units stay invested, so Home and the SIP page show them. */
+  | { status: 'ok' | 'stopped'; facts: SipFacts; unit: FactsUnit; goalLine: string };
 
 /**
  * Step 3, facts retrieval: one read of this investor's SIP with plain SQL, computed and formatted
@@ -27,7 +27,6 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
     )
   ).rows;
   if (!sip) return { status: 'not_found' };
-  if (sip.stopped) return { status: 'stopped' };
 
   const [paid] = (
     await db.query<{ count: number; invested: number; units: string; first_due: string | null; due_dates: string[] | null }>(
@@ -37,9 +36,13 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
       [sipId],
     )
   ).rows;
+  // Skip next marks one due date; Pause marks the next 1-3. Either way the instalment is skipped.
   const skipped = (
-    await db.query<{ due_on: string | null }>("SELECT detail->>'due_on' AS due_on FROM sip_events WHERE sip_id = $1 AND kind = 'skipped'", [sipId])
-  ).rows.map((r) => r.due_on);
+    await db.query<{ kind: string; detail: { due_on?: string; due_dates?: string[] } }>(
+      "SELECT kind, detail FROM sip_events WHERE sip_id = $1 AND kind IN ('skipped', 'paused') ORDER BY id",
+      [sipId],
+    )
+  ).rows.flatMap((e) => (e.kind === 'paused' ? (e.detail.due_dates ?? []) : [e.detail.due_on ?? null]));
 
   // visible_nav_history includes this visitor's demo market-fall days (architecture Phase 4).
   const [latest] = (
@@ -67,8 +70,11 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
   // Schedule facts come from the SIP's start and day; nothing about them is stored.
   const firstDue = firstDueDate(sip.started_on, sip.day_of_month);
   const handled = new Set([...(paid.due_dates ?? []), ...skipped.filter((d): d is string => d !== null)]);
-  let nextDue = firstDue;
-  while (nextDue < today || handled.has(nextDue)) nextDue = addMonths(nextDue, 1);
+  let nextDue: string | null = null;
+  if (!sip.stopped) {
+    nextDue = firstDue;
+    while (nextDue < today || handled.has(nextDue)) nextDue = addMonths(nextDue, 1);
+  }
   const monthsInvested = paid.count > 0 ? Math.max(0, monthsBetween(firstDue, today) + 1) : 0;
   const planned = sip.target_month
     ? monthlyDueDates(sip.started_on, sip.day_of_month, addDays(addMonths(monthStart(sip.target_month), 1), -1)).length
@@ -91,7 +97,7 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
     goal: sip.goal_name ? { name: sip.goal_name, target_month: sip.target_month } : null,
     instalments_planned: planned,
   };
-  return { status: 'ok', facts, unit: buildFactsUnit(facts), goalLine: goalLine(facts) };
+  return { status: sip.stopped ? 'stopped' : 'ok', facts, unit: buildFactsUnit(facts), goalLine: goalLine(facts) };
 }
 
 /** The card on top of Before you stop (PRD F7): "You started this for Home down payment · Mar 2031 · 7 of 60 paid · Rs 14,000 put in". */
