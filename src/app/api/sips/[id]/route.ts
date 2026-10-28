@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
-import { noVisitor, sipIdParam } from '@/server/api';
+import { noVisitor, idParam } from '@/server/api';
 import { loadSip, sipView } from '@/server/sip';
 import { currentVisitor } from '@/server/visitor';
 
@@ -10,7 +10,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const visitor = await currentVisitor();
   if (!visitor) return noVisitor();
   const today = todayInIndia();
-  const sip = await loadSip(getDb(), visitor.id, await sipIdParam(params), today);
+  const sip = await loadSip(getDb(), visitor.id, await idParam(params), today);
   if (!sip) return NextResponse.json({ error: 'We could not find that SIP.' }, { status: 404 });
   return NextResponse.json(sipView(sip, today));
 }

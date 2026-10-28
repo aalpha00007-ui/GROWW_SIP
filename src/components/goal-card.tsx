@@ -54,12 +54,15 @@ export function GoalCard({ goal }: { goal: Card }) {
         ))}
       </ul>
 
-      <Link
-        href={`/sips/${goal.dipSipId}?explain=dip`}
-        className="mt-4 flex min-h-11 items-center justify-center rounded-lg border border-brand px-3 text-center text-sm font-semibold text-brand hover:bg-brand-tint"
-      >
-        What does this dip mean for my goal?
-      </Link>
+      {/* No dip to explain before anything is put in. */}
+      {goal.dipSipId !== null && (
+        <Link
+          href={`/sips/${goal.dipSipId}?explain=dip`}
+          className="mt-4 flex min-h-11 items-center justify-center rounded-lg border border-brand px-3 text-center text-sm font-semibold text-brand hover:bg-brand-tint"
+        >
+          What does this dip mean for my goal?
+        </Link>
+      )}
     </article>
   );
 }

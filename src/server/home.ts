@@ -33,8 +33,8 @@ export interface GoalCard {
   /** Null before the first instalment is paid. */
   change: Change | null;
   sips: { id: number; label: string }[];
-  /** The SIP "What does this dip mean for my goal?" explains: the one with the most put in. */
-  dipSipId: number;
+  /** The SIP "What does this dip mean for my goal?" explains: the one with the most put in. Null before anything is put in. */
+  dipSipId: number | null;
 }
 
 export interface HomeView {
@@ -132,7 +132,7 @@ function goalCard(id: number, group: GoalSip[], today: string): GoalCard {
     value: rupees(sum(all, (f) => f.current_value)),
     change: changeOf(all),
     sips: group.map(({ facts: f, stopped }) => ({ id: f.sip_id, label: `${f.fund_name} · ${stopped ? 'stopped' : `${rupees(f.amount)} a month`}` })),
-    dipSipId: main.sip_id,
+    dipSipId: main.invested > 0 ? main.sip_id : null,
   };
 }
 

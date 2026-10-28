@@ -17,8 +17,8 @@ export function reply({ status, ...body }: { status: number } & object) {
   return NextResponse.json(body, { status });
 }
 
-/** The [id] in the URL; NaN when it is not a number, which reads as "not found". */
-export async function sipIdParam(params: Promise<{ id: string }>): Promise<number> {
+/** The [id] in the URL (a SIP or a fund); NaN when it is not a number, which reads as "not found". */
+export async function idParam(params: Promise<{ id: string }>): Promise<number> {
   const { id } = await params;
   return /^\d{1,9}$/.test(id) ? Number(id) : NaN;
 }

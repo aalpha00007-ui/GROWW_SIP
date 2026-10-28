@@ -7,7 +7,7 @@ import { DipExplainer } from '@/components/dip-explainer';
 import { SipControls } from '@/components/sip-controls';
 import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
-import { sipIdParam } from '@/server/api';
+import { idParam } from '@/server/api';
 import { loadSip, sipView } from '@/server/sip';
 import { currentVisitor } from '@/server/visitor';
 
@@ -32,7 +32,7 @@ export default async function SipPage({
   const visitor = await currentVisitor();
   if (!visitor) redirect('/');
   const today = todayInIndia();
-  const state = await loadSip(getDb(), visitor.id, await sipIdParam(params), today);
+  const state = await loadSip(getDb(), visitor.id, await idParam(params), today);
   if (!state) notFound();
   const sip = sipView(state, today);
   const { explain, change, did } = await searchParams;
@@ -99,7 +99,7 @@ export default async function SipPage({
               {sip.nextDue && <li>Next instalment: {sip.nextDue}</li>}
             </ul>
             <p className="mt-2 text-xs text-muted">{sip.asOf}</p>
-            {sip.status !== 'stopped' && (
+            {sip.explainDip && (
               <div className="mt-4">
                 <DipExplainer sipId={sip.id} autoStart={explain === 'dip'} />
               </div>

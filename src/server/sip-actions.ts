@@ -4,7 +4,7 @@ import type { Db } from '../db/client';
 import { dayMonthYear, monthYear, rupees } from '../pipeline/chunking/format';
 import { addMonths, isIsoDate, monthStart } from '../pipeline/loading/dates';
 import { findPii } from '../pipeline/retrieval/pii';
-import { joinAnd, loadSip, MAX_AMOUNT, upcomingDueDates, type SipState } from './sip';
+import { goalYearChoices, joinAnd, loadSip, MAX_AMOUNT, upcomingDueDates, type SipState } from './sip';
 
 export type ActionResult = { status: 200; message: string } | { status: 400 | 404; error: string };
 
@@ -85,55 +85,78 @@ export const GOAL_KINDS = [
 export const GOAL_NAME_MAX = 40;
 const MAX_YEARS_AHEAD = 50;
 
-/**
- * Set, change or remove the goal (spec §2A chips). kind 'none' is "Not sure yet". A goal is a new row,
- * so a goal shared with another SIP is left as it is for that SIP.
- */
-export async function setGoal(db: Db, investorId: string, sipId: number, input: unknown, today: string): Promise<ActionResult> {
-  const body = (input ?? {}) as { kind?: unknown; name?: unknown; targetMonth?: unknown };
-  const sip = await loadSip(db, investorId, sipId, today);
-  if (!sip) return NOT_FOUND;
-  const before = (await db.query<{ goal_id: number | null }>('SELECT goal_id FROM sips WHERE id = $1', [sipId])).rows[0].goal_id;
+/** What the goal chips offer: the kinds, the name limit and the "By when?" years. */
+export function goalOptions(today: string, currentTarget: string | null) {
+  return { kinds: GOAL_KINDS.map((k) => ({ kind: k.kind, label: k.label })), nameMax: GOAL_NAME_MAX, ...goalYearChoices(today, currentTarget) };
+}
 
-  if (body.kind === 'none') {
-    await db.transaction(async (tx) => {
-      await tx.query('UPDATE sips SET goal_id = NULL WHERE id = $1', [sipId]);
-      await tx.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'goal_changed', $2)", [sipId, { from_goal_id: before, to_goal_id: null }]);
-    });
-    return { status: 200, message: 'Goal removed. You can add one any time.' };
-  }
+export interface GoalInput {
+  kind: string;
+  name: string;
+  /** 'YYYY-MM-01', or null for no target month. */
+  target: string | null;
+}
+
+/**
+ * Checks a goal from the chips (spec §2A), for the SIP box and the goal page alike. kind 'none' ("Not
+ * sure yet") or no goal at all reads as null. `keep` is the goal now: the same kind keeps its own name.
+ */
+export function parseGoal(
+  input: unknown,
+  ctx: { today: string; firstDue: string; keep?: { kind: string; name: string } | null },
+): { ok: true; goal: GoalInput | null } | { ok: false; error: string } {
+  if (input === undefined || input === null) return { ok: true, goal: null };
+  const body = input as { kind?: unknown; name?: unknown; targetMonth?: unknown };
+  if (body.kind === 'none') return { ok: true, goal: null };
 
   const choice = GOAL_KINDS.find((k) => k.kind === body.kind);
-  if (!choice) return { status: 400, error: 'Choose what this money is for.' };
+  if (!choice) return { ok: false, error: 'Choose what this money is for.' };
   // Same kind as now keeps the goal's own name ("Home down payment"); a new kind takes the chip's.
-  let name: string = sip.goalKind === choice.kind && sip.facts.goal ? sip.facts.goal.name : choice.label;
+  let name: string = ctx.keep?.kind === choice.kind ? ctx.keep.name : choice.label;
   if (choice.kind === 'custom') {
     name = typeof body.name === 'string' ? body.name.trim() : '';
-    if (name.length < 1 || name.length > GOAL_NAME_MAX) return { status: 400, error: `Name the goal in 1 to ${GOAL_NAME_MAX} characters.` };
-    if (findPii(name).found.length > 0) return { status: 400, error: "Please don't put personal details in a goal name." };
+    if (name.length < 1 || name.length > GOAL_NAME_MAX) return { ok: false, error: `Name the goal in 1 to ${GOAL_NAME_MAX} characters.` };
+    if (findPii(name).found.length > 0) return { ok: false, error: "Please don't put personal details in a goal name." };
   }
 
   let target: string | null = null;
   if (body.targetMonth !== undefined && body.targetMonth !== null) {
     const first = typeof body.targetMonth === 'string' ? `${body.targetMonth}-01` : '';
-    const latest = addMonths(monthStart(today), MAX_YEARS_AHEAD * 12);
+    const latest = addMonths(monthStart(ctx.today), MAX_YEARS_AHEAD * 12);
     // The target must come after the first instalment and not be in the past.
-    const firstDue = sip.paid[0]?.date ?? sip.facts.next_due_date ?? today;
-    if (!isIsoDate(first) || first <= monthStart(today) || first <= monthStart(firstDue) || first > latest) {
-      return { status: 400, error: `Pick a target month from next month up to ${MAX_YEARS_AHEAD} years ahead.` };
+    if (!isIsoDate(first) || first <= monthStart(ctx.today) || first <= monthStart(ctx.firstDue) || first > latest) {
+      return { ok: false, error: `Pick a target month from next month up to ${MAX_YEARS_AHEAD} years ahead.` };
     }
     target = first;
   }
+  return { ok: true, goal: { kind: choice.kind, name, target } };
+}
+
+/** Set, change or remove the goal. A goal is a new row, so a goal shared with another SIP stays as it is for that SIP. */
+export async function setGoal(db: Db, investorId: string, sipId: number, input: unknown, today: string): Promise<ActionResult> {
+  const sip = await loadSip(db, investorId, sipId, today);
+  if (!sip) return NOT_FOUND;
+  const keep = sip.goalKind && sip.facts.goal ? { kind: sip.goalKind, name: sip.facts.goal.name } : null;
+  const parsed = parseGoal(input ?? {}, { today, firstDue: sip.paid[0]?.date ?? sip.facts.next_due_date ?? today, keep });
+  if (!parsed.ok) return { status: 400, error: parsed.error };
+  const { goal } = parsed;
+  const before = (await db.query<{ goal_id: number | null }>('SELECT goal_id FROM sips WHERE id = $1', [sipId])).rows[0].goal_id;
 
   await db.transaction(async (tx) => {
-    const { rows } = await tx.query<{ id: number }>(
-      'INSERT INTO goals (investor_id, kind, name, target_month) VALUES ($1, $2, $3, $4) RETURNING id',
-      [investorId, choice.kind, name, target],
-    );
-    await tx.query('UPDATE sips SET goal_id = $2 WHERE id = $1', [sipId, rows[0].id]);
-    await tx.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'goal_changed', $2)", [sipId, { from_goal_id: before, to_goal_id: rows[0].id }]);
+    const goalId = goal ? await insertGoal(tx, investorId, goal) : null;
+    await tx.query('UPDATE sips SET goal_id = $2 WHERE id = $1', [sipId, goalId]);
+    await tx.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'goal_changed', $2)", [sipId, { from_goal_id: before, to_goal_id: goalId }]);
   });
-  return { status: 200, message: `Saved: this SIP is for ${name}${target ? `, by ${monthYear(target)}` : ''}.` };
+  if (!goal) return { status: 200, message: 'Goal removed. You can add one any time.' };
+  return { status: 200, message: `Saved: this SIP is for ${goal.name}${goal.target ? `, by ${monthYear(goal.target)}` : ''}.` };
+}
+
+export async function insertGoal(db: Db, investorId: string, goal: GoalInput): Promise<number> {
+  const { rows } = await db.query<{ id: number }>(
+    'INSERT INTO goals (investor_id, kind, name, target_month) VALUES ($1, $2, $3, $4) RETURNING id',
+    [investorId, goal.kind, goal.name, goal.target],
+  );
+  return rows[0].id;
 }
 
 function notActive(sip: SipState): ActionResult | null {

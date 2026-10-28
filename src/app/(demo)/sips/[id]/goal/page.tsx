@@ -4,16 +4,16 @@ import { notFound, redirect } from 'next/navigation';
 import { GoalForm } from '@/components/goal-form';
 import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
-import { sipIdParam } from '@/server/api';
-import { goalYearChoices, loadSip } from '@/server/sip';
-import { GOAL_KINDS, GOAL_NAME_MAX } from '@/server/sip-actions';
+import { idParam } from '@/server/api';
+import { loadSip } from '@/server/sip';
+import { goalOptions } from '@/server/sip-actions';
 import { currentVisitor } from '@/server/visitor';
 
 export default async function GoalPage({ params }: { params: Promise<{ id: string }> }) {
   const visitor = await currentVisitor();
   if (!visitor) redirect('/');
   const today = todayInIndia();
-  const sip = await loadSip(getDb(), visitor.id, await sipIdParam(params), today);
+  const sip = await loadSip(getDb(), visitor.id, await idParam(params), today);
   if (!sip) notFound();
   const goal = sip.facts.goal;
   const targetMonth = goal?.target_month?.slice(0, 7) ?? null;
@@ -28,13 +28,7 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
         <h1 className="text-2xl font-bold">{goal ? 'Edit goal' : 'Add a goal'}</h1>
         <p className="text-sm text-muted">{sip.facts.fund_name}</p>
       </div>
-      <GoalForm
-        sipId={sip.facts.sip_id}
-        kinds={GOAL_KINDS.map((k) => ({ kind: k.kind, label: k.label }))}
-        current={current}
-        {...goalYearChoices(today, targetMonth)}
-        nameMax={GOAL_NAME_MAX}
-      />
+      <GoalForm sipId={sip.facts.sip_id} options={goalOptions(today, targetMonth)} current={current} />
     </div>
   );
 }

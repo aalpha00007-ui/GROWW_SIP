@@ -105,6 +105,8 @@ export interface SipView {
   worstFall: string | null;
   nextDue: string | null;
   controls: { skip: boolean; pause: boolean; amount: boolean; stop: boolean };
+  /** "What does this dip mean for my goal?": once something is put in and the SIP is not stopped. */
+  explainDip: boolean;
   /** 'Skip the 2 Nov 2026 instalment' */
   skipLabel: string | null;
   pauseChoices: { count: number; label: string }[];
@@ -153,6 +155,7 @@ export function sipView(state: SipState, today: string): SipView {
     worstFall: facts.worst_fall_since_start_pct !== null ? percent(facts.worst_fall_since_start_pct) : null,
     nextDue: facts.next_due_date ? dayMonthYear(facts.next_due_date) : null,
     controls: { skip: active && ahead.length > 0, pause: active && ahead.length > 0, amount: state.status !== 'stopped', stop: state.status !== 'stopped' },
+    explainDip: state.status !== 'stopped' && facts.instalments_paid > 0,
     skipLabel: ahead[0] ? `Skip the ${dayMonthYear(ahead[0])} instalment` : null,
     pauseChoices: ahead.map((date, i) => ({
       count: i + 1,

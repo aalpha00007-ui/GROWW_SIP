@@ -5,7 +5,7 @@ import { BeforeYouStop } from '@/components/before-you-stop';
 import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
 import { OPTIONS } from '@/pipeline/retrieval/checkin';
-import { sipIdParam } from '@/server/api';
+import { idParam } from '@/server/api';
 import { loadSip, sipView } from '@/server/sip';
 import { currentVisitor } from '@/server/visitor';
 
@@ -13,7 +13,7 @@ export default async function StopPage({ params }: { params: Promise<{ id: strin
   const visitor = await currentVisitor();
   if (!visitor) redirect('/');
   const today = todayInIndia();
-  const state = await loadSip(getDb(), visitor.id, await sipIdParam(params), today);
+  const state = await loadSip(getDb(), visitor.id, await idParam(params), today);
   if (!state) notFound();
   const sip = sipView(state, today);
 
