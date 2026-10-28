@@ -85,11 +85,14 @@ describe('Home (PRD F4)', () => {
 describe('Simulate a market fall (PRD F12)', () => {
   it("moves the visitor's numbers to the -6% day and labels it", async () => {
     const riya = await clonePersona(db, 'riya');
+    const before = await homeView(db, riya, TODAY);
     await applyMarketFall(db, riya);
     const home = await homeView(db, riya, TODAY);
     expect(home.asOf).toBe('Numbers as of 28 Oct 2026');
     expect(home.demoNote).toBe('Includes 1 simulated market fall');
     expect(home.goals[0].change?.direction).toBe('down');
+    // The Emergency fund is in a liquid fund, which holds steady.
+    expect(home.goals[1].value).toBe(before.goals[1].value);
 
     await applyMarketFall(db, riya);
     expect((await homeView(db, riya, TODAY)).demoNote).toBe('Includes 2 simulated market falls');

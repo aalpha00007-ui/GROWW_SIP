@@ -27,7 +27,7 @@ export function MarketFallButton() {
   return (
     <section className="rounded-xl border border-dashed border-accent bg-card p-4">
       <p className="text-xs font-bold uppercase tracking-wide text-accent-ink">Demo control</p>
-      <p className="mt-1 text-sm text-muted">Adds a -6% day to every fund, for you only, so you can see a dip.</p>
+      <p className="mt-1 text-sm text-muted">Adds a -6% day to every fund (liquid funds hold steady), for you only, so you can see a dip.</p>
       <button
         type="button"
         onClick={fall}

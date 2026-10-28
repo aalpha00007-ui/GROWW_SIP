@@ -212,23 +212,28 @@ describe('per-visitor copy', () => {
 });
 
 describe('demo market fall', () => {
-  it("adds a -6% day for every fund, for this visitor only", async () => {
+  it('adds a -6% day for every fund but the liquid one, which stays flat, for this visitor only', async () => {
     const visitor = await clonePersona(db, 'riya');
     const other = await clonePersona(db, 'riya');
-    const latest = await rows<{ fund_id: number; nav: string }>('SELECT fund_id, nav::text FROM nav_history WHERE nav_date = $1 ORDER BY fund_id', [TODAY]);
+    const latest = await rows<{ fund_id: number; nav: string; category: string }>(
+      'SELECT n.fund_id, n.nav::text, f.category FROM nav_history n JOIN funds f ON f.id = n.fund_id WHERE n.nav_date = $1 ORDER BY n.fund_id',
+      [TODAY],
+    );
+    const move = (i: number) => (latest[i].category === 'Liquid' ? 1 : 0.94);
+    expect(latest.filter((f) => f.category === 'Liquid')).toHaveLength(1);
 
     const first = await applyMarketFall(db, visitor);
     expect(first).toHaveLength(8);
     first.forEach((row, i) => {
       expect(row.fund_id).toBe(latest[i].fund_id);
       expect(row.nav_date).toBe(addDays(TODAY, 1));
-      expect(Number(row.nav)).toBeCloseTo(Number(latest[i].nav) * 0.94, 4);
+      expect(Number(row.nav)).toBeCloseTo(Number(latest[i].nav) * move(i), 4);
     });
 
     const second = await applyMarketFall(db, visitor);
     second.forEach((row, i) => {
       expect(row.nav_date).toBe(addDays(TODAY, 2));
-      expect(Number(row.nav)).toBeCloseTo(Number(first[i].nav) * 0.94, 4);
+      expect(Number(row.nav)).toBeCloseTo(Number(first[i].nav) * move(i), 4);
     });
 
     expect(await count('SELECT count(*)::int AS n FROM demo_nav_history WHERE investor_id = $1', [visitor])).toBe(16);
