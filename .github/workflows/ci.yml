@@ -30,6 +30,8 @@ jobs:
       - run: npm test
       - run: npm run data:check
       - run: npm run chunks:check
+      # No secrets here: the build must not need the database, since pages read it only per request.
+      - run: npm run build
 
   eval:
     name: AI eval gate
