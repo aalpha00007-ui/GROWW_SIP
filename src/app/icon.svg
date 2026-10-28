@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- The favicon: the same mark as components/logo.tsx. A standalone file has no stylesheet, so the token colours are written out: blue #1e3a8a, primary #0b7a4b. -->
+  <rect x="3" y="19" width="7" height="10" rx="2.5" fill="#1e3a8a"/>
+  <rect x="12.5" y="14" width="7" height="15" rx="2.5" fill="#1e3a8a"/>
+  <rect x="22" y="9" width="7" height="20" rx="2.5" fill="#0b7a4b"/>
+  <circle cx="25.5" cy="4.5" r="2.5" fill="#0b7a4b"/>
+</svg>

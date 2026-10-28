@@ -68,7 +68,7 @@ export function SipBox({ fundId, minAmount, maxAmount, amountRange, defaultAmoun
   }
 
   return (
-    <section className="space-y-5 rounded-xl border border-line bg-card p-4" aria-label="Start a SIP">
+    <section className="space-y-5 rounded-xl border border-line bg-surface p-4" aria-label="Start a SIP">
       <div>
         <h2 className="text-lg font-bold">Monthly SIP</h2>
         <p className="text-sm text-muted">One-time, weekly and daily are not in this prototype.</p>
@@ -87,7 +87,7 @@ export function SipBox({ fundId, minAmount, maxAmount, amountRange, defaultAmoun
           step={1}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="tabular mt-1 min-h-11 w-full rounded-lg border border-line px-3 text-lg font-bold"
+          className="tabular mt-1 min-h-11 w-full rounded-lg border border-line px-3 text-lg font-bold text-strong"
         />
         <div className="mt-2 flex flex-wrap gap-2">
           {amountChips.map((chip) => (
@@ -95,20 +95,20 @@ export function SipBox({ fundId, minAmount, maxAmount, amountRange, defaultAmoun
               key={chip.value}
               type="button"
               onClick={() => setAmount(String(chip.value))}
-              className={`min-h-11 rounded-full border px-4 text-sm font-medium ${value === chip.value ? 'border-brand bg-brand-tint text-brand' : 'border-line hover:border-brand'}`}
+              className={`min-h-11 rounded-full border px-4 text-sm font-medium ${value === chip.value ? 'border-primary bg-primary-soft text-primary' : 'border-line hover:border-primary'}`}
             >
               {chip.label}
             </button>
           ))}
         </div>
-        <p className={`mt-1 text-xs ${amountOk ? 'text-muted' : 'text-loss-ink'}`}>{amountRange}</p>
+        <p className={`mt-1 text-xs ${amountOk ? 'text-muted' : 'text-loss-strong'}`}>{amountRange}</p>
       </div>
 
       <div>
         <label htmlFor="box-day" className="block font-semibold">
           SIP date
         </label>
-        <select id="box-day" value={day} onChange={(e) => setDay(Number(e.target.value))} className="mt-1 min-h-11 w-full rounded-lg border border-line bg-card px-3">
+        <select id="box-day" value={day} onChange={(e) => setDay(Number(e.target.value))} className="mt-1 min-h-11 w-full rounded-lg border border-line bg-surface px-3">
           {days.map((d) => (
             <option key={d.value} value={d.value}>
               {d.label}
@@ -117,10 +117,10 @@ export function SipBox({ fundId, minAmount, maxAmount, amountRange, defaultAmoun
         </select>
       </div>
 
-      <div className="rounded-lg bg-ground p-3">
+      <div className="rounded-lg bg-page p-3">
         <GoalPicker value={goal} onChange={setGoal} options={goalOptions} idPrefix="box-goal" />
         {line && (
-          <p aria-live="polite" className="tabular mt-3 rounded-lg bg-brand-tint px-3 py-2 text-sm font-semibold text-brand">
+          <p aria-live="polite" className="tabular mt-3 rounded-lg bg-primary-soft px-3 py-2 text-sm font-semibold text-primary">
             {line}
           </p>
         )}
@@ -129,7 +129,7 @@ export function SipBox({ fundId, minAmount, maxAmount, amountRange, defaultAmoun
       <p className="text-sm text-muted">{mandate}</p>
 
       {error && (
-        <p role="alert" className="rounded-lg bg-loss-tint px-3 py-2 text-sm text-loss-ink">
+        <p role="alert" className="rounded-lg bg-loss-soft px-3 py-2 text-sm text-loss-strong">
           {error}
         </p>
       )}
@@ -138,7 +138,7 @@ export function SipBox({ fundId, minAmount, maxAmount, amountRange, defaultAmoun
           type="button"
           onClick={start}
           disabled={starting || (goal.kind === 'custom' && !goal.name.trim())}
-          className="flex min-h-12 w-full items-center justify-center rounded-lg bg-brand px-4 font-bold text-white hover:bg-brand/90 disabled:opacity-60"
+          className="flex min-h-12 w-full items-center justify-center rounded-lg bg-primary px-4 font-bold text-white hover:bg-primary-hover disabled:opacity-60"
         >
           {starting ? 'Starting…' : 'Start SIP'}
         </button>

@@ -1,29 +1,70 @@
 @import "tailwindcss";
 
-/* GROWW_SIP's own palette (build spec §3): no real company's colours. Text contrast is at least 4.5:1. */
-@theme {
-  --color-ground: #f7f7fb;
-  --color-card: #ffffff;
-  --color-line: #e5e7eb;
-  --color-ink: #111827;
-  --color-muted: #4b5563;
-  --color-brand: #3f3d9e;
-  --color-brand-tint: #eeedfb;
-  --color-accent: #d97706;
-  --color-accent-tint: #fef3c7;
-  --color-accent-ink: #92400e;
-  --color-gain: #15803d;
-  --color-gain-tint: #dcfce7;
-  --color-gain-ink: #166534;
-  --color-loss: #b91c1c;
-  --color-loss-tint: #fee2e2;
-  --color-loss-ink: #991b1b;
+/*
+ * The prototype's own palette: dark green and dark blue, no real company's colours. Every colour is
+ * defined once here; components use the Tailwind names below, never a hex value. Text contrast is at
+ * least 4.5:1 (AA) on the backgrounds it sits on.
+ */
+:root {
+  --primary: #0b7a4b; /* buttons, links, active tab, checkbox, focus ring, selected chips, progress */
+  --primary-hover: #08603b;
+  --primary-soft: #e7f5ee; /* selected cards, tags, info chips */
+  --text-strong: #0b3d2e; /* headings, key numbers, wordmark */
+  --text: #1f4a3c; /* body text */
+  --text-muted: #4f6f63; /* secondary text, captions, helper text */
+  --blue: #1e3a8a; /* logo, secondary accents */
+  --gain: #0b7a4b; /* positive values */
+  --loss: #d92d20; /* negative values, errors, destructive actions (on white) */
+  --loss-soft: #fdeceb; /* light red background for loss notices and errors */
+  /* Text on --loss-soft: --loss there is 4.2:1, under AA for small text, so it gets a darker red (5.8:1). */
+  --loss-strong: #b42318;
+  --border: #e3e8e5;
+  --surface: #ffffff;
+  --page: #f7f9f8;
+  /* The demo amber, unchanged: the top banner, the Prototype badge and demo-only notes. */
+  --accent: #d97706;
+  --accent-tint: #fef3c7;
+  --accent-ink: #92400e;
+}
+
+@theme inline {
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-strong: var(--text-strong);
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-blue: var(--blue);
+  --color-gain: var(--gain);
+  --color-loss: var(--loss);
+  --color-loss-soft: var(--loss-soft);
+  --color-loss-strong: var(--loss-strong);
+  --color-line: var(--border);
+  --color-surface: var(--surface);
+  --color-page: var(--page);
+  --color-accent: var(--accent);
+  --color-accent-tint: var(--accent-tint);
+  --color-accent-ink: var(--accent-ink);
   --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
 }
 
-body {
-  background: var(--color-ground);
-  color: var(--color-ink);
+/* In the base layer, so a utility such as text-muted on a heading still wins. */
+@layer base {
+  body {
+    background: var(--page);
+    color: var(--text);
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: var(--text-strong);
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 /* Numbers line up in columns and never jump width as they change. */

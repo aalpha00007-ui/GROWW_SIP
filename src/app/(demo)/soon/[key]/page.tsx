@@ -8,10 +8,10 @@ export default async function Soon({ params }: { params: Promise<{ key: string }
   const product = PRODUCTS.find((p) => p.key === key && p.key !== 'mf');
   if (!product) notFound();
   return (
-    <section className="rounded-xl border border-line bg-card p-6">
+    <section className="rounded-xl border border-line bg-surface p-6">
       <h1 className="text-xl font-bold">{product.label}</h1>
       <p className="mt-2 text-muted">Not in this prototype. This case study builds the mutual fund SIP journey in full.</p>
-      <Link href="/explore" className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-line px-4 font-semibold text-brand hover:border-brand">
+      <Link href="/explore" className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-line px-4 font-semibold text-primary hover:border-primary">
         Explore mutual funds
       </Link>
     </section>

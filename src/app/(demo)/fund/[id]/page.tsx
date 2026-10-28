@@ -17,21 +17,21 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="space-y-5">
-      <Link href="/explore" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand">
+      <Link href="/explore" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary-hover">
         ← Mutual funds
       </Link>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
         <div className="space-y-5">
-          <section className="rounded-xl border border-line bg-card p-4">
+          <section className="rounded-xl border border-line bg-surface p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-accent-ink">Simulated fund</p>
             <h1 className="text-2xl font-bold">{fund.name}</h1>
             <p className="text-sm text-muted">
               {fund.category} · {fund.risk} risk
             </p>
-            <p className="tabular mt-4 text-2xl font-bold">{fund.nav}</p>
+            <p className="tabular mt-4 text-2xl font-bold text-strong">{fund.nav}</p>
             <p className="text-sm text-muted">{fund.navDate}</p>
           </section>
-          <section className="rounded-xl border border-line bg-card p-4">
+          <section className="rounded-xl border border-line bg-surface p-4">
             <h2 className="font-bold">Fund facts</h2>
             <dl className="mt-2 divide-y divide-line text-sm">
               {fund.facts.map((f) => (

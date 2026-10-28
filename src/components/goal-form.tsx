@@ -42,10 +42,10 @@ export function GoalForm({ sipId, options, current, laterHref }: Props) {
   }
 
   return (
-    <form onSubmit={save} className="space-y-5 rounded-xl border border-line bg-card p-4">
+    <form onSubmit={save} className="space-y-5 rounded-xl border border-line bg-surface p-4">
       <GoalPicker value={choice} onChange={setChoice} options={options} idPrefix="goal" />
       {error && (
-        <p role="alert" className="rounded-lg bg-loss-tint px-3 py-2 text-sm text-loss-ink">
+        <p role="alert" className="rounded-lg bg-loss-soft px-3 py-2 text-sm text-loss-strong">
           {error}
         </p>
       )}
@@ -53,12 +53,12 @@ export function GoalForm({ sipId, options, current, laterHref }: Props) {
         <button
           type="submit"
           disabled={!choice.kind || saving || (choice.kind === 'custom' && !choice.name.trim())}
-          className="flex min-h-11 items-center justify-center rounded-lg bg-brand px-5 text-sm font-semibold text-white disabled:opacity-60"
+          className="flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
         >
           {saving ? 'Saving…' : 'Save goal'}
         </button>
         {laterHref && (
-          <Link href={laterHref} className="flex min-h-11 items-center justify-center rounded-lg border border-line px-5 text-sm font-semibold hover:border-brand">
+          <Link href={laterHref} className="flex min-h-11 items-center justify-center rounded-lg border border-line px-5 text-sm font-semibold hover:border-primary">
             Maybe later
           </Link>
         )}

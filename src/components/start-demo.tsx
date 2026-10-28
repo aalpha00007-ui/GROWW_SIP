@@ -34,12 +34,12 @@ export function StartDemo({ personas }: { personas: PersonaChoice[] }) {
 
   return (
     <div className="space-y-4">
-      <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border border-line bg-card p-4">
+      <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border border-line bg-surface p-4">
         <input
           type="checkbox"
           checked={agreed}
           onChange={(e) => setAgreed(e.target.checked)}
-          className="mt-0.5 size-5 shrink-0 accent-brand"
+          className="mt-0.5 size-5 shrink-0 accent-primary"
         />
         <span>
           <span className="font-semibold">Facts only. No investment advice.</span>
@@ -54,9 +54,9 @@ export function StartDemo({ personas }: { personas: PersonaChoice[] }) {
             type="button"
             disabled={!agreed || starting !== null}
             onClick={() => start(p.key)}
-            className="flex min-h-11 flex-col items-start rounded-xl border border-line bg-card p-4 text-left transition enabled:hover:border-brand disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex min-h-11 flex-col items-start rounded-xl border border-line bg-surface p-4 text-left transition enabled:hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <span className="font-bold text-brand">{starting === p.key ? 'Starting…' : `Start as ${p.name.split(',')[0]}`}</span>
+            <span className="font-bold text-primary">{starting === p.key ? 'Starting…' : `Start as ${p.name.split(',')[0]}`}</span>
             <span className="mt-1 text-sm font-medium">{p.name}</span>
             <span className="mt-1 text-sm text-muted">{p.about}</span>
           </button>
@@ -64,7 +64,7 @@ export function StartDemo({ personas }: { personas: PersonaChoice[] }) {
       </div>
       {!agreed && <p className="text-sm text-muted">Tick the box above to start.</p>}
       {error && (
-        <p role="alert" className="rounded-lg bg-loss-tint px-3 py-2 text-sm text-loss-ink">
+        <p role="alert" className="rounded-lg bg-loss-soft px-3 py-2 text-sm text-loss-strong">
           {error}
         </p>
       )}

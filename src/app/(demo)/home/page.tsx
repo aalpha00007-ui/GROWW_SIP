@@ -30,9 +30,9 @@ export default async function Home() {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <div className="space-y-5 lg:col-start-2 lg:row-start-1">
           {home.summary && (
-            <section className="rounded-xl border border-line bg-card p-4">
+            <section className="rounded-xl border border-line bg-surface p-4">
               <h2 className="text-sm text-muted">Your mutual funds · {home.summary.sipCount}</h2>
-              <p className="tabular mt-1 text-2xl font-bold">{home.summary.value}</p>
+              <p className="tabular mt-1 text-2xl font-bold text-strong">{home.summary.value}</p>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
                 {home.summary.change && <ChangePill change={home.summary.change} />}
                 <span className="tabular">{home.summary.putIn} put in</span>
@@ -52,19 +52,19 @@ export default async function Home() {
                 ))}
               </div>
             ) : (
-              <p className="rounded-xl border border-line bg-card p-4 text-muted">No goals yet. Add one to a SIP to see it here.</p>
+              <p className="rounded-xl border border-line bg-surface p-4 text-muted">No goals yet. Add one to a SIP to see it here.</p>
             )}
           </section>
 
           {home.noGoal && (
-            <section className="flex items-center justify-between gap-3 rounded-xl border border-line bg-card p-4">
+            <section className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4">
               <div>
                 <h2 className="font-semibold">{home.noGoal.text}</h2>
                 <p className="text-sm text-muted">{home.noGoal.funds.join(' · ')}</p>
               </div>
               <Link
                 href={home.noGoal.href}
-                className="flex min-h-11 shrink-0 items-center rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand/90"
+                className="flex min-h-11 shrink-0 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover"
               >
                 Add goal
               </Link>
@@ -72,9 +72,9 @@ export default async function Home() {
           )}
 
           {home.summary === null && (
-            <p className="rounded-xl border border-line bg-card p-4 text-muted">
+            <p className="rounded-xl border border-line bg-surface p-4 text-muted">
               No SIPs yet.{' '}
-              <Link href="/explore" className="font-semibold text-brand underline">
+              <Link href="/explore" className="font-semibold text-primary underline">
                 Explore mutual funds
               </Link>
             </p>
@@ -82,12 +82,12 @@ export default async function Home() {
         </div>
 
         {home.comingUp.length > 0 && (
-          <section className="rounded-xl border border-line bg-card p-4 lg:col-start-2 lg:row-start-2">
+          <section className="rounded-xl border border-line bg-surface p-4 lg:col-start-2 lg:row-start-2">
             <h2 className="font-bold">Coming up</h2>
             <ul className="mt-2 divide-y divide-line">
               {home.comingUp.map((item) => (
                 <li key={item.sipId}>
-                  <Link href={`/sips/${item.sipId}`} className="flex min-h-11 items-center justify-between gap-3 py-2 hover:text-brand">
+                  <Link href={`/sips/${item.sipId}`} className="flex min-h-11 items-center justify-between gap-3 py-2 hover:text-primary">
                     <span>
                       <span className="block text-sm font-semibold">{item.fund}</span>
                       <span className="tabular block text-sm text-muted">{item.date}</span>

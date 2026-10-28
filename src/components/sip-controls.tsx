@@ -1,5 +1,5 @@
 'use client';
-// The SIP page's controls (PRD F5): Skip next, Change amount and Pause, with Stop SIP as a text link.
+// The SIP page's controls (PRD F5): Skip next, Change amount, Pause and Stop SIP, all the same size.
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -11,7 +11,7 @@ type Props = Pick<SipView, 'id' | 'controls' | 'skipLabel' | 'pauseChoices' | 'a
   openAmount: boolean;
 };
 
-const BUTTON = 'flex min-h-11 w-full items-center justify-center rounded-lg border border-line px-3 text-sm font-semibold hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-50';
+const BUTTON = 'flex min-h-11 w-full items-center justify-center rounded-lg border border-line px-3 text-sm font-semibold hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50';
 
 export function SipControls({ id, controls, skipLabel, pauseChoices, amountNow, minAmount, maxAmount, amountRange, openAmount }: Props) {
   const router = useRouter();
@@ -47,9 +47,9 @@ export function SipControls({ id, controls, skipLabel, pauseChoices, amountNow, 
   }
 
   return (
-    <section className="rounded-xl border border-line bg-card p-4">
+    <section className="rounded-xl border border-line bg-surface p-4">
       <h2 className="font-bold">Manage this SIP</h2>
-      <div className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
         <div>
           <button type="button" className={BUTTON} disabled={busy || !controls.skip} onClick={() => act('skip')}>
             Skip next
@@ -62,10 +62,19 @@ export function SipControls({ id, controls, skipLabel, pauseChoices, amountNow, 
         <button type="button" className={BUTTON} disabled={busy || !controls.pause} aria-expanded={open === 'pause'} onClick={() => setOpen(open === 'pause' ? null : 'pause')}>
           Pause
         </button>
+        {/* Destructive, so red, but the same size as the others and one tap to Before you stop. */}
+        {controls.stop && (
+          <Link
+            href={`/sips/${id}/stop`}
+            className="flex min-h-11 w-full items-center justify-center rounded-lg border border-loss bg-surface px-3 text-sm font-semibold text-loss hover:bg-loss-soft hover:text-loss-strong"
+          >
+            Stop SIP
+          </Link>
+        )}
       </div>
 
       {open === 'amount' && (
-        <form id="amount" onSubmit={saveAmount} className="mt-4 space-y-2 rounded-lg bg-ground p-3">
+        <form id="amount" onSubmit={saveAmount} className="mt-4 space-y-2 rounded-lg bg-page p-3">
           <label htmlFor="sip-amount" className="block text-sm font-semibold">
             New amount a month (Rs)
           </label>
@@ -78,21 +87,21 @@ export function SipControls({ id, controls, skipLabel, pauseChoices, amountNow, 
             step={1}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="tabular min-h-11 w-full rounded-lg border border-line bg-card px-3"
+            className="tabular min-h-11 w-full rounded-lg border border-line bg-surface px-3"
           />
           <p className="text-xs text-muted">{amountRange}. It applies from the next instalment.</p>
-          <button type="submit" disabled={busy} className="flex min-h-11 w-full items-center justify-center rounded-lg bg-brand px-3 text-sm font-semibold text-white disabled:opacity-60">
+          <button type="submit" disabled={busy} className="flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-3 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60">
             Save amount
           </button>
         </form>
       )}
 
       {open === 'pause' && (
-        <fieldset className="mt-4 space-y-2 rounded-lg bg-ground p-3">
+        <fieldset className="mt-4 space-y-2 rounded-lg bg-page p-3">
           <legend className="text-sm font-semibold">Skip the next</legend>
           {pauseChoices.map((choice) => (
-            <label key={choice.count} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-line bg-card px-3 text-sm">
-              <input type="radio" name="pause" checked={pauseCount === choice.count} onChange={() => setPauseCount(choice.count)} className="size-4 accent-brand" />
+            <label key={choice.count} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-line bg-surface px-3 text-sm">
+              <input type="radio" name="pause" checked={pauseCount === choice.count} onChange={() => setPauseCount(choice.count)} className="size-4 accent-primary" />
               {choice.label}
             </label>
           ))}
@@ -100,24 +109,16 @@ export function SipControls({ id, controls, skipLabel, pauseChoices, amountNow, 
             type="button"
             disabled={busy || pauseCount === null}
             onClick={() => act('pause', { count: pauseCount })}
-            className="flex min-h-11 w-full items-center justify-center rounded-lg bg-brand px-3 text-sm font-semibold text-white disabled:opacity-60"
+            className="flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-3 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
           >
             Pause
           </button>
         </fieldset>
       )}
 
-      <p aria-live="polite" className={`text-sm empty:hidden ${message?.error ? 'mt-3 text-loss-ink' : 'mt-3 text-gain-ink'}`}>
+      <p aria-live="polite" className={`text-sm empty:hidden ${message?.error ? 'mt-3 rounded-lg bg-loss-soft px-3 py-2 text-loss-strong' : 'mt-3 text-gain'}`}>
         {message?.text}
       </p>
-
-      {controls.stop && (
-        <p className="mt-4 text-center">
-          <Link href={`/sips/${id}/stop`} className="inline-flex min-h-11 items-center text-sm text-muted underline hover:text-ink">
-            Stop SIP
-          </Link>
-        </p>
-      )}
     </section>
   );
 }

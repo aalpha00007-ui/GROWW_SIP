@@ -34,7 +34,7 @@ export function TopTabs() {
           key={t.href}
           href={t.href}
           aria-current={isActive(t.href) ? 'page' : undefined}
-          className={`flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold ${isActive(t.href) ? 'bg-brand-tint text-brand' : 'text-muted hover:text-ink'}`}
+          className={`flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold ${isActive(t.href) ? 'bg-primary-soft text-primary' : 'text-muted hover:text-ink'}`}
         >
           {t.label}
         </Link>
@@ -47,14 +47,14 @@ export function TopTabs() {
 export function BottomTabs() {
   const isActive = useActive();
   return (
-    <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-card pb-[env(safe-area-inset-bottom)] lg:hidden">
+    <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
       <ul className="mx-auto grid max-w-lg grid-cols-5">
         {TABS.map((t) => (
           <li key={t.href}>
             <Link
               href={t.href}
               aria-current={isActive(t.href) ? 'page' : undefined}
-              className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${isActive(t.href) ? 'text-brand' : 'text-muted'}`}
+              className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${isActive(t.href) ? 'text-primary' : 'text-muted'}`}
             >
               <Icon d={t.icon} />
               {t.label}

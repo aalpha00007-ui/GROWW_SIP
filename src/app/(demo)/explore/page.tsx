@@ -8,7 +8,7 @@ import { fundList } from '@/server/funds';
 import { currentVisitor } from '@/server/visitor';
 
 const chip = (on: boolean) =>
-  `inline-flex min-h-11 shrink-0 items-center rounded-full border px-4 text-sm font-medium ${on ? 'border-brand bg-brand-tint text-brand' : 'border-line bg-card hover:border-brand'}`;
+  `inline-flex min-h-11 shrink-0 items-center rounded-full border px-4 text-sm font-medium ${on ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-surface hover:border-primary'}`;
 
 export default async function Explore({ searchParams }: { searchParams: Promise<{ category?: string; risk?: string }> }) {
   const visitor = await currentVisitor();
@@ -34,7 +34,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
               <Link
                 href={p.key === 'mf' ? '/explore' : `/soon/${p.key}`}
                 aria-current={p.key === 'mf' ? 'page' : undefined}
-                className={`flex min-h-11 items-center border-b-2 px-3 text-sm font-semibold ${p.key === 'mf' ? 'border-brand text-brand' : 'border-transparent text-muted hover:text-ink'}`}
+                className={`flex min-h-11 items-center border-b-2 px-3 text-sm font-semibold ${p.key === 'mf' ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-ink'}`}
               >
                 {p.label}
               </Link>
@@ -70,7 +70,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
         <ul className="grid gap-3 md:grid-cols-2">
           {list.funds.map((f) => (
             <li key={f.id}>
-              <Link href={`/fund/${f.id}`} className="flex h-full items-start justify-between gap-3 rounded-xl border border-line bg-card p-4 hover:border-brand">
+              <Link href={`/fund/${f.id}`} className="flex h-full items-start justify-between gap-3 rounded-xl border border-line bg-surface p-4 hover:border-primary">
                 <span>
                   <span className="block font-semibold">{f.name}</span>
                   <span className="block text-xs font-semibold uppercase tracking-wide text-accent-ink">Simulated</span>
@@ -87,7 +87,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
           ))}
         </ul>
       ) : (
-        <p className="rounded-xl border border-line bg-card p-4 text-muted">No funds match these filters.</p>
+        <p className="rounded-xl border border-line bg-surface p-4 text-muted">No funds match these filters.</p>
       )}
     </div>
   );

@@ -20,19 +20,19 @@ export default async function StartedPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
-      <section className="rounded-xl border border-line bg-card p-5">
-        <p className="text-sm font-semibold text-gain-ink">SIP started · Demo order, no real money</p>
+      <section className="rounded-xl border border-line bg-surface p-5">
+        <p className="text-sm font-semibold text-gain">SIP started · Demo order, no real money</p>
         <h1 className="mt-1 text-2xl font-bold">{sip.fund}</h1>
         <p className="tabular text-muted">
           {sip.amount}
           {sip.nextDue && ` · first instalment on ${sip.nextDue}`}
         </p>
-        {sip.hasGoal && <p className="mt-3 rounded-lg bg-brand-tint px-3 py-2 font-semibold text-brand">{sip.goalHeader}</p>}
+        {sip.hasGoal && <p className="mt-3 rounded-lg bg-primary-soft px-3 py-2 font-semibold text-primary">{sip.goalHeader}</p>}
         <div className="mt-4 flex flex-wrap gap-3">
-          <Link href={`/sips/${sip.id}`} className="flex min-h-11 items-center rounded-lg border border-line px-4 text-sm font-semibold hover:border-brand">
+          <Link href={`/sips/${sip.id}`} className="flex min-h-11 items-center rounded-lg border border-line px-4 text-sm font-semibold hover:border-primary">
             View SIP
           </Link>
-          <Link href="/home" className="flex min-h-11 items-center rounded-lg border border-line px-4 text-sm font-semibold hover:border-brand">
+          <Link href="/home" className="flex min-h-11 items-center rounded-lg border border-line px-4 text-sm font-semibold hover:border-primary">
             Go to Home
           </Link>
         </div>

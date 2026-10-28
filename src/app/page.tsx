@@ -16,7 +16,7 @@ export default async function Welcome() {
   const visitor = await currentVisitor();
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
-      <Logo className="text-lg" />
+      <Logo className="text-lg" size={32} />
       <h1 className="mt-6 text-3xl font-extrabold tracking-tight sm:text-4xl">Every SIP needs a reason to keep going.</h1>
       <p className="mt-3 text-muted">
         This prototype lets first-time investors say what each SIP is for, shows that goal again when a market fall makes the SIP look red,
@@ -29,23 +29,23 @@ export default async function Welcome() {
           ['See the dip in context', 'Your goal, time to go and months invested, next to today’s value.'],
           ['Check in before you stop', 'Tell us why in any language. Get the facts and your options; stopping stays one tap.'],
         ].map(([title, text]) => (
-          <li key={title} className="rounded-xl border border-line bg-card p-4">
+          <li key={title} className="rounded-xl border border-line bg-surface p-4">
             <p className="font-semibold">{title}</p>
             <p className="mt-1 text-muted">{text}</p>
           </li>
         ))}
       </ul>
 
-      <section className="mt-6 rounded-xl border border-line bg-card p-4 text-sm text-muted">
+      <section className="mt-6 rounded-xl border border-line bg-surface p-4 text-sm text-muted">
         <p className="font-semibold text-ink">Before you start</p>
         <p className="mt-1">
           This is a student case-study prototype. It is not affiliated with Groww. All funds, prices and people are made up, no real money
           moves, and nothing here is investment advice. The AI only uses your demo SIP’s own numbers and links to the{' '}
-          <a className="font-medium text-brand underline" href="https://investor.sebi.gov.in/index.html" target="_blank" rel="noreferrer">
+          <a className="font-medium text-primary underline" href="https://investor.sebi.gov.in/index.html" target="_blank" rel="noreferrer">
             SEBI Investor Website
           </a>{' '}
           and{' '}
-          <a className="font-medium text-brand underline" href="https://www.amfiindia.com" target="_blank" rel="noreferrer">
+          <a className="font-medium text-primary underline" href="https://www.amfiindia.com" target="_blank" rel="noreferrer">
             AMFI
           </a>
           .
@@ -55,7 +55,7 @@ export default async function Welcome() {
       {visitor && (
         <Link
           href="/home"
-          className="mt-6 flex min-h-11 items-center justify-center rounded-xl bg-brand px-4 font-semibold text-white hover:opacity-90"
+          className="mt-6 flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 font-semibold text-white hover:bg-primary-hover"
         >
           Continue as {visitor.firstName}
         </Link>

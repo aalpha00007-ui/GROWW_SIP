@@ -19,19 +19,19 @@ export default async function StopPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
-      <Link href={`/sips/${sip.id}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-brand">
+      <Link href={`/sips/${sip.id}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary-hover">
         ← Back to the SIP
       </Link>
       <h1 className="text-2xl font-bold">Before you stop</h1>
 
-      <section className="rounded-xl border border-brand bg-brand-tint p-4">
-        <p className="text-sm font-semibold text-brand">{sip.fund}</p>
+      <section className="rounded-xl border border-primary bg-primary-soft p-4">
+        <p className="text-sm font-semibold text-primary">{sip.fund}</p>
         {/* A no-break space keeps "Rs 14,000" on one line. */}
         <p className="mt-1 text-lg font-bold">{sip.goalLine.replaceAll('Rs ', 'Rs ')}</p>
       </section>
 
       {sip.status === 'stopped' ? (
-        <p className="rounded-xl border border-line bg-card p-4">This SIP is already stopped. Your units stay invested until you redeem them.</p>
+        <p className="rounded-xl border border-line bg-surface p-4">This SIP is already stopped. Your units stay invested until you redeem them.</p>
       ) : (
         <BeforeYouStop sipId={sip.id} controls={sip.controls} pauseChoices={sip.pauseChoices} options={OPTIONS.map((o) => ({ key: o.key, label: o.label }))} />
       )}

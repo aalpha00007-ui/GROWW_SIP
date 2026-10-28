@@ -35,12 +35,12 @@ export function DipExplainer({ sipId, autoStart }: { sipId: number; autoStart: b
         type="button"
         onClick={explain}
         disabled={loading}
-        className="flex min-h-11 w-full items-center justify-center rounded-lg border border-brand px-3 text-sm font-semibold text-brand hover:bg-brand-tint disabled:cursor-wait disabled:opacity-60"
+        className="flex min-h-11 w-full items-center justify-center rounded-lg border border-primary px-3 text-sm font-semibold text-primary hover:bg-primary-soft disabled:cursor-wait disabled:opacity-60"
       >
         {loading ? 'Looking at your SIP’s numbers…' : card ? 'Explain again' : 'What does this dip mean for my goal?'}
       </button>
       <div aria-live="polite">
-        {error && <p className="rounded-lg bg-loss-tint px-3 py-2 text-sm text-loss-ink">{error}</p>}
+        {error && <p className="rounded-lg bg-loss-soft px-3 py-2 text-sm text-loss-strong">{error}</p>}
         {card && !loading && <CheckInCardView card={card} />}
       </div>
     </div>

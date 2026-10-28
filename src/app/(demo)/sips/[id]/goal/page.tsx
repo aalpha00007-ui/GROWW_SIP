@@ -21,7 +21,7 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
-      <Link href={`/sips/${sip.facts.sip_id}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-brand">
+      <Link href={`/sips/${sip.facts.sip_id}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary-hover">
         ← Back to the SIP
       </Link>
       <div>

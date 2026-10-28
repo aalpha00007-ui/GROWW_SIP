@@ -2,6 +2,7 @@
 // "Simulate a market fall" (PRD F12): a demo control so testers can create the dip themselves.
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
+import { SignedText } from './signed';
 
 export function MarketFallButton() {
   const router = useRouter();
@@ -25,9 +26,11 @@ export function MarketFallButton() {
   }
 
   return (
-    <section className="rounded-xl border border-dashed border-accent bg-card p-4">
+    <section className="rounded-xl border border-dashed border-accent bg-surface p-4">
       <p className="text-xs font-bold uppercase tracking-wide text-accent-ink">Demo control</p>
-      <p className="mt-1 text-sm text-muted">Adds a -6% day to every fund (liquid funds hold steady), for you only, so you can see a dip.</p>
+      <p className="mt-1 text-sm text-muted">
+        <SignedText text="Adds a -6% day to every fund (liquid funds hold steady), for you only, so you can see a dip." />
+      </p>
       <button
         type="button"
         onClick={fall}
@@ -36,8 +39,8 @@ export function MarketFallButton() {
       >
         {busy ? 'Adding the fall…' : 'Simulate a market fall'}
       </button>
-      <p aria-live="polite" className={`text-sm empty:hidden ${message?.error ? 'mt-2 text-loss-ink' : 'mt-2 text-muted'}`}>
-        {message?.text}
+      <p aria-live="polite" className={`text-sm empty:hidden ${message?.error ? 'mt-2 rounded-lg bg-loss-soft px-3 py-2 text-loss-strong' : 'mt-2 text-muted'}`}>
+        {message && (message.error ? message.text : <SignedText text={message.text} />)}
       </p>
     </section>
   );

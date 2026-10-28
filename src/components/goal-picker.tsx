@@ -18,7 +18,7 @@ export interface GoalOptions {
 }
 
 const chipClass = (on: boolean) =>
-  `min-h-11 rounded-full border px-4 text-sm font-medium ${on ? 'border-brand bg-brand-tint text-brand' : 'border-line hover:border-brand'}`;
+  `min-h-11 rounded-full border px-4 text-sm font-medium ${on ? 'border-primary bg-primary-soft text-primary' : 'border-line hover:border-primary'}`;
 
 export function GoalPicker({
   value,
@@ -56,7 +56,7 @@ export function GoalPicker({
               maxLength={options.nameMax}
               onChange={(e) => onChange({ ...value, name: e.target.value })}
               placeholder="For example: Wedding, Bike, Trip"
-              className="mt-1 min-h-11 w-full rounded-lg border border-line bg-card px-3"
+              className="mt-1 min-h-11 w-full rounded-lg border border-line bg-surface px-3"
             />
             <p className="mt-1 text-xs text-muted">Up to {options.nameMax} characters. No personal details.</p>
           </div>
@@ -84,7 +84,7 @@ export function GoalPicker({
             id={`${idPrefix}-year`}
             value={target && !quick ? target : ''}
             onChange={(e) => onChange({ ...value, target: e.target.value || null })}
-            className="mt-1 min-h-11 w-full rounded-lg border border-line bg-card px-3 sm:w-60"
+            className="mt-1 min-h-11 w-full rounded-lg border border-line bg-surface px-3 sm:w-60"
           >
             <option value="">Choose a year</option>
             {options.allYears.map((y) => (

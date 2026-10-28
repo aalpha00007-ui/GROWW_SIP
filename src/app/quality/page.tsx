@@ -7,19 +7,19 @@ import { qualityView } from '@/server/quality';
 
 export const dynamic = 'force-dynamic';
 
-const MARK = { true: { text: 'Pass', style: 'bg-gain-tint text-gain-ink' }, false: { text: 'Fail', style: 'bg-loss-tint text-loss-ink' } } as const;
+const MARK = { true: { text: 'Pass', style: 'bg-primary-soft text-gain' }, false: { text: 'Fail', style: 'bg-loss-soft text-loss-strong' } } as const;
 
 export default async function Quality() {
   const { run, live } = await qualityView(getDb(), process.env.RENDER_GIT_COMMIT);
 
   return (
     <>
-      <header className="border-b border-line bg-card">
+      <header className="border-b border-line bg-surface">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-2">
           <Link href="/" aria-label="GROWW prototype" className="flex min-h-11 items-center">
             <Logo />
           </Link>
-          <Link href="/" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand">
+          <Link href="/" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary-hover">
             Try the demo
           </Link>
         </div>
@@ -30,7 +30,7 @@ export default async function Quality() {
           <p className="text-muted">How the AI check-in is tested before each release, and what it has done since.</p>
         </div>
 
-        <section className="rounded-xl border border-line bg-card p-4">
+        <section className="rounded-xl border border-line bg-surface p-4">
           {run ? (
             <>
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -44,7 +44,7 @@ export default async function Quality() {
                   {run.passed ? 'Gate passed' : 'Gate failed'}
                 </span>
               </div>
-              {run.note && <p className="mt-2 rounded-lg bg-ground px-3 py-2 text-sm text-muted">{run.note}</p>}
+              {run.note && <p className="mt-2 rounded-lg bg-page px-3 py-2 text-sm text-muted">{run.note}</p>}
 
               <div className="mt-4 overflow-x-auto">
                 <table className="w-full min-w-[32rem] text-left text-sm">
@@ -77,7 +77,7 @@ export default async function Quality() {
 
               {run.failed.length > 0 && (
                 <details className="mt-4">
-                  <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-brand">Cases that missed ({run.failed.length})</summary>
+                  <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-primary">Cases that missed ({run.failed.length})</summary>
                   <ul className="mt-1 space-y-1 text-sm">
                     {run.failed.map((f) => (
                       <li key={f.id}>
@@ -93,16 +93,16 @@ export default async function Quality() {
           )}
         </section>
 
-        <section className="rounded-xl border border-line bg-card p-4">
+        <section className="rounded-xl border border-line bg-surface p-4">
           <h2 className="text-lg font-bold">Live use</h2>
           <p className="text-sm text-muted">
             {live.total} AI check-ins from demo visitors ({live.dipExplainers} dip explainers). The eval&apos;s and our own test visitors are left out.
           </p>
           <dl className="mt-3 grid grid-cols-3 gap-3">
             {live.outcomes.map((o) => (
-              <div key={o.label} className="rounded-lg bg-ground p-3">
+              <div key={o.label} className="rounded-lg bg-page p-3">
                 <dt className="text-sm text-muted">{o.label}</dt>
-                <dd className="tabular text-2xl font-bold">{o.count}</dd>
+                <dd className="tabular text-2xl font-bold text-strong">{o.count}</dd>
               </div>
             ))}
           </dl>

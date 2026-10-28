@@ -2,10 +2,11 @@
 // the facts table and the official links. Every card says when its numbers are from.
 import Link from 'next/link';
 import type { CheckInCard } from '@/server/checkin-card';
+import { Signed } from './signed';
 
 export function CheckInCardView({ card }: { card: CheckInCard }) {
   return (
-    <section className="rounded-xl border border-line bg-card p-4">
+    <section className="rounded-xl border border-line bg-surface p-4">
       {card.understood && (
         <p className="text-sm text-muted">
           <span className="font-semibold text-ink">What I understood:</span> {card.understood}
@@ -14,7 +15,7 @@ export function CheckInCardView({ card }: { card: CheckInCard }) {
       <p className={`whitespace-pre-line ${card.understood ? 'mt-3' : ''} ${card.outcome === 'answer' ? '' : 'font-semibold'}`}>{card.text}</p>
 
       {card.appLink && (
-        <Link href={card.appLink.href} className="mt-3 inline-flex min-h-11 items-center font-semibold text-brand underline">
+        <Link href={card.appLink.href} className="mt-3 inline-flex min-h-11 items-center font-semibold text-primary underline">
           {card.appLink.label}
         </Link>
       )}
@@ -24,7 +25,7 @@ export function CheckInCardView({ card }: { card: CheckInCard }) {
           {card.facts.map((line) => (
             <div key={line.label} className="flex justify-between gap-3 px-3 py-2">
               <dt className="text-muted">{line.label}</dt>
-              <dd className="tabular text-right font-medium">{line.value}</dd>
+              <dd className="tabular text-right font-medium">{/^[+-]/.test(line.value) ? <Signed value={line.value} /> : line.value}</dd>
             </div>
           ))}
         </dl>
@@ -36,7 +37,7 @@ export function CheckInCardView({ card }: { card: CheckInCard }) {
           {card.links.map((link, i) => (
             <span key={link.url}>
               {i > 0 && ' and '}
-              <a href={link.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand underline">
+              <a href={link.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline">
                 {link.label}
               </a>
             </span>
@@ -47,7 +48,7 @@ export function CheckInCardView({ card }: { card: CheckInCard }) {
       {card.strip && (
         <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-line pt-3 text-xs font-semibold" aria-label="Quality checks">
           {card.strip.map((check) => (
-            <li key={check.label} className={check.ok ? 'text-gain-ink' : 'text-loss-ink'}>
+            <li key={check.label} className={check.ok ? 'text-gain' : 'text-loss-strong'}>
               <span aria-hidden="true">{check.ok ? '✓' : '✗'}</span> {check.label}
               <span className="sr-only">{check.ok ? ' (passed)' : ' (failed)'}</span>
             </li>

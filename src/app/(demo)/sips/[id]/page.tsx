@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ChangePill } from '@/components/change-pill';
 import { DipExplainer } from '@/components/dip-explainer';
+import { Signed } from '@/components/signed';
 import { SipControls } from '@/components/sip-controls';
 import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
@@ -20,7 +21,7 @@ const DONE: Record<string, string> = {
   goal: 'Goal saved.',
 };
 
-const STATUS_STYLE = { active: 'bg-gain-tint text-gain-ink', paused: 'bg-accent-tint text-accent-ink', stopped: 'bg-ground text-muted' } as const;
+const STATUS_STYLE = { active: 'bg-primary-soft text-gain', paused: 'bg-accent-tint text-accent-ink', stopped: 'bg-page text-muted' } as const;
 
 export default async function SipPage({
   params,
@@ -40,18 +41,18 @@ export default async function SipPage({
 
   return (
     <div className="space-y-5">
-      <Link href="/sips" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand">
+      <Link href="/sips" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary-hover">
         ← Your SIPs
       </Link>
       {done && (
-        <p role="status" className="rounded-lg bg-brand-tint px-4 py-3 text-sm font-semibold text-brand">
+        <p role="status" className="rounded-lg bg-primary-soft px-4 py-3 text-sm font-semibold text-primary">
           {done}
         </p>
       )}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <div className="space-y-5">
-          <section className="rounded-xl border border-line bg-card p-4">
+          <section className="rounded-xl border border-line bg-surface p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h1 className="text-xl font-bold">{sip.fund}</h1>
@@ -61,9 +62,9 @@ export default async function SipPage({
               </div>
               <span className={`shrink-0 rounded-full px-2.5 py-1 text-sm font-semibold ${STATUS_STYLE[sip.status]}`}>{sip.statusLabel}</span>
             </div>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-brand-tint px-3 py-2">
-              <p className="font-semibold text-brand">{sip.goalHeader}</p>
-              <Link href={`/sips/${sip.id}/goal`} className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-soft px-3 py-2">
+              <p className="font-semibold text-primary">{sip.goalHeader}</p>
+              <Link href={`/sips/${sip.id}/goal`} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline">
                 {sip.hasGoal ? 'Edit goal' : 'Add one'}
               </Link>
             </div>
@@ -74,15 +75,15 @@ export default async function SipPage({
             ))}
           </section>
 
-          <section className="rounded-xl border border-line bg-card p-4">
+          <section className="rounded-xl border border-line bg-surface p-4">
             <dl className="grid grid-cols-2 gap-3">
               <div>
                 <dt className="text-sm text-muted">Put in</dt>
-                <dd className="tabular text-lg font-bold">{sip.putIn}</dd>
+                <dd className="tabular text-lg font-bold text-strong">{sip.putIn}</dd>
               </div>
               <div>
                 <dt className="text-sm text-muted">Value today</dt>
-                <dd className="tabular text-lg font-bold">{sip.value}</dd>
+                <dd className="tabular text-lg font-bold text-strong">{sip.value}</dd>
               </div>
               {sip.change && (
                 <div className="col-span-2 flex flex-wrap items-center justify-between gap-2">
@@ -95,7 +96,11 @@ export default async function SipPage({
             </dl>
             <ul className="tabular mt-4 space-y-1 border-t border-line pt-3 text-sm text-muted">
               <li>{sip.paidLabel}</li>
-              {sip.worstFall && <li>Worst fall since you started: {sip.worstFall}</li>}
+              {sip.worstFall && (
+                <li>
+                  Worst fall since you started: <Signed value={sip.worstFall} />
+                </li>
+              )}
               {sip.nextDue && <li>Next instalment: {sip.nextDue}</li>}
             </ul>
             <p className="mt-2 text-xs text-muted">{sip.asOf}</p>
@@ -121,7 +126,7 @@ export default async function SipPage({
               openAmount={change === 'amount'}
             />
           )}
-          <section className="rounded-xl border border-line bg-card p-4">
+          <section className="rounded-xl border border-line bg-surface p-4">
             <h2 className="font-bold">Instalments</h2>
             {sip.history.length ? (
               <ul className="mt-2 divide-y divide-line text-sm">

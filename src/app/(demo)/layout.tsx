@@ -12,7 +12,7 @@ export default async function DemoLayout({ children }: { children: React.ReactNo
   if (!visitor) redirect('/');
   return (
     <>
-      <header className="sticky top-0 z-10 border-b border-line bg-card">
+      <header className="sticky top-0 z-10 border-b border-line bg-surface">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-2">
           <Link href="/home" aria-label="GROWW prototype home" className="flex min-h-11 items-center">
             <Logo />
@@ -21,16 +21,16 @@ export default async function DemoLayout({ children }: { children: React.ReactNo
           <div className="flex items-center gap-2">
             <Link
               href="/explore"
-              className="hidden min-h-11 w-56 items-center rounded-lg border border-line px-3 text-sm text-muted hover:border-brand xl:flex"
+              className="hidden min-h-11 w-56 items-center rounded-lg border border-line px-3 text-sm text-muted hover:border-primary xl:flex"
             >
               Search mutual funds
             </Link>
             <Link
               href="/profile"
-              className="flex min-h-11 items-center gap-2 rounded-full bg-brand-tint px-3 text-sm font-semibold text-brand"
+              className="flex min-h-11 items-center gap-2 rounded-full bg-primary-soft px-3 text-sm font-semibold text-primary"
               title={visitor.displayName}
             >
-              <span className="grid size-7 place-items-center rounded-full bg-brand text-xs text-white">{visitor.firstName[0]}</span>
+              <span className="grid size-7 place-items-center rounded-full bg-primary text-xs text-white">{visitor.firstName[0]}</span>
               {visitor.firstName}
             </Link>
           </div>

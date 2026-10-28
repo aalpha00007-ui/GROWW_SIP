@@ -10,7 +10,8 @@ export const metadata: Metadata = {
   description: 'A goal anchor and an AI check-in for first-year SIP investors. Not affiliated with Groww. Demo data. Not investment advice.',
 };
 
-export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#3f3d9e' };
+// themeColor must be a literal colour, not a CSS variable: it is --primary from globals.css.
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#0b7a4b' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

@@ -63,7 +63,7 @@ export function BeforeYouStop({ sipId, controls, pauseChoices, options }: Props)
 
   return (
     <div className="space-y-5">
-      <section className="rounded-xl border border-line bg-card p-4">
+      <section className="rounded-xl border border-line bg-surface p-4">
         <h2 className="font-bold">Why do you want to stop?</h2>
         <p className="text-sm text-muted">Optional. Tap a reason or write your own, in any language.</p>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -76,7 +76,7 @@ export function BeforeYouStop({ sipId, controls, pauseChoices, options }: Props)
                 setReason(chip);
                 void ask(chip);
               }}
-              className="min-h-11 rounded-full border border-line px-4 text-sm font-medium hover:border-brand hover:text-brand disabled:opacity-60"
+              className="min-h-11 rounded-full border border-line px-4 text-sm font-medium hover:border-primary hover:text-primary disabled:opacity-60"
             >
               {chip}
             </button>
@@ -105,7 +105,7 @@ export function BeforeYouStop({ sipId, controls, pauseChoices, options }: Props)
           <button
             type="submit"
             disabled={asking || !reason.trim()}
-            className="flex min-h-11 w-full items-center justify-center rounded-lg bg-brand px-4 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
+            className="flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60 sm:w-auto"
           >
             {asking ? 'Reading your reason…' : 'Send'}
           </button>
@@ -113,11 +113,11 @@ export function BeforeYouStop({ sipId, controls, pauseChoices, options }: Props)
       </section>
 
       <div aria-live="polite" className="space-y-3">
-        {error && <p className="rounded-lg bg-loss-tint px-3 py-2 text-sm text-loss-ink">{error}</p>}
+        {error && <p className="rounded-lg bg-loss-soft px-3 py-2 text-sm text-loss-strong">{error}</p>}
         {card && <CheckInCardView card={card} />}
       </div>
 
-      <section className="rounded-xl border border-line bg-card p-4">
+      <section className="rounded-xl border border-line bg-surface p-4">
         <h2 className="font-bold">Your options</h2>
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {options.map((option) => (
@@ -128,14 +128,14 @@ export function BeforeYouStop({ sipId, controls, pauseChoices, options }: Props)
               aria-expanded={option.key === 'pause' ? pausing : undefined}
               onClick={() => choose(option.key)}
               // One style for all five: no option is pushed or played down.
-              className="flex min-h-12 items-center justify-center rounded-lg border border-brand px-3 text-sm font-semibold text-brand hover:bg-brand-tint disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex min-h-12 items-center justify-center rounded-lg border border-primary px-3 text-sm font-semibold text-primary hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy === option.key ? 'One moment…' : option.label}
             </button>
           ))}
         </div>
         {pausing && (
-          <div className="mt-3 space-y-2 rounded-lg bg-ground p-3">
+          <div className="mt-3 space-y-2 rounded-lg bg-page p-3">
             <p className="text-sm font-semibold">Skip the next</p>
             {pauseChoices.map((choice) => (
               <button
@@ -143,7 +143,7 @@ export function BeforeYouStop({ sipId, controls, pauseChoices, options }: Props)
                 type="button"
                 disabled={busy !== null}
                 onClick={() => choose('pause', choice.count)}
-                className="flex min-h-11 w-full items-center rounded-lg border border-line bg-card px-3 text-left text-sm hover:border-brand"
+                className="flex min-h-11 w-full items-center rounded-lg border border-line bg-surface px-3 text-left text-sm hover:border-primary"
               >
                 {choice.label}
               </button>

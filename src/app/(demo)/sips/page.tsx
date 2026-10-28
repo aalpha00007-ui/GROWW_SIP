@@ -18,10 +18,10 @@ export default async function Sips() {
         <ul className="space-y-3">
           {sips.map((sip) => (
             <li key={sip.id}>
-              <Link href={`/sips/${sip.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-line bg-card p-4 hover:border-brand">
+              <Link href={`/sips/${sip.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 hover:border-primary">
                 <span>
                   <span className="block font-semibold">{sip.fund}</span>
-                  <span className={`block text-sm ${sip.hasGoal ? 'text-brand' : 'text-muted'}`}>{sip.goal}</span>
+                  <span className={`block text-sm ${sip.hasGoal ? 'text-primary' : 'text-muted'}`}>{sip.goal}</span>
                   <span className="tabular block text-sm text-muted">{sip.next}</span>
                 </span>
                 <span className="tabular shrink-0 font-semibold">{sip.amount}</span>
@@ -30,9 +30,9 @@ export default async function Sips() {
           ))}
         </ul>
       ) : (
-        <p className="rounded-xl border border-line bg-card p-4 text-muted">
+        <p className="rounded-xl border border-line bg-surface p-4 text-muted">
           No SIPs yet.{' '}
-          <Link href="/explore" className="font-semibold text-brand underline">
+          <Link href="/explore" className="font-semibold text-primary underline">
             Explore mutual funds
           </Link>
         </p>
