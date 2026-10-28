@@ -39,7 +39,7 @@ export function checkInCard(result: Extract<CheckInResult, { status: 200 }>): Ch
     confidence: answered && understood ? `Confidence: ${understood.confidenceLabel}` : null,
     facts: answered ? null : result.facts.lines,
     links: answered ? null : result.links.map((l) => ({ label: l.label, url: l.url })),
-    appLink: answered && result.route === 'autopay' ? { label: 'Your autopay settings', href: '/profile' } : null,
+    appLink: answered && result.route === 'autopay' ? { label: 'Your autopay settings', href: '/settings' } : null,
     asOf: `Numbers as of ${result.facts.as_of}`,
   };
 }

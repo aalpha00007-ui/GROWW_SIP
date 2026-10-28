@@ -1,5 +1,6 @@
-import { ComingNext } from '@/components/coming-next';
+import { redirect } from 'next/navigation';
 
+// Your holdings, with their goals, live on the Dashboard.
 export default function Portfolio() {
-  return <ComingNext title="Portfolio" what="Holdings across products arrive in a later build step." />;
+  redirect('/dashboard');
 }

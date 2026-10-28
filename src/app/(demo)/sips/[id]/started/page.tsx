@@ -32,8 +32,8 @@ export default async function StartedPage({ params }: { params: Promise<{ id: st
           <Link href={`/sips/${sip.id}`} className="flex min-h-11 items-center rounded-lg border border-line px-4 text-sm font-semibold hover:border-primary">
             View SIP
           </Link>
-          <Link href="/home" className="flex min-h-11 items-center rounded-lg border border-line px-4 text-sm font-semibold hover:border-primary">
-            Go to Home
+          <Link href="/dashboard" className="flex min-h-11 items-center rounded-lg border border-line px-4 text-sm font-semibold hover:border-primary">
+            View in Dashboard
           </Link>
         </div>
       </section>

@@ -24,7 +24,7 @@ export function StartDemo({ personas }: { personas: PersonaChoice[] }) {
       body: JSON.stringify({ persona }),
     }).catch(() => null);
     if (response?.ok) {
-      router.push('/home');
+      router.push('/dashboard');
       return;
     }
     const body = (await response?.json().catch(() => null)) as { error?: string } | null;

@@ -1,42 +1,57 @@
 'use client';
-// The app shell's tabs (PRD F13), after the layout reference. Header row 1: the product tabs (Stocks and F&O
-// open "Not part of this prototype"). Row 2 from 1024px: Home · Explore · SIPs · Portfolio. Phones keep the
-// bottom tab bar, with Profile; on larger screens Profile opens from the avatar.
+// The app shell's tabs (PRD F13), after the layout reference. Row 1: Stocks · F&O · Mutual Funds.
+// Row 2: the sections of whichever product is open, with its button on the right (Terminal or Cart).
+// On phones both rows scroll sideways; the page itself never does.
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Icon, type IconName } from './icons';
+import { Icon } from './icons';
 
-const SECTIONS: { href: string; label: string; icon: IconName }[] = [
-  { href: '/home', label: 'Home', icon: 'home' },
-  { href: '/explore', label: 'Explore', icon: 'explore' },
-  { href: '/sips', label: 'SIPs', icon: 'sips' },
-  { href: '/portfolio', label: 'Portfolio', icon: 'portfolio' },
-];
-const PROFILE = { href: '/profile', label: 'Profile', icon: 'profile' as IconName };
+type Product = 'stocks' | 'fo' | 'mf';
 
-const PRODUCTS = [
-  { href: '/soon/stocks', label: 'Stocks' },
-  { href: '/soon/fo', label: 'F&O' },
-  { href: '/home', label: 'Mutual Funds' },
+const PRODUCTS: { key: Product; label: string; href: string }[] = [
+  { key: 'stocks', label: 'Stocks', href: '/stocks' },
+  { key: 'fo', label: 'F&O', href: '/fo' },
+  { key: 'mf', label: 'Mutual Funds', href: '/explore' },
 ];
 
-function useActive() {
-  const path = usePathname();
-  return (href: string) => path === href || path.startsWith(`${href}/`);
+/** Each tab, with the other paths that count as inside it (a fund page belongs to Explore). */
+const SECTIONS: Record<Product, { label: string; href: string; also?: string[] }[]> = {
+  stocks: [
+    { label: 'Explore', href: '/stocks' },
+    { label: 'Holdings', href: '/stocks/holdings' },
+    { label: 'Positions', href: '/stocks/positions' },
+    { label: 'Orders', href: '/stocks/orders' },
+    { label: 'Watchlist', href: '/stocks/watchlist' },
+  ],
+  fo: [
+    { label: 'Explore', href: '/fo' },
+    { label: 'Positions', href: '/fo/positions' },
+    { label: 'Orders', href: '/fo/orders' },
+  ],
+  mf: [
+    { label: 'Explore', href: '/explore', also: ['/fund/', '/funds', '/collections/', '/soon/'] },
+    { label: 'Dashboard', href: '/dashboard' },
+    { label: 'SIPs', href: '/sips' },
+    { label: 'Watchlist', href: '/watchlist' },
+  ],
+};
+
+export function productOf(path: string): Product {
+  if (path === '/stocks' || path.startsWith('/stocks/')) return 'stocks';
+  if (path === '/fo' || path.startsWith('/fo/')) return 'fo';
+  return 'mf';
 }
 
-/** Header row 1: Mutual Funds is the product this prototype builds, so it is active everywhere else. */
 export function ProductTabs() {
-  const path = usePathname();
-  const active = PRODUCTS.find((p) => p.href !== '/home' && path.startsWith(p.href))?.label ?? 'Mutual Funds';
+  const active = productOf(usePathname());
   return (
-    <nav aria-label="Products" className="hidden items-center gap-6 md:flex">
+    <nav aria-label="Products" className="flex items-center gap-5 sm:gap-6">
       {PRODUCTS.map((p) => (
         <Link
-          key={p.label}
+          key={p.key}
           href={p.href}
-          aria-current={active === p.label ? 'page' : undefined}
-          className={`flex min-h-11 items-center text-xl font-medium ${active === p.label ? 'text-strong' : 'text-muted hover:text-ink'}`}
+          aria-current={active === p.key ? 'page' : undefined}
+          className={`flex min-h-11 shrink-0 items-center text-base font-medium sm:text-xl ${active === p.key ? 'text-strong' : 'text-muted hover:text-ink'}`}
         >
           {p.label}
         </Link>
@@ -45,44 +60,49 @@ export function ProductTabs() {
   );
 }
 
-/** Header row 2 from 1024px: the active tab is dark with a 3px underline, no pill. */
-export function SectionTabs() {
-  const isActive = useActive();
+/** Row 2: the active tab is dark with a 3px underline, no pill. */
+export function SectionTabs({ cartCount }: { cartCount: number }) {
+  const path = usePathname();
+  const product = productOf(path);
+  const tabs = SECTIONS[product];
+  // The longest matching tab wins, so /stocks/orders lights Orders, not Explore.
+  const score = (t: (typeof tabs)[number]) =>
+    path === t.href || path.startsWith(`${t.href}/`) ? t.href.length : t.also?.some((p) => path.startsWith(p)) ? 1 : 0;
+  const best = tabs.reduce((top, t) => (score(t) > score(top) ? t : top), tabs[0]);
+  const active = score(best) > 0 ? best.href : null;
+
   return (
-    <nav aria-label="Main" className="hidden gap-8 lg:flex">
-      {SECTIONS.map((t) => (
-        <Link
-          key={t.href}
-          href={t.href}
-          aria-current={isActive(t.href) ? 'page' : undefined}
-          className={`flex min-h-11 items-center border-b-[3px] text-base font-medium ${isActive(t.href) ? 'border-strong text-strong' : 'border-transparent text-muted hover:text-ink'}`}
-        >
-          {t.label}
+    <div className="flex items-center justify-between gap-4">
+      <nav aria-label="Sections" className="-mb-px flex min-w-0 gap-7 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {tabs.map((t) => (
+          <Link
+            key={t.href}
+            href={t.href}
+            aria-current={active === t.href ? 'page' : undefined}
+            className={`flex min-h-11 shrink-0 items-center border-b-[3px] text-[15px] font-medium ${active === t.href ? 'border-strong text-strong' : 'border-transparent text-muted hover:text-ink'}`}
+          >
+            {t.label}
+          </Link>
+        ))}
+      </nav>
+      {product === 'stocks' && (
+        <Link href="/soon/terminal" className="flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-line px-3 text-sm font-medium text-strong hover:border-primary">
+          <Icon name="terminal" size={18} />
+          Terminal
         </Link>
-      ))}
-    </nav>
+      )}
+      {product === 'mf' && (
+        <Link href="/cart" className="flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-line px-3 text-sm font-medium text-strong hover:border-primary">
+          <Icon name="cart" size={18} />
+          Cart
+          {cartCount > 0 && <span className="tabular rounded-full bg-primary px-1.5 text-xs font-semibold text-white">{cartCount}</span>}
+        </Link>
+      )}
+    </div>
   );
 }
 
-/** Phone and tablet: a tab bar fixed to the bottom of the screen. */
-export function BottomTabs() {
-  const isActive = useActive();
-  return (
-    <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
-      <ul className="mx-auto grid max-w-lg grid-cols-5">
-        {[...SECTIONS, PROFILE].map((t) => (
-          <li key={t.href}>
-            <Link
-              href={t.href}
-              aria-current={isActive(t.href) ? 'page' : undefined}
-              className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-semibold ${isActive(t.href) ? 'text-strong' : 'text-muted'}`}
-            >
-              <Icon name={t.icon} size={22} />
-              {t.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
+/** Shows its children only on Stocks and F&O pages (the market strip). */
+export function OnlyOnMarkets({ children }: { children: React.ReactNode }) {
+  return productOf(usePathname()) === 'mf' ? null : <>{children}</>;
 }
