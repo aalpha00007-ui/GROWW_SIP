@@ -30,7 +30,7 @@ describe('the market strip (demo data only)', () => {
   it('shows the made-up levels on the seed day and drops by the same 6% as the simulated fall', async () => {
     const visitor = await clonePersona(db, 'riya');
     const before = await marketStrip(db, visitor);
-    expect(before.indices.map((i) => i.name)).toEqual(['NIFTY 50', 'SENSEX', 'BANK NIFTY', 'NIFTY MIDCAP', 'FIN NIFTY']);
+    expect(before.indices.map((i) => i.name)).toEqual(['NIFTY 50', 'SENSEX', 'BANK NIFTY', 'NIFTY MIDCAP', 'FIN NIFTY', 'NIFTY NEXT 50', 'NIFTY SMALLCAP', 'NIFTY IT']);
     expect(before.indices[0].value).toBe('24,800.00');
     expect(before.indices.every((i) => i.change !== null && /^[+-]?[\d,]+\.\d\d \(\d+\.\d\d%\)$/.test(i.change))).toBe(true);
     expect(before.note).toBe('Numbers as of 27 Oct 2026 · Demo data');
