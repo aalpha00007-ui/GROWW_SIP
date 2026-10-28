@@ -6,13 +6,13 @@ import { ChangePill } from './change-pill';
 
 export function GoalCard({ goal }: { goal: Card }) {
   return (
-    <article className="flex flex-col rounded-xl border border-line bg-surface p-4">
+    <article className="flex flex-col rounded-xl border border-line bg-surface p-5">
       <header className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-lg font-bold">{goal.name}</h3>
+          <h3 className="text-base font-semibold">{goal.name}</h3>
           <p className="text-sm text-muted">{goal.timeToGo}</p>
         </div>
-        {goal.targetMonth && <span className="shrink-0 rounded-full bg-primary-soft px-2.5 py-1 text-sm font-semibold text-primary">{goal.targetMonth}</span>}
+        {goal.targetMonth && <span className="shrink-0 rounded-full bg-primary-soft px-2.5 py-1 text-sm font-medium text-primary">{goal.targetMonth}</span>}
       </header>
 
       <div className="mt-4">
@@ -27,12 +27,12 @@ export function GoalCard({ goal }: { goal: Card }) {
       <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-4">
         <div>
           <dt className="text-sm text-muted">Put in</dt>
-          <dd className="tabular text-lg font-bold text-strong">{goal.putIn}</dd>
+          <dd className="tabular text-base font-medium text-strong">{goal.putIn}</dd>
           {goal.planned && <dd className="tabular text-sm text-muted">of {goal.planned} planned</dd>}
         </div>
         <div>
           <dt className="text-sm text-muted">Value today</dt>
-          <dd className="tabular text-lg font-bold text-strong">{goal.value}</dd>
+          <dd className="tabular text-base font-medium text-strong">{goal.value}</dd>
         </div>
         {goal.change && (
           <div className="col-span-2 flex flex-wrap items-center justify-between gap-2">

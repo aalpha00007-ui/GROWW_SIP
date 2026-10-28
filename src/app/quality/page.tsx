@@ -46,7 +46,7 @@ export default async function Quality() {
               </div>
               {run.note && <p className="mt-2 rounded-lg bg-page px-3 py-2 text-sm text-muted">{run.note}</p>}
 
-              <div className="mt-4 overflow-x-auto">
+              <div className="relative mt-4 overflow-x-auto">
                 <table className="w-full min-w-[32rem] text-left text-sm">
                   <thead className="text-muted">
                     <tr className="border-b border-line">
@@ -107,7 +107,7 @@ export default async function Quality() {
             ))}
           </dl>
           <h3 className="mt-5 font-semibold">What investors chose at Before you stop</h3>
-          <div className="mt-2 overflow-x-auto">
+          <div className="relative mt-2 overflow-x-auto">
             <table className="w-full min-w-[36rem] text-left text-sm">
               <thead className="text-muted">
                 <tr className="border-b border-line">

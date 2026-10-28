@@ -17,7 +17,7 @@ const STYLE = {
 export function Signed({ value }: { value: string }) {
   const style = STYLE[value.startsWith('-') ? 'down' : value.startsWith('+') ? 'up' : 'flat'];
   return (
-    <span className={`tabular whitespace-nowrap font-semibold ${style.text}`}>
+    <span className={`tabular whitespace-nowrap font-medium ${style.text}`}>
       {style.arrow && (
         <span aria-hidden="true" className="mr-0.5 text-[10px]">
           {style.arrow}

@@ -12,7 +12,11 @@
   --text-strong: #0b3d2e; /* headings, key numbers, wordmark */
   --text: #1f4a3c; /* body text */
   --text-muted: #4f6f63; /* secondary text, captions, helper text */
-  --blue: #1e3a8a; /* logo, secondary accents */
+  --blue: #1e3a8a; /* secondary accents */
+  --logo-navy: #172554; /* logo bars 1 and 2 */
+  --logo-green: #065f46; /* logo bar 3 and the dot */
+  --avatar: #111111; /* the profile avatar, the same for every persona */
+  --hover-neutral: #f2f2f2; /* hover behind the avatar */
   --gain: #0b7a4b; /* positive values */
   --loss: #d92d20; /* negative values, errors, destructive actions (on white) */
   --loss-soft: #fdeceb; /* light red background for loss notices and errors */
@@ -35,6 +39,10 @@
   --color-ink: var(--text);
   --color-muted: var(--text-muted);
   --color-blue: var(--blue);
+  --color-logo-navy: var(--logo-navy);
+  --color-logo-green: var(--logo-green);
+  --color-avatar: var(--avatar);
+  --color-hover-neutral: var(--hover-neutral);
   --color-gain: var(--gain);
   --color-loss: var(--loss);
   --color-loss-soft: var(--loss-soft);
@@ -50,8 +58,9 @@
 
 /* In the base layer, so a utility such as text-muted on a heading still wins. */
 @layer base {
+  /* White page, as in the layout reference; --page stays for light fills inside cards. */
   body {
-    background: var(--page);
+    background: var(--surface);
     color: var(--text);
   }
 

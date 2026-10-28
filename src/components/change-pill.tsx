@@ -12,7 +12,7 @@ const STYLE = {
 export function ChangePill({ change }: { change: Change }) {
   const style = STYLE[change.direction];
   return (
-    <span className={`tabular inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-sm font-semibold ${style.pill}`}>
+    <span className={`tabular inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-sm font-medium ${style.pill}`}>
       <span aria-hidden="true" className="text-[10px]">
         {style.arrow}
       </span>
