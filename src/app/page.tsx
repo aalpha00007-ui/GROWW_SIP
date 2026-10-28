@@ -19,7 +19,7 @@ export default async function Welcome() {
       <Logo className="text-lg" />
       <h1 className="mt-6 text-3xl font-extrabold tracking-tight sm:text-4xl">Every SIP needs a reason to keep going.</h1>
       <p className="mt-3 text-muted">
-        GROWW_SIP lets first-time investors say what each SIP is for, shows that goal again when a market fall makes the SIP look red,
+        This prototype lets first-time investors say what each SIP is for, shows that goal again when a market fall makes the SIP look red,
         and gives the facts about their own SIP before they stop it.
       </p>
 

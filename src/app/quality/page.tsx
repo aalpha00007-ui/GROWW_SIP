@@ -16,7 +16,7 @@ export default async function Quality() {
     <>
       <header className="border-b border-line bg-card">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-2">
-          <Link href="/" aria-label="GROWW_SIP" className="flex min-h-11 items-center">
+          <Link href="/" aria-label="GROWW prototype" className="flex min-h-11 items-center">
             <Logo />
           </Link>
           <Link href="/" className="inline-flex min-h-11 items-center text-sm font-semibold text-brand">
