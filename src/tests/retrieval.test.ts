@@ -428,6 +428,21 @@ describe('chat models (Mistral and Groq)', () => {
     await expect(broken.complete([], { temperature: 0 })).rejects.toBeInstanceOf(LlmError);
   });
 
+  it("tries once more when Groq rejects the model's own JSON, and not on other 400s", async () => {
+    const invalid = () => new Response(JSON.stringify({ error: { code: 'json_validate_failed', message: 'Failed to generate JSON.' } }), { status: 400 });
+    const replies = [invalid(), reply(200)];
+    const once = createGroq({ apiKey: 'k', model: 'm', fetchImpl: async () => replies.shift()! });
+    expect(await once.complete([], { temperature: 0 })).toBe('{"text":"hi"}');
+    let calls = 0;
+    const twice = createGroq({ apiKey: 'k', model: 'm', fetchImpl: async () => (calls++, invalid()) });
+    await expect(twice.complete([], { temperature: 0 })).rejects.toThrow('Groq returned HTTP 400');
+    expect(calls).toBe(2);
+    calls = 0;
+    const other = createGroq({ apiKey: 'k', model: 'm', fetchImpl: async () => (calls++, new Response('{"error":{"code":"model_not_found"}}', { status: 400 })) });
+    await expect(other.complete([], { temperature: 0 })).rejects.toThrow('Groq returned HTTP 400');
+    expect(calls).toBe(1);
+  });
+
   it('sends Groq low reasoning effort for gpt-oss only', async () => {
     const sent: { url: string; body: Record<string, unknown> }[] = [];
     const fetchImpl = async (url: string | URL | Request, init?: RequestInit) => (sent.push({ url: String(url), body: JSON.parse(String(init?.body)) }), reply(200));

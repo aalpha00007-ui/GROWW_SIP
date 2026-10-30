@@ -66,6 +66,7 @@ function createChatModel(provider: string, url: string, options: ChatModelOption
   return {
     model,
     async complete(messages, { temperature }) {
+      let jsonRetried = false;
       for (let attempt = 1; ; attempt++) {
         let response: Response;
         try {
@@ -84,6 +85,15 @@ function createChatModel(provider: string, url: string, options: ChatModelOption
         if (response.status === 429 && attempt <= (patient ? PATIENT_RETRIES : 1) && !dailyLimit) {
           await new Promise((resolve) => setTimeout(resolve, patient && retryAfterMs > 0 ? retryAfterMs + 500 : retryDelayMs));
           continue;
+        }
+        // Groq checks the model's JSON itself and now and then rejects it (about 1 call in 5 on one golden post).
+        // Like a reply that doesn't fit the form, that gets one more try.
+        if (response.status === 400 && !jsonRetried) {
+          const error = (await response.clone().json().catch(() => null)) as { error?: { code?: string } } | null;
+          if (error?.error?.code === 'json_validate_failed') {
+            jsonRetried = true;
+            continue;
+          }
         }
         if (!response.ok) throw new LlmError(`${provider} returned HTTP ${response.status}`);
         const body = (await response.json()) as { choices?: { message?: { content?: unknown } }[] };
