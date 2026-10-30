@@ -2,11 +2,12 @@
 // The fund page's order card, after the layout reference: Monthly SIP or One-time, a big ₹ amount with
 // quick-add chips, the SIP date, how it is paid, the NEW goal row, then Add to cart and Start SIP. Start SIP
 // with no goal opens the goal step (brief phase 4), where skipping is one tap. A one-time investment has the
-// same goal row and step, and can also go to one of the investor's goals. The goal row always says why a goal
-// helps; the dark "New" tip says it once more until the investor closes it. Demo orders: no real money.
+// same goal row and step, and can also go to one of the investor's goals. Above the row, a pop-up tip says
+// why a goal helps; minimised, it becomes "Why add a goal?", which opens it again. It starts minimised once
+// the investor has minimised it before. Demo orders: no real money.
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { EMPTY_GOAL, goalApiBody, goalLabel, GoalStep, type GoalDraft, type GoalStepOptions } from './goal-step';
 import { Icon } from './icons';
 import { postJson } from './post-json';
@@ -35,7 +36,11 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
   const [day, setDay] = useState(defaultDay);
   const [goal, setGoal] = useState<GoalDraft | null>(null);
   const [step, setStep] = useState<'start' | 'edit' | null>(null);
+  // The tip is open until minimised; minimising is remembered (goal_tooltip_dismissed), so it then starts small.
   const [tip, setTip] = useState(showGoalTip);
+  const tipLogged = useRef(!showGoalTip);
+  const tipButton = useRef<HTMLButtonElement>(null);
+  const whyButton = useRef<HTMLButtonElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean; cart?: boolean } | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
@@ -51,7 +56,20 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
 
   function closeTip() {
     setTip(false);
+    if (tipLogged.current) return;
+    tipLogged.current = true;
     void postJson('/api/events', { event: 'goal_tooltip_dismissed' });
+  }
+
+  /** From the tip's own buttons: keyboard focus goes to "Why add a goal?", which opens it again. */
+  function minimiseTip() {
+    closeTip();
+    requestAnimationFrame(() => whyButton.current?.focus());
+  }
+
+  function openTip() {
+    setTip(true);
+    requestAnimationFrame(() => tipButton.current?.focus());
   }
 
   /** Starts the SIP; from the goal step, errors show in the panel. */
@@ -204,20 +222,41 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
       </p>
 
       <div>
-        {tip && !goal && (
-          <div role="note" aria-label="New feature" className="relative mb-3 rounded-lg bg-strong p-3 text-sm text-white shadow-lg">
-            <p>
-              <span className="font-bold">New:</span>{' '}
-              {mode === 'sip'
-                ? 'tell us what this SIP is for. When the market falls, we’ll show you this goal next to your SIP.'
-                : 'tell us what this money is for. When the market falls, we’ll show you this goal next to it.'}
-            </p>
-            <button type="button" onClick={closeTip} className="mt-2 min-h-9 rounded-md bg-white px-3 text-sm font-semibold text-strong hover:bg-primary-soft">
-              Got it
+        {!goal &&
+          (tip ? (
+            <div id="goal-tip" role="note" aria-label="Why add a goal" className="relative mb-3 rounded-lg bg-strong p-3 pr-12 text-sm text-white shadow-lg">
+              <p>
+                <span className="font-bold">New:</span>{' '}
+                {mode === 'sip'
+                  ? 'tell us what this SIP is for. When the market falls, we’ll show you this goal next to your SIP.'
+                  : 'tell us what this money is for. When the market falls, we’ll show you this goal next to it.'}
+              </p>
+              <button ref={tipButton} type="button" onClick={minimiseTip} className="mt-2 min-h-9 rounded-md bg-white px-3 text-sm font-semibold text-strong hover:bg-primary-soft">
+                Got it
+              </button>
+              <button
+                type="button"
+                onClick={minimiseTip}
+                aria-label="Minimise tip"
+                className="absolute right-1 top-1 grid size-10 place-items-center rounded-full text-xl leading-none text-white/80 hover:bg-white/10 hover:text-white"
+              >
+                −
+              </button>
+              <span aria-hidden="true" className="absolute -bottom-1.5 left-8 size-3 rotate-45 bg-strong" />
+            </div>
+          ) : (
+            <button
+              ref={whyButton}
+              type="button"
+              onClick={openTip}
+              aria-expanded={false}
+              aria-controls="goal-tip"
+              className="mb-1 flex min-h-9 items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            >
+              <Icon name="help" size={16} />
+              Why add a goal?
             </button>
-            <span aria-hidden="true" className="absolute -bottom-1.5 left-8 size-3 rotate-45 bg-strong" />
-          </div>
-        )}
+          ))}
         {goal ? (
           <div className="flex min-h-12 items-center justify-between gap-2 rounded-lg border border-primary bg-primary-soft px-3">
             <span className="text-sm font-semibold text-primary">{goalLabel(goal, goalStep)}</span>
@@ -237,14 +276,10 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
               if (tip) closeTip();
               setStep('edit');
             }}
-            className="flex min-h-12 w-full items-center gap-2 rounded-lg border border-dashed border-primary px-3 py-2 text-left text-sm hover:bg-primary-soft"
+            className="flex min-h-12 w-full items-center gap-2 rounded-lg border border-dashed border-primary px-3 text-left text-sm hover:bg-primary-soft"
           >
             <span className="rounded bg-accent-tint px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-accent-ink">New</span>
-            <span className="flex-1">
-              <span className="block font-medium text-strong">{mode === 'sip' ? 'What’s this SIP for?' : 'What’s this investment for?'}</span>
-              {/* Why a goal helps, always here: the tip above goes away once closed. */}
-              <span className="block text-xs text-muted">We’ll show it next to your money when the market falls.</span>
-            </span>
+            <span className="flex-1 font-medium text-strong">{mode === 'sip' ? 'What’s this SIP for?' : 'What’s this investment for?'}</span>
             <span className="flex items-center font-semibold text-primary">
               Add a goal
               <Icon name="chevron" size={16} />
