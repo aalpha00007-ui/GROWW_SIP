@@ -15,7 +15,7 @@ export default function Help() {
     <div className="mx-auto max-w-3xl space-y-5">
       <h1 className="text-2xl font-bold">Help & about this prototype</h1>
       <p className="text-muted">
-        GROWW_SIP is a student case-study prototype about first-year SIP investors who stop after a market fall. It is not made by or affiliated
+        This Groww prototype is a student case study about first-year SIP investors who stop after a market fall. It is not made by or affiliated
         with Groww.
       </p>
       <ul className="divide-y divide-line rounded-xl border border-line bg-surface">

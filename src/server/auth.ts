@@ -1,5 +1,5 @@
-// Demo accounts and sessions. An account is a made-up display name, a username and a 4-digit demo PIN:
-// never an email, phone, real password, PAN or bank detail. PINs are stored as salted scrypt hashes (a
+// Demo accounts and sessions. An account is a made-up username and a 4-digit demo PIN (the display name starts
+// as the username): never an email, phone, real password, PAN or bank detail. PINs are stored as salted scrypt hashes (a
 // password-hashing function of the same family as bcrypt and Argon2, built into Node), never in plain text.
 import { createHash, randomBytes, randomUUID, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
@@ -80,27 +80,58 @@ export function contactDetailsIn(text: string): string | null {
 
 export const USERNAME = /^[a-z0-9_-]{3,20}$/;
 
-export interface SignUpInput {
-  displayName?: unknown;
-  username?: unknown;
-  pin?: unknown;
-  pinConfirm?: unknown;
-  agreed?: unknown;
+type UsernameCheck = { status: 200; username: string } | { status: 400; error: string };
+
+/** The username as stored (trimmed, lower case), or the plain-English reason it is refused. */
+function cleanUsername(input: unknown): UsernameCheck {
+  const username = typeof input === 'string' ? input.trim().toLowerCase() : '';
+  const issue = contactDetailsIn(username);
+  if (issue) return { status: 400, error: issue };
+  if (!USERNAME.test(username)) return { status: 400, error: 'Use a username of 3 to 20 letters, numbers, - or _.' };
+  return { status: 200, username };
 }
 
-/** "Create demo account": a new investor with no SIPs, the demo balance and a demo mandate, signed in. */
+/**
+ * Step 1 of the sign-up / log-in modal: is this username new (create a PIN) or taken (enter your PIN)?
+ * This tells anyone whether a username exists. That is the price of one field for both, and acceptable
+ * because a demo username is made up and the account holds only demo data. allowUsernameCheck limits how
+ * many names one network can try, so nobody can list the accounts.
+ */
+const CHECKS_PER_WINDOW = 20;
+const CHECK_WINDOW_MS = 10 * 60_000;
+/** Recent username checks per network (salted IP hash). In memory: the prototype runs as one server. */
+const checksByIp = new Map<string, number[]>();
+
+/** 20 username checks per network every 10 minutes: plenty to pick a name, too few to list accounts. */
+export function allowUsernameCheck(ipHash: string, now = Date.now()): boolean {
+  if (checksByIp.size > 10_000) {
+    for (const [key, times] of checksByIp) if (times.every((t) => now - t >= CHECK_WINDOW_MS)) checksByIp.delete(key);
+  }
+  const recent = (checksByIp.get(ipHash) ?? []).filter((t) => now - t < CHECK_WINDOW_MS);
+  const allowed = recent.length < CHECKS_PER_WINDOW;
+  if (allowed) recent.push(now);
+  checksByIp.set(ipHash, recent);
+  return allowed;
+}
+
+export async function checkUsername(db: Db, input: { username?: unknown }): Promise<{ status: 200; exists: boolean } | { status: 400; error: string }> {
+  const checked = cleanUsername(input.username);
+  if (checked.status !== 200) return checked;
+  const found = await db.query('SELECT 1 FROM accounts WHERE username = $1', [checked.username]);
+  return { status: 200, exists: found.rows.length > 0 };
+}
+
+export interface SignUpInput {
+  username?: unknown;
+  pin?: unknown;
+}
+
+/** "Create account": a new investor with no SIPs, the demo balance and a demo mandate, signed in. */
 export async function signUp(db: Db, input: SignUpInput, ipHash: string): Promise<AuthResult> {
-  const displayName = typeof input.displayName === 'string' ? input.displayName.trim() : '';
-  const username = typeof input.username === 'string' ? input.username.trim().toLowerCase() : '';
-  if (displayName.length < 2 || displayName.length > 20) return { status: 400, error: 'Use a display name of 2 to 20 characters.' };
-  const nameIssue = contactDetailsIn(displayName);
-  if (nameIssue) return { status: 400, error: nameIssue };
-  const userIssue = contactDetailsIn(username);
-  if (userIssue) return { status: 400, error: userIssue };
-  if (!USERNAME.test(username)) return { status: 400, error: 'Use a username of 3 to 20 letters, numbers, - or _.' };
+  const checked = cleanUsername(input.username);
+  if (checked.status !== 200) return checked;
+  const { username } = checked;
   if (typeof input.pin !== 'string' || !/^\d{4}$/.test(input.pin)) return { status: 400, error: 'Make up a 4-digit demo PIN.' };
-  if (input.pin !== input.pinConfirm) return { status: 400, error: "The two PINs don't match." };
-  if (input.agreed !== true) return { status: 400, error: 'Tick the box to confirm this is a demo.' };
 
   await db.query("DELETE FROM signup_attempts WHERE created_at < now() - interval '1 day'");
   const [recent] = (
@@ -113,12 +144,29 @@ export async function signUp(db: Db, input: SignUpInput, ipHash: string): Promis
   const pinHash = await hashPin(input.pin);
   const investorId = randomUUID();
   await db.transaction(async (tx) => {
-    await tx.query("INSERT INTO investors (id, persona_key, display_name) VALUES ($1, 'account', $2)", [investorId, displayName]);
+    await tx.query("INSERT INTO investors (id, persona_key, display_name) VALUES ($1, 'account', $2)", [investorId, username]);
     await tx.query('INSERT INTO accounts (investor_id, username, pin_hash) VALUES ($1, $2, $3)', [investorId, username, pinHash]);
     await tx.query("INSERT INTO mandates (investor_id, bank_label, method) VALUES ($1, 'Demo Bank ····0000', 'UPI')", [investorId]);
     await tx.query('INSERT INTO signup_attempts (ip_hash) VALUES ($1)', [ipHash]);
   });
   return { status: 200, investorId, token: await createSession(db, investorId) };
+}
+
+/**
+ * Settings: a demo account's display name, 2 to 20 characters and no contact details. The header shows the part
+ * before the first comma (as in "Riya, 27, salaried"), so that part needs 2 characters too. Persona copies keep
+ * their names.
+ */
+export async function setDisplayName(db: Db, investorId: string, input: { displayName?: unknown }): Promise<{ status: 200 } | { status: 400; error: string }> {
+  const name = typeof input.displayName === 'string' ? input.displayName.trim() : '';
+  if (name.length < 2 || name.length > 20 || name.split(',')[0].trim().length < 2) return { status: 400, error: 'Use a display name of 2 to 20 characters.' };
+  const issue = contactDetailsIn(name);
+  if (issue) return { status: 400, error: issue };
+  const updated = await db.query(
+    'UPDATE investors SET display_name = $2 WHERE id = $1 AND EXISTS (SELECT 1 FROM accounts WHERE investor_id = $1) RETURNING id',
+    [investorId, name],
+  );
+  return updated.rows.length ? { status: 200 } : { status: 400, error: 'Only a demo account can change its display name.' };
 }
 
 const WRONG = { status: 401, error: "That username and PIN don't match." } as const;
@@ -136,7 +184,7 @@ export async function logIn(db: Db, input: { username?: unknown; pin?: unknown }
       [username],
     )
   ).rows;
-  // An unknown username gets the same answer as a wrong PIN, so usernames cannot be probed.
+  // An unknown username gets the same answer as a wrong PIN.
   if (!account) return WRONG;
   if (account.locked_minutes) {
     return { status: 429, error: `Too many wrong PINs. Try again in ${account.locked_minutes} ${account.locked_minutes === 1 ? 'minute' : 'minutes'}.` };

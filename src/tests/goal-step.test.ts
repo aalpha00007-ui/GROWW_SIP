@@ -89,9 +89,12 @@ describe('Start SIP with the goal step', () => {
     const visitor = await newAccount();
     const started = await startSip(db, visitor, { fundId: 1, amount: 3000, day: 4, goal: { kind: 'home', targetMonth: '2031-03' } }, TODAY);
     if (started.status !== 200) throw new Error(started.error);
+    // Before the fall the SIP is worth what was put in: no dip button.
+    expect((await homeView(db, visitor, TODAY)).goals[0].dipSipId).toBeNull();
     await applyMarketFall(db, visitor);
     const card = (await homeView(db, visitor, TODAY)).goals[0];
     expect(card.change?.direction).toBe('down');
+    expect(card.dipSipId).toBe(started.id);
     expect(card.change?.text).toMatch(/^-₹180 \(-6\.0%\)$/);
     const sip = sipView((await loadSip(db, visitor, started.id, TODAY))!, TODAY);
     expect(sip.explainDip).toBe(true);

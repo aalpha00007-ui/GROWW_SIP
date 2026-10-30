@@ -1,7 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <!-- The favicon: the same mark as components/logo.tsx. A standalone file has no stylesheet, so the token colours are written out: --logo-navy #172554, --logo-green #065f46. -->
-  <rect x="3" y="19" width="7" height="10" rx="2.5" fill="#172554"/>
-  <rect x="12.5" y="14" width="7" height="15" rx="2.5" fill="#172554"/>
-  <rect x="22" y="9" width="7" height="20" rx="2.5" fill="#065f46"/>
-  <circle cx="25.5" cy="4.5" r="2.5" fill="#065f46"/>
+  <!-- The browser-tab icon: an app-style tile, the same as app/apple-icon.tsx. The mark is components/logo.tsx's, on a white rounded square with a hairline edge so the tile shows on a white tab too. A standalone file has no stylesheet, so the token colours are written out: logo-navy #172554, logo-green #065f46, border #e3e8e5. (No double hyphens: a comment may not contain them.) -->
+  <rect x="0.5" y="0.5" width="31" height="31" rx="7.5" fill="#ffffff" stroke="#e3e8e5"/>
+  <g transform="translate(5 5) scale(0.6875)">
+    <circle cx="16" cy="16" r="16" fill="#172554"/>
+    <path d="M1.9 23.57L11.43 16.05A2 2 0 0 1 13.68 15.89L17.9 18.36A2 2 0 0 0 20.27 18.1L30.31 8.84A16 16 0 0 1 1.9 23.57Z" fill="#065f46"/>
+  </g>
 </svg>

@@ -1,6 +1,7 @@
-// Settings: who you are in the demo, log out, and delete the demo account with all its data.
+// Settings: who you are in the demo (a demo account can change its display name), log out, and delete the demo
+// account with all its data.
 import { redirect } from 'next/navigation';
-import { DeleteAccount, LogOutButton } from '@/components/account-actions';
+import { DeleteAccount, DisplayNameForm, LogOutButton } from '@/components/account-actions';
 import { Avatar } from '@/components/avatar';
 import { currentVisitor } from '@/server/visitor';
 
@@ -17,6 +18,11 @@ export default async function Settings() {
           <p className="text-sm text-muted">{visitor.username ? `@${visitor.username}` : 'Demo persona (a private copy)'}</p>
         </div>
       </section>
+      {visitor.username && (
+        <section className="rounded-xl border border-line bg-surface p-5">
+          <DisplayNameForm current={visitor.displayName} />
+        </section>
+      )}
       <section className="space-y-3 rounded-xl border border-line bg-surface p-5">
         <h2 className="font-semibold">Session</h2>
         <LogOutButton className="flex min-h-11 items-center rounded-lg border border-line px-4 text-sm font-semibold hover:border-primary" />

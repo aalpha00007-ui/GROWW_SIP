@@ -21,6 +21,7 @@
     "eval": "tsx src/eval/cli.ts",
     "events": "tsx src/server/events-cli.ts",
     "test": "vitest run",
+    "e2e": "playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -31,6 +32,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.9",
+    "@playwright/test": "1.64.1",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "24.19.2",
     "@types/react": "19.3.0",

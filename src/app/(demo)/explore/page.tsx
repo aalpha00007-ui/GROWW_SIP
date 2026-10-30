@@ -24,7 +24,9 @@ export default async function Explore() {
   const [funds, investments] = await Promise.all([exploreFunds(db, visitor.id), investmentsView(db, visitor.id)]);
   const tools: { label: string; href: string; icon: IconName; pill?: string }[] = [
     { label: 'NFO live', href: '/soon/nfo', icon: 'nfo', pill: `${funds.nfos.length} open` },
-    { label: 'SIP calculator', href: '/soon/sip-calculator', icon: 'calculator' },
+    { label: 'SIP calculator', href: '/calculators/sip', icon: 'calculator' },
+    { label: 'Goal planner', href: '/calculators/goal', icon: 'calculator' },
+    { label: 'SWP calculator', href: '/calculators/swp', icon: 'calculator' },
     { label: 'Compare funds', href: '/soon/compare', icon: 'compare' },
     { label: 'Import funds', href: '/soon/import', icon: 'import' },
     { label: 'File tax', href: '/soon/tax', icon: 'tax' },

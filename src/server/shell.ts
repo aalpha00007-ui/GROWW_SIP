@@ -69,7 +69,7 @@ export async function shellData(db: Db, investorId: string, today: string): Prom
       ? { id: 'goal', title: 'Goal milestone', text: `${goal.name}: ${goal.paidLabel}.`, when: 'Earlier', href: '/dashboard#your-goals' }
       : { id: 'goal', title: 'Set a goal', text: 'Tell us what a SIP is for when you start it.', when: 'Earlier', href: '/explore' },
     { id: 'new', title: 'New: goals on your SIPs', text: 'When the market falls, we show your goal next to your SIP.', when: 'This week', href: '/dashboard' },
-    { id: 'welcome', title: 'Welcome to GROWW_SIP', text: 'A case-study prototype: demo money, made-up funds, no advice.', when: 'This week', href: '/help' },
+    { id: 'welcome', title: 'Welcome to the Groww prototype', text: 'A case-study prototype: demo money, made-up funds, no advice.', when: 'This week', href: '/help' },
   ];
 
   return {

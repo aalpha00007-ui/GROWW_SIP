@@ -1,5 +1,7 @@
 node_modules/
 .next/
+# Playwright's run output (npm run e2e).
+.e2e-results/
 
 # Keys stay out of Git (PRD §3.4): DATABASE_URL, MISTRAL_API_KEY and GROQ_API_KEY live here.
 .env

@@ -6,7 +6,7 @@ import './globals.css';
 const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-jakarta', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'GROWW_SIP · Case-study prototype',
+  title: 'Groww · Case-study prototype',
   description: 'A goal anchor and an AI check-in for first-year SIP investors. Not affiliated with Groww. Demo data. Not investment advice.',
 };
 

@@ -1,4 +1,4 @@
-// POST /api/auth/signup {displayName, username, pin, pinConfirm, agreed}: "Create demo account".
+// POST /api/auth/signup {username, pin}: "Create account" (step 2 of the modal for a new username).
 // No email, phone or real password, ever. Rate-limited per network.
 import { NextResponse } from 'next/server';
 import { getDb } from '@/db/pool';

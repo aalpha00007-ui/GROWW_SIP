@@ -125,6 +125,7 @@ function goalCard(id: number, group: GoalSip[], today: string): GoalCard {
     ? sum(group, ({ facts: f, stopped }) => f.invested + (stopped ? 0 : Math.max(0, (f.instalments_planned ?? 0) - f.instalments_paid - f.instalments_skipped) * f.amount))
     : null;
   const main = [...all].sort((a, b) => b.invested - a.invested || a.sip_id - b.sip_id)[0];
+  const change = changeOf(all);
 
   return {
     id,
@@ -136,9 +137,10 @@ function goalCard(id: number, group: GoalSip[], today: string): GoalCard {
     putIn: inr(sum(all, (f) => f.invested)),
     planned: plannedPutIn !== null ? inr(plannedPutIn) : null,
     value: inr(sum(all, (f) => f.current_value)),
-    change: changeOf(all),
+    change,
     sips: group.map(({ facts: f, stopped }) => ({ id: f.sip_id, label: `${f.fund_name} · ${stopped ? 'stopped' : `${inr(f.amount)} a month`}` })),
-    dipSipId: main.invested > 0 ? main.sip_id : null,
+    // Only a goal that is down has a dip to explain.
+    dipSipId: change?.direction === 'down' ? main.sip_id : null,
   };
 }
 

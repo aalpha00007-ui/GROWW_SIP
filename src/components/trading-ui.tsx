@@ -70,6 +70,16 @@ export function Rating({ rating, level }: { rating: string; level: keyof typeof 
   );
 }
 
+/** An empty Holdings, Positions, Orders or Watchlist: what a new demo account sees. */
+export function NoRows({ title }: { title: string }) {
+  return (
+    <div className="rounded-xl border border-line bg-surface p-5 text-center">
+      <p className="font-medium text-strong">{title}</p>
+      <p className="mt-1 text-sm text-muted">{DEMO_ONLY}</p>
+    </div>
+  );
+}
+
 /** A table that scrolls sideways inside its card on phones; the page never does. */
 export function DataTable({ head, rows, note }: { head: { label: string; right?: boolean }[]; rows: React.ReactNode[][]; note?: string }) {
   return (

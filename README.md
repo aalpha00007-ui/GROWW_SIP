@@ -4,7 +4,7 @@ Case-study prototype · Not affiliated with Groww · Demo data · Not investment
 
 A goal anchor and an AI check-in ("Before you stop") for first-year SIP investors. See `Docs/PRD.md` and `Docs/architecture.md`.
 
-**Status (28 Oct 2026):** the backend is built and tested: data loading, chunking, retrieval and the eval (architecture phases 1-6). The Next.js screens and API routes come next (`src/app/` holds placeholders).
+**Status (30 Oct 2026):** the prototype runs end to end: the landing page, demo accounts and personas, Mutual Funds (Explore, Dashboard, SIPs, the fund page with the goal step), the dip explainer and "Before you stop", display-only Stocks and F&O, public calculators and Learn pages, and /quality. The backend phases 1-6 are below.
 
 ## Run the app
 
@@ -12,16 +12,13 @@ A goal anchor and an AI check-in ("Before you stop") for first-year SIP investor
 npm run dev            # http://localhost:3000, with DATABASE_URL, MISTRAL_API_KEY and GROQ_API_KEY in .env or .env.local
 npm run build          # production build (Render runs this)
 npm start              # serve the production build
+npm run e2e            # browser tests (Playwright, installed Chrome) against a running app; E2E_BASE_URL to point elsewhere
 ```
 
-The welcome screen asks for the tick box "Facts only. No investment advice." and a demo investor (PRD F1). Starting copies that persona into a fresh investor. The httpOnly cookie `groww_sip_demo_id` then points every page at that copy, so testers never share data.
-
-Built so far:
-- the welcome screen
-- the app shell: a bottom tab bar on phones and a top bar from 1024 px
-- `POST /api/demo/start`.
-
-The tab pages are placeholders until their build step.
+- **Landing page (`/`, PRD F1):** one tap on Kabir, Riya or Arjun copies that persona into a fresh investor, so testers never share data. The other personas (Meera, Sana, Vikram, Dev) stay in the seed for tests and evals. The tick box "Facts only. No investment advice." was removed on 30 Oct 2026 at the product owner's request; the yellow banner on every page and the line under the demo cards carry the disclaimer.
+- **Demo accounts:** a made-up username, then a 4-digit demo PIN (stored as a salted scrypt hash; 5 wrong PINs lock it for 5 minutes; 5 sign-ups an hour per network; 20 username checks every 10 minutes per network). PINs can't be reset. A new account starts with no SIPs, holdings, orders or watchlist.
+- **Sign-in:** an httpOnly cookie `groww_sip_session` holds a random token for 7 days; only its SHA-256 is stored.
+- **Public pages, no login:** the header's More menu opens the calculators (`/calculators/sip`, `/goal`, `/swp`), `/about/ai`, `/about` and `/learn/sip-basics`. Everything else sits in the `(demo)` route group, whose layout sends a signed-out visitor to `/`.
 
 ## Phase 1 · data loading
 
@@ -105,7 +102,7 @@ groww-sip-mvp/
 │   └── architecture.md
 ├── data/                      Data only, by pipeline phase (see data/README.md)
 │   ├── raw/                   Phase 1 · data loading
-│   │   ├── personas/          Riya, Arjun, Meera seed templates
+│   │   ├── personas/          seven persona seed templates (Kabir, Riya, Arjun on the landing page)
 │   │   ├── market/            made-up funds, NAVs, assets, prices, IPOs
 │   │   ├── explainers/        stop, skip, pause, lower amount
 │   │   └── guardrails/        advice-phrase list (EN, HI, Hinglish)
@@ -117,12 +114,15 @@ groww-sip-mvp/
 │       └── cases/             16 safety and routing cases (s01–s16)
 └── src/                       Code only
     ├── app/                   Next.js pages and server API routes
+    │   ├── (demo)/            the signed-in app: Mutual Funds, Stocks, F&O, settings
+    │   ├── (public)/          calculators and Learn pages, no login
     │   ├── api/
-    │   │   ├── checkin/       Before you stop (F7), dip explainer (F6)
+    │   │   ├── ai/            Before you stop (F7), dip explainer (F6)
+    │   │   ├── auth/          username check, sign-up, log-in, log-out
     │   │   ├── sips/          SIP controls (F5)
     │   │   └── quality/       quality data (F11)
     │   └── quality/           /quality page (F11)
-    ├── components/            goal card, quality strip, answer, fallback and declined cards
+    ├── components/            header, More menu, sign-up modal, goal card, check-in cards, calculators
     ├── pipeline/
     │   ├── loading/           Phase 1 · seed, per-visitor copy, demo market fall
     │   ├── chunking/          Phase 2 · explainers from data/raw to data/chunks
@@ -130,5 +130,6 @@ groww-sip-mvp/
     ├── llm/                   Groq and Mistral clients (server only)
     ├── db/                    Postgres client, schema, migrations
     ├── eval/                  Phase 6 · eval runner (golden set + 16 cases)
+    ├── e2e/                   browser tests: the More menu, a new account starting clean
     └── tests/                 Phase 6 · API tests
 ```

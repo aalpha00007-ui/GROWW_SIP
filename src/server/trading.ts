@@ -1,6 +1,7 @@
 // Stocks and F&O (brief phase 5): display-only pages. Stock prices are the made-up stocks' demo prices in
 // asset_prices; bonds, sample holdings, positions, orders and F&O contracts come from raw/market/trading.json.
 // Candles come from a fixed seed, so they look the same on every load. Nothing here can be bought or sold.
+// The sample trades and watchlist belong to the demo personas only: a new demo account starts empty.
 import type { Db } from '../db/client';
 import { dayMonthYear, monthsBetween, monthYear } from '../pipeline/chunking/format';
 import { addDays } from '../pipeline/loading/dates';
@@ -75,8 +76,16 @@ export async function stocksExplore(db: Db, today: string) {
   };
 }
 
-/** Stocks -> Holdings, Positions, Orders and Watchlist: sample rows, priced from the demo prices. */
-export async function stockTables(db: Db, today: string) {
+/**
+ * Whose Holdings, Positions, Orders and Watchlist show the sample rows: a demo persona (Riya, Arjun...) is a
+ * made-up person with a history, so the samples stand in for it. A new demo account (it has a username) starts
+ * with none: it never traded or added a stock to watch.
+ */
+export const showsSampleRows = (visitor: { username: string | null }) => visitor.username === null;
+
+/** Stocks -> Holdings, Positions, Orders and Watchlist, priced from the demo prices. Without `samples`, all empty. */
+export async function stockTables(db: Db, today: string, samples: boolean) {
+  if (!samples) return { holdings: [], positions: [], orders: [], watchlist: [] };
   const q = await quotes(db);
   const t = loadTrading(loadMarket());
   const quote = (symbol: string) => q.get(symbol)!;
@@ -157,11 +166,11 @@ export async function foExplore(db: Db) {
   };
 }
 
-/** F&O -> Orders: sample orders, none of which became a position. */
-export function foOrders(today: string) {
+/** F&O -> Orders: sample orders, none of which became a position. Without `samples`, none. */
+export function foOrders(today: string, samples: boolean) {
   const t = loadTrading(loadMarket());
   const all = [...t.fo_top_traded.equity, ...t.fo_top_traded.commodities];
-  return t.fo_orders.map((o) => ({
+  return (samples ? t.fo_orders : []).map((o) => ({
     date: dayMonthYear(addDays(today, -o.days_ago)),
     contract: o.contract,
     side: o.side === 'buy' ? 'Buy' : 'Sell',

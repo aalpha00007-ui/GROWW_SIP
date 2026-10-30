@@ -1,5 +1,6 @@
 'use client';
-// Log out, and "Delete my demo account" (two taps: it deletes the account and all its data).
+// Log out, the display name of a demo account, and "Delete my demo account" (two taps: it deletes the account
+// and all its data).
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { postJson } from './post-json';
@@ -61,5 +62,49 @@ export function DeleteAccount({ isAccount }: { isAccount: boolean }) {
       )}
       {error && <p className="rounded-lg bg-loss-soft px-3 py-2 text-sm text-loss-strong">{error}</p>}
     </div>
+  );
+}
+
+/** A demo account's display name. It starts as the username; no real name needed. */
+export function DisplayNameForm({ current }: { current: string }) {
+  const router = useRouter();
+  const [name, setName] = useState(current);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    const result = await postJson('/api/account/name', { displayName: name });
+    setBusy(false);
+    setMessage(result.ok ? { ok: true, text: 'Saved.' } : { ok: false, text: result.error });
+    if (result.ok) router.refresh();
+  }
+
+  return (
+    <form onSubmit={save} className="space-y-2">
+      <label htmlFor="display-name" className="block text-sm font-semibold text-strong">
+        Display name
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <input
+          id="display-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={20}
+          autoComplete="off"
+          className="min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-surface px-3"
+        />
+        <button type="submit" disabled={busy || name.trim() === current} className="flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60">
+          {busy ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+      <p className="text-xs text-muted">Doesn&apos;t need to be your real name.</p>
+      {message && (
+        <p role={message.ok ? 'status' : 'alert'} className={message.ok ? 'text-sm text-primary' : 'rounded-lg bg-loss-soft px-3 py-2 text-sm text-loss-strong'}>
+          {message.text}
+        </p>
+      )}
+    </form>
   );
 }

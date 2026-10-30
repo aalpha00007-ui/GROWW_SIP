@@ -68,10 +68,10 @@ Ten of the 13 features are P0: the stop flow and its checks, the goal anchor, an
 
 | # | Feature | What the investor sees | Priority |
 | --- | --- | --- | --- |
-| F1 | Welcome and disclaimers | Picks a demo investor (Riya, Arjun or Meera) and ticks "Facts only. No investment advice." before starting; a disclaimer banner on every page | P0 |
+| F1 | Welcome and disclaimers | Picks a demo investor (Kabir, Riya or Arjun) and starts with one tap; a disclaimer banner on every page. *Changed 30 Oct 2026 by the product owner: the "Facts only. No investment advice." tick box was removed; the banner and the "not investment advice" line under the demos carry the disclaimer.* | P0 |
 | F2 | Goal in the SIP box | Optional "What is this money for?" and "By when?" above Start SIP, with a line showing what they will put in, never what it will be worth | P0 |
 | F3 | Goal prompt after Start SIP | If F2 was skipped, the success screen asks once, with Save goal and Maybe later | P1 |
-| F4 | Home goal card | Goal, target month, instalments paid of planned, put in, value today and change, plus "What does this dip mean for my goal?" | P0 |
+| F4 | Home goal card | Goal, target month, instalments paid of planned, put in, value today and change, plus "What does this dip mean for my goal?" while the goal is down | P0 |
 | F5 | SIP page goal header and controls | "This SIP is for…" header; Skip next, Change amount, Change date, Step-up and Pause; Stop SIP as a text link | P1 |
 | F6 | Dip explainer | One tap explains the dip using their months, amount, worst fall, goal and time to go | P1 |
 | F7 | Before you stop | Goal recalled; reason chips or free text in any language; "What I understood", the facts, and Skip, Lower, Pause, Keep my SIP, Stop anyway | P0 |

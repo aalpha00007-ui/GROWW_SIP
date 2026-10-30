@@ -54,7 +54,7 @@ export function GoalCard({ goal }: { goal: Card }) {
         ))}
       </ul>
 
-      {/* No dip to explain before anything is put in. */}
+      {/* Only a goal that is down has a dip to explain. */}
       {goal.dipSipId !== null && (
         <Link
           href={`/sips/${goal.dipSipId}?explain=dip`}

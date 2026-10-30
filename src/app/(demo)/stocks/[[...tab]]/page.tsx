@@ -1,6 +1,7 @@
 // Stocks (brief phase 5), display only. Explore in two columns after the layout reference: Popular stocks and
 // Popular bonds on the left; Your investments (empty) and Products & Tools on the right. Holdings, Positions,
-// Orders and Watchlist are sample tables. Every company, bond and price is made up; Buy and Sell do nothing.
+// Orders and Watchlist are sample tables; a new demo account's are empty. Every company, bond and price is made
+// up; Buy and Sell do nothing.
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Initials } from '@/components/fund-rows';
@@ -8,15 +9,22 @@ import { Icon, type IconName } from '@/components/icons';
 import { EmptyInvestments } from '@/components/investments-card';
 import { SectionTitle } from '@/components/section-title';
 import { Signed } from '@/components/signed';
-import { DataTable, DEMO_ONLY, DemoTrade, Rating } from '@/components/trading-ui';
+import { DataTable, DEMO_ONLY, DemoTrade, NoRows, Rating } from '@/components/trading-ui';
 import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
-import { stocksExplore, stockTables } from '@/server/trading';
+import { showsSampleRows, stocksExplore, stockTables } from '@/server/trading';
 import { currentVisitor } from '@/server/visitor';
 
 const CARD = 'rounded-xl border border-line bg-surface p-5';
 const SAMPLE = 'Sample rows to show the layout: made-up stocks, not yours. Stocks are display only in this prototype.';
 const TITLES: Record<string, string> = { holdings: 'Holdings', positions: 'Positions', orders: 'Orders', watchlist: 'Watchlist' };
+/** What a new demo account sees instead of the sample rows. */
+const EMPTY: Record<string, string> = {
+  holdings: 'No stock holdings yet',
+  positions: 'No open positions',
+  orders: 'No stock orders yet',
+  watchlist: 'Your watchlist is empty',
+};
 
 export default async function Stocks({ params }: { params: Promise<{ tab?: string[] }> }) {
   const visitor = await currentVisitor();
@@ -26,10 +34,11 @@ export default async function Stocks({ params }: { params: Promise<{ tab?: strin
   if (tab && (tab.length > 1 || !TITLES[section!])) notFound();
   const db = getDb();
   const today = todayInIndia();
-  return section ? <StockTable db={db} today={today} section={section} /> : <Explore db={db} today={today} />;
+  const samples = showsSampleRows(visitor);
+  return section ? <StockTable db={db} today={today} section={section} samples={samples} /> : <Explore db={db} today={today} samples={samples} />;
 }
 
-async function Explore({ db, today }: { db: ReturnType<typeof getDb>; today: string }) {
+async function Explore({ db, today, samples }: { db: ReturnType<typeof getDb>; today: string; samples: boolean }) {
   const data = await stocksExplore(db, today);
   const tools: { label: string; href: string; icon: IconName; pill?: string }[] = [
     { label: 'IPO', href: '/soon/ipo', icon: 'ipo', pill: `${data.openIpos} open` },
@@ -44,7 +53,8 @@ async function Explore({ db, today }: { db: ReturnType<typeof getDb>; today: str
     <div className="grid gap-8 lg:grid-cols-[minmax(0,65fr)_minmax(0,35fr)] lg:items-start">
       <div className="@container space-y-8">
         <section>
-          <SectionTitle title="Popular stocks" link={{ label: 'See more', href: '/stocks/watchlist' }} />
+          {/* "See more" opens the watchlist, which a new demo account starts without. */}
+          <SectionTitle title="Popular stocks" link={samples ? { label: 'See more', href: '/stocks/watchlist' } : undefined} />
           <ul className="grid grid-cols-2 gap-4 @2xl:grid-cols-4">
             {data.popular.map((s) => (
               <li key={s.symbol} className={`${CARD} flex flex-col`}>
@@ -129,8 +139,8 @@ async function Explore({ db, today }: { db: ReturnType<typeof getDb>; today: str
   );
 }
 
-async function StockTable({ db, today, section }: { db: ReturnType<typeof getDb>; today: string; section: string }) {
-  const t = await stockTables(db, today);
+async function StockTable({ db, today, section, samples }: { db: ReturnType<typeof getDb>; today: string; section: string; samples: boolean }) {
+  const t = await stockTables(db, today, samples);
   const name = (n: string, symbol: string) => (
     <span>
       <span className="block font-medium text-strong">{n}</span>
@@ -174,7 +184,7 @@ async function StockTable({ db, today, section }: { db: ReturnType<typeof getDb>
   return (
     <div className="mx-auto max-w-5xl space-y-4">
       <h1 className="text-2xl font-bold">{TITLES[section]}</h1>
-      {tables[section as keyof typeof tables]()}
+      {t[section as keyof typeof t].length === 0 ? <NoRows title={EMPTY[section]} /> : tables[section as keyof typeof tables]()}
     </div>
   );
 }

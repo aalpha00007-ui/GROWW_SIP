@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import type { Db } from '../db/client';
 import { loadMarket, loadTrading } from '../pipeline/loading/raw';
 import { setupDatabase } from '../pipeline/loading/seed';
-import { foExplore, foOrders, stocksExplore, stockTables } from '../server/trading';
+import { foExplore, foOrders, showsSampleRows, stocksExplore, stockTables } from '../server/trading';
 import { pgliteDb } from './pglite-db';
 
 const TODAY = '2026-10-27';
@@ -26,7 +26,7 @@ describe('Stocks (display only)', () => {
   });
 
   it('prices the sample holdings, positions, orders and watchlist from the demo prices', async () => {
-    const t = await stockTables(db, TODAY);
+    const t = await stockTables(db, TODAY, true);
     for (const rows of [t.holdings, t.positions, t.orders, t.watchlist]) {
       expect(rows.length).toBeGreaterThanOrEqual(6);
       expect(rows.length).toBeLessThanOrEqual(8);
@@ -38,6 +38,14 @@ describe('Stocks (display only)', () => {
     expect(t.positions.find((p) => p.symbol === 'TDWK')?.pnl.startsWith('+')).toBe(true);
     expect(t.orders[0]).toMatchObject({ date: '27 Oct 2026', side: 'Buy', status: 'Executed' });
     expect(t.watchlist.map((w) => w.kind)).toEqual(['Stock', 'Stock', 'Stock', 'Stock', 'ETF', 'ETF', 'ETF', 'ETF']);
+  });
+
+  it('gives a new demo account no sample rows: its Holdings, Positions, Orders and Watchlist start empty', async () => {
+    expect(showsSampleRows({ username: 'calm-tiger-12' })).toBe(false);
+    expect(showsSampleRows({ username: null })).toBe(true);
+    const t = await stockTables(db, TODAY, false);
+    expect([t.holdings, t.positions, t.orders, t.watchlist]).toEqual([[], [], [], []]);
+    expect(foOrders(TODAY, false)).toEqual([]);
   });
 });
 
@@ -59,7 +67,7 @@ describe('F&O (display only)', () => {
   });
 
   it('lists 6 sample orders that never filled', () => {
-    const orders = foOrders(TODAY);
+    const orders = foOrders(TODAY, true);
     expect(orders).toHaveLength(6);
     expect(orders.every((o) => ['Cancelled', 'Rejected', 'Expired'].includes(o.status))).toBe(true);
     expect(orders[0]).toEqual({ date: '27 Oct 2026', contract: 'Nifty 50 Futures', side: 'Buy', lots: '1 lot', price: '₹24,850.00', status: 'Cancelled' });

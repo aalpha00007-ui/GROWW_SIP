@@ -13,8 +13,8 @@
   --text: #1f4a3c; /* body text */
   --text-muted: #4f6f63; /* secondary text, captions, helper text */
   --blue: #1e3a8a; /* secondary accents */
-  --logo-navy: #172554; /* logo bars 1 and 2 */
-  --logo-green: #065f46; /* logo bar 3 and the dot */
+  --logo-navy: #172554; /* logo circle, above the zig-zag */
+  --logo-green: #065f46; /* logo, below the zig-zag */
   --avatar: #111111; /* the profile avatar, the same for every persona */
   --hover-neutral: #f2f2f2; /* hover behind the avatar */
   --gain: #0b7a4b; /* positive values */
@@ -25,6 +25,9 @@
   --border: #e3e8e5;
   --surface: #ffffff;
   --page: #f7f9f8;
+  --road: #eef1f4; /* roads on the landing page's goal map */
+  /* The calculators' "Invested" line, beside --primary's value line (checked for colour-blind separation). */
+  --chart-invested: #4a74d9;
   /* The demo amber, unchanged: the top banner, the Prototype badge and demo-only notes. */
   --accent: #d97706;
   --accent-tint: #fef3c7;
@@ -50,6 +53,8 @@
   --color-line: var(--border);
   --color-surface: var(--surface);
   --color-page: var(--page);
+  --color-road: var(--road);
+  --color-chart-invested: var(--chart-invested);
   --color-accent: var(--accent);
   --color-accent-tint: var(--accent-tint);
   --color-accent-ink: var(--accent-ink);

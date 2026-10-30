@@ -23,7 +23,7 @@ describe('the app shell', () => {
   });
 
   it('gives a new account six notifications, no cart, and funds and stocks to search', async () => {
-    const account = await signUp(db, { displayName: 'Asha', username: 'shell-otter-1', pin: '1357', pinConfirm: '1357', agreed: true }, 'shell-ip');
+    const account = await signUp(db, { username: 'shell-otter-1', pin: '1357' }, 'shell-ip');
     if (account.status !== 200) throw new Error(account.error);
     const shell = await shellData(db, account.investorId, TODAY);
     expect(shell.balance).toBe('₹1,00,000');
@@ -37,7 +37,7 @@ describe('the app shell', () => {
   it("tells Riya about her next instalment and her goal's progress", async () => {
     const shell = await shellData(db, await clonePersona(db, 'riya'), TODAY);
     expect(shell.notifications.map((n) => n.title)).toEqual([
-      'Instalment due', 'Try a market fall', 'Instalment paid', 'Goal milestone', 'New: goals on your SIPs', 'Welcome to GROWW_SIP',
+      'Instalment due', 'Try a market fall', 'Instalment paid', 'Goal milestone', 'New: goals on your SIPs', 'Welcome to the Groww prototype',
     ]);
     expect(shell.notifications[0].text).toBe('₹2,000 for Banyan Flexi Cap Fund on 2 Nov 2026.');
     expect(shell.notifications[3].text).toBe('Home down payment: 7 of 60 instalments paid.');

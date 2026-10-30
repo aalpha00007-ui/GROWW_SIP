@@ -1,6 +1,7 @@
 // F&O (brief phase 5), display only. Explore after the layout reference: Top traded (Equity / Commodities, with
 // candles) and F&O stocks on the left; Positions (F&O returns ₹0.00) and Products & tools on the right.
-// Positions is empty and Orders lists sample orders that never filled. Every contract and price is made up.
+// Positions is empty and Orders lists sample orders that never filled (a new demo account has none). Every
+// contract and price is made up.
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { FoTopTraded } from '@/components/fo-top-traded';
@@ -8,10 +9,10 @@ import { Initials } from '@/components/fund-rows';
 import { Icon, type IconName } from '@/components/icons';
 import { SectionTitle } from '@/components/section-title';
 import { Signed } from '@/components/signed';
-import { DataTable, DEMO_ONLY, DemoTrade } from '@/components/trading-ui';
+import { DataTable, DEMO_ONLY, DemoTrade, NoRows } from '@/components/trading-ui';
 import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
-import { foExplore, foOrders } from '@/server/trading';
+import { foExplore, foOrders, showsSampleRows } from '@/server/trading';
 import { initials } from '@/server/funds';
 import { currentVisitor } from '@/server/visitor';
 
@@ -36,26 +37,30 @@ export default async function FutureAndOptions({ params }: { params: Promise<{ t
     );
   }
   if (section === 'orders') {
-    const orders = foOrders(todayInIndia());
+    const orders = foOrders(todayInIndia(), showsSampleRows(visitor));
     return (
       <div className="mx-auto max-w-5xl space-y-4">
         <h1 className="text-2xl font-bold">Orders</h1>
-        <DataTable
-          head={[{ label: 'Date' }, { label: 'Contract' }, { label: 'Side' }, { label: 'Lots', right: true }, { label: 'Price', right: true }, { label: 'Status', right: true }]}
-          rows={orders.map((o) => [
-            o.date,
-            <span key="c" className="font-medium text-strong">
-              {o.contract}
-            </span>,
-            o.side,
-            o.lots,
-            o.price,
-            <span key="s" className={`rounded-full px-2 py-0.5 text-xs font-semibold ${o.status === 'Rejected' ? 'bg-loss-soft text-loss-strong' : 'bg-page text-muted'}`}>
-              {o.status}
-            </span>,
-          ])}
-          note="Sample orders to show the layout: made-up contracts, none of them filled. F&O is display only in this prototype."
-        />
+        {orders.length === 0 ? (
+          <NoRows title="No F&amp;O orders yet" />
+        ) : (
+          <DataTable
+            head={[{ label: 'Date' }, { label: 'Contract' }, { label: 'Side' }, { label: 'Lots', right: true }, { label: 'Price', right: true }, { label: 'Status', right: true }]}
+            rows={orders.map((o) => [
+              o.date,
+              <span key="c" className="font-medium text-strong">
+                {o.contract}
+              </span>,
+              o.side,
+              o.lots,
+              o.price,
+              <span key="s" className={`rounded-full px-2 py-0.5 text-xs font-semibold ${o.status === 'Rejected' ? 'bg-loss-soft text-loss-strong' : 'bg-page text-muted'}`}>
+                {o.status}
+              </span>,
+            ])}
+            note="Sample orders to show the layout: made-up contracts, none of them filled. F&O is display only in this prototype."
+          />
+        )}
       </div>
     );
   }

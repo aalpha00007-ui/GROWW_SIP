@@ -181,8 +181,10 @@ describe('Start SIP (PRD F2)', () => {
     expect(sip.history[0]).toMatchObject({ date: '27 Oct 2026', label: 'Paid' });
 
     const card = (await homeView(db, visitor, TODAY)).goals.find((g) => g.name === "Child's education");
-    expect(card).toMatchObject({ paidLabel: '1 of 60 instalments paid', putIn: '₹2,000', planned: '₹1,20,000', dipSipId: started.id });
-    expect(sip.explainDip).toBe(true);
+    expect(card).toMatchObject({ paidLabel: '1 of 60 instalments paid', putIn: '₹2,000', planned: '₹1,20,000' });
+    // Worth what was put in, so no dip to explain yet.
+    expect(card?.dipSipId).toBeNull();
+    expect(sip.explainDip).toBe(false);
   });
 
   it('starts a SIP with no goal, and Home counts it as one with no goal yet', async () => {
