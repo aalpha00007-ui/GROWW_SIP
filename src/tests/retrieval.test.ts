@@ -7,6 +7,7 @@ import { clonePersona } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
 import { stripMarkdown } from '../pipeline/retrieval/ai';
 import { DECLINED_TEXT, FALLBACK_TEXT, recordChoice, runCheckIn, type CheckInResult } from '../pipeline/retrieval/checkin';
+import { runChecks } from '../pipeline/retrieval/checks';
 import { decideRoute } from '../pipeline/retrieval/decide';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
 import { findPii, PII_MESSAGE } from '../pipeline/retrieval/pii';
@@ -283,6 +284,13 @@ describe('the full check-in (steps 4-9)', () => {
     expect(r).toMatchObject({ outcome: 'answer', checks: { grounded: true } });
     const invented = ok(await ask(fakeLlm(understood(), { text: groundedAnswer.replace('Rs 14,000', 'Rs 15000') }), 'Markets are down'));
     expect(invented.checks).toMatchObject({ grounded: false, ungrounded: ['Rs 15000'] });
+  });
+
+  it('reads "a fall of 6%" as the facts\' "-6.0%", but still catches 6.5%', () => {
+    const facts = ['-6.0%', 'Rs 3,000'];
+    expect(runChecks('A fall of 6% on Rs 3,000. This is not investment advice.', facts, []).ungrounded).toEqual([]);
+    expect(runChecks('A fall of 6.5% on Rs 3,000. This is not investment advice.', facts, []).ungrounded).toEqual(['6.5%']);
+    expect(runChecks('A fall of 60% on Rs 3,000. This is not investment advice.', facts, []).ungrounded).toEqual(['60%']);
   });
 
   it('runs the dip explainer on route doubt with no understanding call', async () => {

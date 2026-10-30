@@ -1,17 +1,21 @@
-// Mutual Funds -> Cart: what was saved from the order card. Each item opens its fund to start it.
+// Mutual Funds -> Cart: what was saved from the order card. Start SIP goes through the same goal step as
+// the fund page; Invest pays a one-time item from the demo balance.
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { CartCheckout } from '@/components/cart-checkout';
 import { CartRemove } from '@/components/cart-remove';
 import { Initials } from '@/components/fund-rows';
 import { getDb } from '@/db/pool';
+import { todayInIndia } from '@/pipeline/loading/dates';
 import { cartView } from '@/server/cart';
-import { initials } from '@/server/funds';
+import { goalStepOptions, initials } from '@/server/funds';
 import { currentVisitor } from '@/server/visitor';
 
 export default async function Cart() {
   const visitor = await currentVisitor();
   if (!visitor) redirect('/');
   const cart = await cartView(getDb(), visitor.id);
+  const options = goalStepOptions(todayInIndia());
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -27,16 +31,12 @@ export default async function Cart() {
                     {item.fund}
                   </Link>
                   <p className="text-sm text-muted">{item.label}</p>
+                  {item.goal && <p className="text-sm font-medium text-primary">{item.goal.text}</p>}
                 </div>
                 <p className="tabular font-semibold text-strong">{item.amount}</p>
-                <div className="flex w-full gap-2 sm:w-auto">
+                <div className="flex w-full flex-wrap gap-2 sm:w-auto">
                   <CartRemove id={item.id} />
-                  <Link
-                    href={`/fund/${item.fundId}`}
-                    className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover sm:flex-none"
-                  >
-                    {item.kind === 'sip' ? 'Start SIP' : 'Invest'}
-                  </Link>
+                  <CartCheckout item={item} options={options} />
                 </div>
               </li>
             ))}

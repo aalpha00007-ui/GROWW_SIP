@@ -6,7 +6,7 @@ import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
 import { idParam } from '@/server/api';
 import { loadSip } from '@/server/sip';
-import { goalOptions } from '@/server/sip-actions';
+import { goalKey, goalOptions } from '@/server/sip-actions';
 import { currentVisitor } from '@/server/visitor';
 
 export default async function GoalPage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,7 +17,7 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
   if (!sip) notFound();
   const goal = sip.facts.goal;
   const targetMonth = goal?.target_month?.slice(0, 7) ?? null;
-  const current = goal && sip.goalKind ? { kind: sip.goalKind, name: goal.name, targetMonth } : null;
+  const current = goal && sip.goalKind ? { kind: goalKey(sip.goalKind, goal.name), name: goal.name, targetMonth } : null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">

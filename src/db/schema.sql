@@ -50,6 +50,8 @@ CREATE TABLE IF NOT EXISTS goals (
   target_month date NULL,
   created_at   timestamptz NOT NULL DEFAULT now()
 );
+-- The goal step's optional target amount (whole rupees). Shown to the investor only; the AI's facts leave it out.
+ALTER TABLE goals ADD COLUMN IF NOT EXISTS target_amount bigint NULL CHECK (target_amount > 0);
 
 CREATE TABLE IF NOT EXISTS sips (
   id           serial PRIMARY KEY,

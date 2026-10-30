@@ -29,9 +29,9 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
   if (!sip) return { status: 'not_found' };
 
   const [paid] = (
-    await db.query<{ count: number; invested: number; units: string; first_due: string | null; due_dates: string[] | null }>(
+    await db.query<{ count: number; invested: number; units: string; first_paid: string | null; due_dates: string[] | null }>(
       `SELECT count(*)::int AS count, coalesce(sum(amount), 0)::int AS invested, coalesce(sum(units), 0)::text AS units,
-         min(due_on)::text AS first_due, array_agg(due_on::text) AS due_dates
+         min(paid_on)::text AS first_paid, array_agg(due_on::text) AS due_dates
        FROM instalments WHERE sip_id = $1 AND paid_on IS NOT NULL`,
       [sipId],
     )
@@ -54,14 +54,15 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
   if (!latest) throw new Error(`No NAV history for fund ${sip.fund_id}. Run npm run db:setup.`);
 
   let worstFall: number | null = null;
-  if (paid.count > 0 && paid.first_due) {
+  // From the first payment: a new SIP pays its first instalment at once, before its first due date.
+  if (paid.count > 0 && paid.first_paid) {
     const [row] = (
       await db.query<{ worst: string | null }>(
         `SELECT round(min(nav / peak - 1) * 100, 1)::text AS worst FROM (
            SELECT nav, max(nav) OVER (ORDER BY nav_date) AS peak FROM visible_nav_history($1)
            WHERE fund_id = $2 AND nav_date >= $3
          ) t`,
-        [investorId, sip.fund_id, paid.first_due],
+        [investorId, sip.fund_id, paid.first_paid],
       )
     ).rows;
     worstFall = row.worst === null ? null : Number(row.worst);
@@ -75,7 +76,7 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
     nextDue = firstDue;
     while (nextDue < today || handled.has(nextDue)) nextDue = addMonths(nextDue, 1);
   }
-  const monthsInvested = paid.count > 0 ? Math.max(0, monthsBetween(firstDue, today) + 1) : 0;
+  const monthsInvested = paid.count > 0 ? Math.max(0, monthsBetween(paid.first_paid!, today) + 1) : 0;
   const planned = sip.target_month
     ? monthlyDueDates(sip.started_on, sip.day_of_month, addDays(addMonths(monthStart(sip.target_month), 1), -1)).length
     : null;

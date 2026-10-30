@@ -1,11 +1,12 @@
 'use client';
 // The fund page's order card, after the layout reference: Monthly SIP or One-time, a big ₹ amount with
-// quick-add chips, the SIP date, how it is paid, the goal row, then Add to cart and Start SIP. Demo orders:
-// no real money moves. Start SIP works without a goal; nothing is preselected.
+// quick-add chips, the SIP date, how it is paid, the NEW goal row, then Add to cart and Start SIP. Start SIP
+// with no goal opens the goal step (brief phase 4), where skipping is one tap. Demo orders: no real money.
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { goalBody, GoalPicker, type GoalChoice, type GoalOptions } from './goal-picker';
+import { useState } from 'react';
+import { EMPTY_GOAL, goalApiBody, goalLabel, GoalStep, type GoalDraft, type GoalStepOptions } from './goal-step';
+import { Icon } from './icons';
 import { postJson } from './post-json';
 
 export interface OrderCardProps {
@@ -19,43 +20,26 @@ export interface OrderCardProps {
   defaultDay: number;
   mandate: string;
   balance: string;
-  goalOptions: GoalOptions;
+  goalStep: GoalStepOptions;
+  showGoalTip: boolean;
 }
 
 type Mode = 'sip' | 'once';
 
-export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAmount, quickAdd, days, defaultDay, mandate, balance, goalOptions }: OrderCardProps) {
+export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAmount, quickAdd, days, defaultDay, mandate, balance, goalStep, showGoalTip }: OrderCardProps) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('sip');
   const [amount, setAmount] = useState(String(defaultAmount));
   const [day, setDay] = useState(defaultDay);
-  const [goal, setGoal] = useState<GoalChoice>({ kind: null, name: '', target: null });
-  const [line, setLine] = useState<string | null>(null);
+  const [goal, setGoal] = useState<GoalDraft | null>(null);
+  const [step, setStep] = useState<'start' | 'edit' | null>(null);
+  const [tip, setTip] = useState(showGoalTip);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean; cart?: boolean } | null>(null);
+  const [stepError, setStepError] = useState<string | null>(null);
 
   const value = Number(amount);
   const amountOk = Number.isInteger(value) && value >= minAmount && value <= maxAmount;
-  const hasGoal = mode === 'sip' && goal.kind !== null && goal.kind !== 'none';
-
-  // The live goal line comes from the server, which does the counting (spec §5).
-  useEffect(() => {
-    if (!hasGoal || !goal.target || !amountOk) {
-      setLine(null);
-      return;
-    }
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      const query = new URLSearchParams({ fundId: String(fundId), amount: String(value), day: String(day), targetMonth: goal.target! });
-      const response = await fetch(`/api/goal-preview?${query}`, { signal: controller.signal }).catch(() => null);
-      const body = (await response?.json().catch(() => null)) as { line?: string; error?: string } | null;
-      setLine(body?.line ?? body?.error ?? null);
-    }, 250);
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [fundId, value, day, goal.target, hasGoal, amountOk]);
 
   function checkAmount(): boolean {
     if (amountOk) return true;
@@ -63,33 +47,74 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
     return false;
   }
 
-  async function start() {
-    if (!checkAmount()) return;
+  function closeTip() {
+    setTip(false);
+    void postJson('/api/events', { event: 'goal_tooltip_dismissed' });
+  }
+
+  /** Starts the SIP; from the goal step, errors show in the panel. */
+  async function startSip(withGoal: GoalDraft | null, goalStepChoice: 'saved' | 'skipped') {
     setBusy(true);
+    setStepError(null);
     setMessage(null);
-    if (mode === 'sip') {
-      const result = await postJson<{ id: number }>('/api/sips', { fundId, amount: value, frequency: 'monthly', day, goal: goalBody(goal) });
-      if (result.ok) {
-        router.push(`/sips/${result.data.id}/started`);
-        return;
-      }
-      setMessage({ text: result.error, error: true });
-    } else {
-      const result = await postJson('/api/invest', { fundId, amount: value });
-      setMessage(result.ok ? { text: result.data.message ?? 'Invested.', error: false } : { text: result.error, error: true });
-      if (result.ok) router.refresh();
+    const result = await postJson<{ id: number }>('/api/sips', {
+      fundId,
+      amount: value,
+      frequency: 'monthly',
+      day,
+      goal: withGoal ? goalApiBody(withGoal) : null,
+      goalStep: goalStepChoice,
+      source: 'fund_page',
+    });
+    if (result.ok) {
+      router.push(`/sips/${result.data.id}/started`);
+      return;
     }
     setBusy(false);
+    if (step) setStepError(result.error);
+    else setMessage({ text: result.error, error: true });
+  }
+
+  async function start() {
+    if (!checkAmount()) return;
+    if (mode === 'sip') {
+      if (tip) closeTip();
+      if (goal) await startSip(goal, 'saved');
+      else setStep('start');
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    const result = await postJson('/api/invest', { fundId, amount: value });
+    setMessage(result.ok ? { text: result.data.message ?? 'Invested.', error: false } : { text: result.error, error: true });
+    setBusy(false);
+    if (result.ok) router.refresh();
   }
 
   async function addToCart() {
     if (!checkAmount()) return;
     setBusy(true);
     setMessage(null);
-    const result = await postJson('/api/cart', { fundId, kind: mode === 'sip' ? 'sip' : 'one_time', amount: value, day: mode === 'sip' ? day : undefined });
+    const result = await postJson('/api/cart', {
+      fundId,
+      kind: mode === 'sip' ? 'sip' : 'one_time',
+      amount: value,
+      day: mode === 'sip' ? day : undefined,
+      goal: mode === 'sip' && goal ? goalApiBody(goal) : undefined,
+    });
     setBusy(false);
     setMessage(result.ok ? { text: result.data.message ?? 'Added to cart.', error: false, cart: true } : { text: result.error, error: true });
     if (result.ok) router.refresh();
+  }
+
+  function saveGoal(next: GoalDraft) {
+    if (step === 'start') {
+      setGoal(next);
+      void startSip(next, 'saved');
+    } else {
+      setGoal(next);
+      setStep(null);
+    }
   }
 
   return (
@@ -165,12 +190,46 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
       </p>
 
       {mode === 'sip' && (
-        <div className="rounded-lg bg-page p-3">
-          <GoalPicker value={goal} onChange={setGoal} options={goalOptions} idPrefix="order-goal" />
-          {line && (
-            <p aria-live="polite" className="tabular mt-3 rounded-lg bg-primary-soft px-3 py-2 text-sm font-semibold text-primary">
-              {line}
-            </p>
+        <div>
+          {tip && (
+            <div role="note" aria-label="New feature" className="relative mb-3 rounded-lg bg-strong p-3 text-sm text-white shadow-lg">
+              <p>
+                <span className="font-bold">New:</span> tell us what this SIP is for. When the market falls, we&apos;ll show you this goal next to your SIP.
+              </p>
+              <button type="button" onClick={closeTip} className="mt-2 min-h-9 rounded-md bg-white px-3 text-sm font-semibold text-strong hover:bg-primary-soft">
+                Got it
+              </button>
+              <span aria-hidden="true" className="absolute -bottom-1.5 left-8 size-3 rotate-45 bg-strong" />
+            </div>
+          )}
+          {goal ? (
+            <div className="flex min-h-12 items-center justify-between gap-2 rounded-lg border border-primary bg-primary-soft px-3">
+              <span className="text-sm font-semibold text-primary">{goalLabel(goal, goalStep)}</span>
+              <button
+                type="button"
+                onClick={() => setStep('edit')}
+                aria-label="Edit goal"
+                className="grid size-10 shrink-0 place-items-center rounded-full text-primary hover:bg-surface"
+              >
+                <Icon name="edit" size={18} />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (tip) closeTip();
+                setStep('edit');
+              }}
+              className="flex min-h-12 w-full items-center gap-2 rounded-lg border border-dashed border-primary px-3 text-left text-sm hover:bg-primary-soft"
+            >
+              <span className="rounded bg-accent-tint px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-accent-ink">New</span>
+              <span className="flex-1 font-medium text-strong">What&apos;s this SIP for?</span>
+              <span className="flex items-center font-semibold text-primary">
+                Add a goal
+                <Icon name="chevron" size={16} />
+              </span>
+            </button>
           )}
         </div>
       )}
@@ -203,13 +262,32 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
         <button
           type="button"
           onClick={start}
-          disabled={busy || (mode === 'sip' && goal.kind === 'custom' && !goal.name.trim())}
+          disabled={busy}
           className="flex min-h-12 items-center justify-center rounded-lg bg-primary px-3 font-bold text-white hover:bg-primary-hover disabled:opacity-60"
         >
-          {busy ? 'Please wait…' : mode === 'sip' ? 'Start SIP' : 'Invest now'}
+          {busy && !step ? 'Please wait…' : mode === 'sip' ? 'Start SIP' : 'Invest now'}
         </button>
       </div>
-      <p className="-mt-2 text-center text-xs text-muted">Demo order, no real money.</p>
+      <p className="-mt-2 text-center text-xs text-muted">Demo order, no real money. The first instalment is paid from your demo balance.</p>
+
+      <GoalStep
+        open={step !== null}
+        mode={step ?? 'edit'}
+        fundId={fundId}
+        amount={amountOk ? value : minAmount}
+        day={day}
+        options={goalStep}
+        initial={goal ?? EMPTY_GOAL}
+        where="fund_page"
+        busy={busy}
+        error={stepError}
+        onSave={saveGoal}
+        onSkip={() => void startSip(null, 'skipped')}
+        onClose={() => {
+          setStep(null);
+          setStepError(null);
+        }}
+      />
     </section>
   );
 }

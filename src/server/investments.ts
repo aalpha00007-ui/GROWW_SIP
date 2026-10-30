@@ -70,13 +70,17 @@ export async function investmentsView(db: Db, investorId: string): Promise<Inves
     )
   ).rows;
   const latest = new Map(navs.filter((n) => n.rn === 1).map((n) => [n.fund_id, Number(n.nav)]));
+  const latestDate = new Map(navs.filter((n) => n.rn === 1).map((n) => [n.fund_id, n.nav_date]));
   const previous = new Map(navs.filter((n) => n.rn === 2).map((n) => [n.fund_id, Number(n.nav)]));
   const asOf = navs.reduce((last, n) => (n.nav_date > last ? n.nav_date : last), '');
 
   const value = (f: Flow) => Number(f.units) * latest.get(f.fund_id)!;
   const current = sum(flows, value);
   const invested = sum(flows, (f) => f.amount);
-  const oneDay = sum(flows, (f) => Number(f.units) * (latest.get(f.fund_id)! - (previous.get(f.fund_id) ?? latest.get(f.fund_id)!)));
+  // Units bought at the latest NAV have not moved yet, so only units bought before that day count.
+  const oneDay = sum(flows, (f) =>
+    f.on_date < latestDate.get(f.fund_id)! ? Number(f.units) * (latest.get(f.fund_id)! - (previous.get(f.fund_id) ?? latest.get(f.fund_id)!)) : 0,
+  );
   const rate = xirr([...flows.map((f) => ({ date: f.on_date, amount: -f.amount })), { date: asOf, amount: current }]);
 
   const goals = [

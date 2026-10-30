@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 import { GoalCard } from '@/components/goal-card';
 import { Icon } from '@/components/icons';
 import { InvestmentsCard } from '@/components/investments-card';
+import { LogEvent } from '@/components/log-event';
 import { MarketFallButton } from '@/components/market-fall-button';
 import { SectionTitle } from '@/components/section-title';
 import { Signed } from '@/components/signed';
@@ -27,6 +28,8 @@ export default async function Dashboard() {
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,65fr)_minmax(0,35fr)] lg:items-start">
       <div className="@container space-y-8">
+        {/* The dip seen next to its goal: the case study's main moment. */}
+        {home.goals.some((g) => g.change?.direction === 'down') && <LogEvent event="dip_context_viewed" where="dashboard" />}
         <section>
           <SectionTitle id="your-goals" title="Your goals" link={{ label: 'All SIPs', href: '/sips' }} />
           {home.goals.length > 0 ? (

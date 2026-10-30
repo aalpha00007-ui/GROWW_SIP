@@ -185,7 +185,7 @@ describe('Set or edit the goal', () => {
     });
     expect(await setGoal(db, r.id, r.kestrel, { kind: 'custom', name: 'x'.repeat(41) }, TODAY)).toEqual({ status: 400, error: 'Name the goal in 1 to 40 characters.' });
     expect(await setGoal(db, r.id, r.kestrel, { kind: 'custom', name: '  ' }, TODAY)).toMatchObject({ status: 400 });
-    expect(await setGoal(db, r.id, r.kestrel, { kind: 'car' }, TODAY)).toEqual({ status: 400, error: 'Choose what this money is for.' });
+    expect(await setGoal(db, r.id, r.kestrel, { kind: 'crypto' }, TODAY)).toEqual({ status: 400, error: 'Choose what this money is for.' });
     for (const targetMonth of ['2026-09', '2026-10', '2026-13', 'soon', '2077-01']) {
       expect(await setGoal(db, r.id, r.kestrel, { kind: 'education', targetMonth }, TODAY)).toMatchObject({ status: 400 });
     }
@@ -196,13 +196,13 @@ describe('Set or edit the goal', () => {
     const r = await riya();
     expect(await setGoal(db, r.id, r.kestrel, { kind: 'education', targetMonth: '2031-10' }, TODAY)).toEqual({
       status: 200,
-      message: 'Saved: this SIP is for Education, by Oct 2031.',
+      message: "Saved: this SIP is for Child's education, by Oct 2031.",
     });
     // 63 due dates from Aug 2026 to Oct 2031, 3 paid.
-    expect((await view(r.id, r.kestrel)).goalHeader).toBe('This SIP is for Education · by Oct 2031 · 60 instalments to go');
+    expect((await view(r.id, r.kestrel)).goalHeader).toBe("This SIP is for Child's education · by Oct 2031 · 60 instalments to go");
     const home = await homeView(db, r.id, TODAY);
     expect(home.noGoal).toBeNull();
-    expect(home.goals.map((g) => g.name)).toEqual(['Home down payment', 'Emergency fund', 'Education']);
+    expect(home.goals.map((g) => g.name)).toEqual(['Home down payment', 'Emergency fund', "Child's education"]);
   });
 
   it("keeps the goal's own name when only the date changes, and can remove it", async () => {

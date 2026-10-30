@@ -8,6 +8,7 @@ import { Signed } from '@/components/signed';
 import { SipControls } from '@/components/sip-controls';
 import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
+import { LogEvent } from '@/components/log-event';
 import { idParam } from '@/server/api';
 import { loadSip, sipView } from '@/server/sip';
 import { currentVisitor } from '@/server/visitor';
@@ -44,6 +45,8 @@ export default async function SipPage({
       <Link href="/sips" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary-hover">
         ← Your SIPs
       </Link>
+      {/* The dip seen next to its goal, counted once a day. */}
+      {sip.hasGoal && sip.change?.direction === 'down' && <LogEvent event="dip_context_viewed" sipId={sip.id} where="sip_page" />}
       {done && (
         <p role="status" className="rounded-lg bg-primary-soft px-4 py-3 text-sm font-semibold text-primary">
           {done}

@@ -5,6 +5,7 @@ import { dayMonthYear, monthYear } from '../pipeline/chunking/format';
 import { inr } from './money';
 import { addMonths, isIsoDate, monthStart } from '../pipeline/loading/dates';
 import { findPii } from '../pipeline/retrieval/pii';
+import { logEvent } from './events';
 import { goalYearChoices, joinAnd, loadSip, MAX_AMOUNT, upcomingDueDates, type SipState } from './sip';
 
 export type ActionResult = { status: 200; message: string } | { status: 400 | 404; error: string };
@@ -72,23 +73,39 @@ export async function stopSip(db: Db, investorId: string, sipId: number, aiCheck
     if (aiCheckId) {
       await tx.query("UPDATE ai_checks SET user_choice = 'cancel' WHERE id = $1 AND investor_id = $2 AND sip_id = $3", [aiCheckId, investorId, sipId]);
     }
+    await logEvent(tx, investorId, 'sip_stopped', { sip_id: sipId, after_checkin: Boolean(aiCheckId) });
   });
   return { status: 200, message: 'Your SIP is stopped. No more instalments will be taken. Your units stay invested until you redeem them.' };
 }
 
+/**
+ * The goal chips (brief phase 4). `key` is what the browser sends; `kind` is what goals.kind stores.
+ * Wedding, Car and Travel are named goals of kind 'custom'; "Something else" takes free text in any language.
+ */
 export const GOAL_KINDS = [
-  { kind: 'home', label: 'Home' },
-  { kind: 'education', label: 'Education' },
-  { kind: 'retirement', label: 'Retirement' },
-  { kind: 'emergency', label: 'Emergency fund' },
-  { kind: 'custom', label: 'Something else' },
+  { key: 'retirement', kind: 'retirement', label: 'Retirement' },
+  { key: 'education', kind: 'education', label: "Child's education" },
+  { key: 'home', kind: 'home', label: 'Home down payment' },
+  { key: 'emergency', kind: 'emergency', label: 'Emergency fund' },
+  { key: 'wedding', kind: 'custom', label: 'Wedding' },
+  { key: 'car', kind: 'custom', label: 'Car' },
+  { key: 'travel', kind: 'custom', label: 'Travel' },
+  { key: 'custom', kind: 'custom', label: 'Something else' },
 ] as const;
 export const GOAL_NAME_MAX = 40;
 const MAX_YEARS_AHEAD = 50;
+/** The optional target amount, in whole rupees. */
+export const TARGET_MIN = 1_000;
+export const TARGET_MAX = 100_000_000;
 
 /** What the goal chips offer: the kinds, the name limit and the "By when?" years. */
 export function goalOptions(today: string, currentTarget: string | null) {
-  return { kinds: GOAL_KINDS.map((k) => ({ kind: k.kind, label: k.label })), nameMax: GOAL_NAME_MAX, ...goalYearChoices(today, currentTarget) };
+  return { kinds: GOAL_KINDS.map((k) => ({ kind: k.key, label: k.label })), nameMax: GOAL_NAME_MAX, ...goalYearChoices(today, currentTarget) };
+}
+
+/** The chip a stored goal shows as: its own kind, or the named chip a custom goal matches. */
+export function goalKey(kind: string, name: string): string {
+  return GOAL_KINDS.find((k) => k.kind === kind && (kind !== 'custom' || k.label === name))?.key ?? 'custom';
 }
 
 export interface GoalInput {
@@ -96,6 +113,8 @@ export interface GoalInput {
   name: string;
   /** 'YYYY-MM-01', or null for no target month. */
   target: string | null;
+  /** Whole rupees, or null when none was given. */
+  targetAmount?: number | null;
 }
 
 /**
@@ -107,14 +126,14 @@ export function parseGoal(
   ctx: { today: string; firstDue: string; keep?: { kind: string; name: string } | null },
 ): { ok: true; goal: GoalInput | null } | { ok: false; error: string } {
   if (input === undefined || input === null) return { ok: true, goal: null };
-  const body = input as { kind?: unknown; name?: unknown; targetMonth?: unknown };
+  const body = input as { kind?: unknown; name?: unknown; targetMonth?: unknown; targetAmount?: unknown };
   if (body.kind === 'none') return { ok: true, goal: null };
 
-  const choice = GOAL_KINDS.find((k) => k.kind === body.kind);
+  const choice = GOAL_KINDS.find((k) => k.key === body.kind);
   if (!choice) return { ok: false, error: 'Choose what this money is for.' };
-  // Same kind as now keeps the goal's own name ("Home down payment"); a new kind takes the chip's.
-  let name: string = ctx.keep?.kind === choice.kind ? ctx.keep.name : choice.label;
-  if (choice.kind === 'custom') {
+  // Same kind as now keeps the goal's own name ("Home deposit"); a new kind takes the chip's.
+  let name: string = ctx.keep?.kind === choice.kind && choice.kind !== 'custom' ? ctx.keep.name : choice.label;
+  if (choice.key === 'custom') {
     name = typeof body.name === 'string' ? body.name.trim() : '';
     if (name.length < 1 || name.length > GOAL_NAME_MAX) return { ok: false, error: `Name the goal in 1 to ${GOAL_NAME_MAX} characters.` };
     if (findPii(name).found.length > 0) return { ok: false, error: "Please don't put personal details in a goal name." };
@@ -130,7 +149,16 @@ export function parseGoal(
     }
     target = first;
   }
-  return { ok: true, goal: { kind: choice.kind, name, target } };
+
+  let targetAmount: number | null = null;
+  if (body.targetAmount !== undefined && body.targetAmount !== null) {
+    const amount = body.targetAmount;
+    if (typeof amount !== 'number' || !Number.isInteger(amount) || amount < TARGET_MIN || amount > TARGET_MAX) {
+      return { ok: false, error: `Enter a target amount from ${inr(TARGET_MIN)} to ${inr(TARGET_MAX)}, or leave it empty.` };
+    }
+    targetAmount = amount;
+  }
+  return { ok: true, goal: { kind: choice.kind, name, target, targetAmount } };
 }
 
 /** Set, change or remove the goal. A goal is a new row, so a goal shared with another SIP stays as it is for that SIP. */
@@ -154,8 +182,8 @@ export async function setGoal(db: Db, investorId: string, sipId: number, input: 
 
 export async function insertGoal(db: Db, investorId: string, goal: GoalInput): Promise<number> {
   const { rows } = await db.query<{ id: number }>(
-    'INSERT INTO goals (investor_id, kind, name, target_month) VALUES ($1, $2, $3, $4) RETURNING id',
-    [investorId, goal.kind, goal.name, goal.target],
+    'INSERT INTO goals (investor_id, kind, name, target_month, target_amount) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+    [investorId, goal.kind, goal.name, goal.target, goal.targetAmount ?? null],
   );
   return rows[0].id;
 }

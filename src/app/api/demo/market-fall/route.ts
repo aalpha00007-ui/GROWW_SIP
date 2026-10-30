@@ -4,12 +4,15 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/db/pool';
 import { dayMonthYear } from '@/pipeline/chunking/format';
 import { applyMarketFall, DEMO_FALL } from '@/pipeline/loading/market-fall';
+import { logEvent } from '@/server/events';
 import { currentVisitor } from '@/server/visitor';
 
 export async function POST() {
   const visitor = await currentVisitor();
   if (!visitor) return NextResponse.json({ error: 'Start the demo first.' }, { status: 401 });
-  const days = await applyMarketFall(getDb(), visitor.id);
+  const db = getDb();
+  const days = await applyMarketFall(db, visitor.id);
+  await logEvent(db, visitor.id, 'market_fall_simulated', { nav_date: days[0]?.nav_date ?? null });
   const date = days[0] ? dayMonthYear(days[0].nav_date) : null;
   return NextResponse.json({
     ok: true,

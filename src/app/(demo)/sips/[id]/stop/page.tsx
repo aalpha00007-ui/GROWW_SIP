@@ -5,6 +5,7 @@ import { BeforeYouStop } from '@/components/before-you-stop';
 import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
 import { OPTIONS } from '@/pipeline/retrieval/checkin';
+import { LogEvent } from '@/components/log-event';
 import { idParam } from '@/server/api';
 import { toRupeeSign } from '@/server/money';
 import { loadSip, sipView } from '@/server/sip';
@@ -24,6 +25,7 @@ export default async function StopPage({ params }: { params: Promise<{ id: strin
         ← Back to the SIP
       </Link>
       <h1 className="text-2xl font-bold">Before you stop</h1>
+      <LogEvent event="stop_checkin_opened" sipId={sip.id} />
 
       <section className="rounded-xl border border-primary bg-primary-soft p-4">
         <p className="text-sm font-semibold text-primary">{sip.fund}</p>

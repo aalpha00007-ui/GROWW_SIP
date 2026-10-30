@@ -47,6 +47,8 @@ export function BeforeYouStop({ sipId, controls, pauseChoices, options }: Props)
     setBusy(key);
     setError(null);
     if (card && key !== 'cancel') await postJson('/api/ai/choice', { aiCheckId: card.aiCheckId, choice: key });
+    // Every choice but Stop anyway keeps the SIP going: the funnel counts it as kept.
+    if (key !== 'cancel') void postJson('/api/events', { event: 'sip_kept', sipId, choice: key });
     const done = (did: string) => router.push(`/sips/${sipId}?did=${did}`);
     let result: Awaited<ReturnType<typeof postJson>> | null = null;
     if (key === 'keep') return done('keep');

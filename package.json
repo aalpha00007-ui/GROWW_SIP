@@ -19,6 +19,7 @@
     "chunks:check": "tsx src/pipeline/chunking/cli.ts check",
     "retrieve": "tsx src/pipeline/retrieval/cli.ts",
     "eval": "tsx src/eval/cli.ts",
+    "events": "tsx src/server/events-cli.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

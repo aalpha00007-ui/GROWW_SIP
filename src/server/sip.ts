@@ -23,7 +23,8 @@ export interface SipState {
   handled: Set<string>;
   /** Skipped and paused due dates, oldest first, with how they were marked. */
   marked: { date: string; kind: 'skipped' | 'paused' }[];
-  paid: { date: string; amount: number }[];
+  /** `date` is the due date it covers; `paidOn` is when it was paid (the first one is paid at the start). */
+  paid: { date: string; paidOn: string; amount: number }[];
 }
 
 /** This investor's SIP, or null when it does not exist or is someone else's. */
@@ -51,8 +52,8 @@ export async function loadSip(db: Db, investorId: string, sipId: number, today: 
     .flatMap((e) => (e.kind === 'paused' ? (e.detail.due_dates ?? []) : e.detail.due_on ? [e.detail.due_on] : []).map((date) => ({ date, kind: e.kind })))
     .sort((a, b) => a.date.localeCompare(b.date));
   const paid = (
-    await db.query<{ date: string; amount: number }>(
-      'SELECT due_on::text AS date, amount FROM instalments WHERE sip_id = $1 AND paid_on IS NOT NULL ORDER BY due_on',
+    await db.query<{ date: string; paidOn: string; amount: number }>(
+      'SELECT due_on::text AS date, paid_on::text AS "paidOn", amount FROM instalments WHERE sip_id = $1 AND paid_on IS NOT NULL ORDER BY due_on',
       [sipId],
     )
   ).rows;
@@ -167,7 +168,7 @@ export function sipView(state: SipState, today: string): SipView {
     maxAmount: MAX_AMOUNT,
     amountRange: `From ${inr(state.minSip)} to ${inr(MAX_AMOUNT)}`,
     history: [
-      ...state.paid.map((p) => ({ date: p.date, amount: inr(p.amount), label: 'Paid' })),
+      ...state.paid.map((p) => ({ date: p.paidOn, amount: inr(p.amount), label: 'Paid' })),
       ...state.marked.map((m) => ({
         date: m.date,
         amount: '',

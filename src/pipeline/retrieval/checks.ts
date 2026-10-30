@@ -20,8 +20,9 @@ export interface QualityChecks {
  * and year counts, and calendar years.
  */
 export function runChecks(answer: string, allowedNumbers: string[], patterns: AdvicePattern[]): QualityChecks {
-  // A sign or the comma grouping does not change the number: "Rs 2000" is the facts' "Rs 2,000".
-  const plain = (token: string) => token.replace(/^[+-]/, '').replace(/,/g, '');
+  // A sign, the comma grouping or a trailing ".0" does not change the number: "Rs 2000" is the facts'
+  // "Rs 2,000", and "a fall of 6%" states the facts' "-6.0%".
+  const plain = (token: string) => token.replace(/^[+-]/, '').replace(/,/g, '').replace(/\.0+(?=%|$)/, '');
   const allowed = new Set(allowedNumbers.map(plain));
   const checkable = (token: string) => /Rs |%| years?$| months?$/.test(token) || /^(19|20)\d{2}$/.test(token);
   const ungrounded = numberTokens(answer).filter((t) => checkable(t) && !allowed.has(plain(t)));

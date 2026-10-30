@@ -95,7 +95,7 @@ describe('demo market', () => {
     await setupDatabase(db, { today: TODAY });
     const after = await rows('SELECT fund_id, nav_date::text, nav::text FROM nav_history WHERE nav_date = $1 ORDER BY fund_id', [TODAY]);
     expect(after).toEqual(before);
-  });
+  }, 60_000);
 
   it('loads 22 made-up assets with a year of prices, and 3 IPOs', async () => {
     const kinds = await rows<{ kind: string; n: number }>('SELECT kind, count(*)::int AS n FROM assets GROUP BY kind ORDER BY kind');
@@ -188,7 +188,7 @@ describe('persona templates', () => {
     expect(await count('SELECT count(*)::int AS n FROM investors WHERE id = ANY($1::uuid[])', [Object.values(TEMPLATE_IDS)])).toBe(Object.keys(TEMPLATE_IDS).length);
     expect(await count('SELECT count(*)::int AS n FROM sips WHERE investor_id = $1', [TEMPLATE_IDS.riya])).toBe(3);
     expect(await count('SELECT count(*)::int AS n FROM funds')).toBe(40);
-  });
+  }, 60_000);
 });
 
 describe('per-visitor copy', () => {

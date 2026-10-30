@@ -70,7 +70,10 @@ describe('Explore and the fund page', () => {
     expect(fund?.box.quickAdd.map((q) => q.label)).toEqual(['+₹1,000', '+₹2,000', '+₹5,000']);
     expect(fund?.box.days).toHaveLength(28);
     expect(fund?.box.days[3].label).toBe('Monthly on 4th');
-    expect(fund?.box.goalOptions.kinds.map((k) => k.label)).toEqual(['Home', 'Education', 'Retirement', 'Emergency fund', 'Something else']);
+    expect(fund?.box.goalStep.kinds.map((k) => k.label)).toEqual([
+      'Retirement', "Child's education", 'Home down payment', 'Emergency fund', 'Wedding', 'Car', 'Travel', 'Something else',
+    ]);
+    expect(fund?.box.showGoalTip).toBe(true);
     expect(await fundPage(db, riya, 999, TODAY)).toBeNull();
   });
 });
@@ -91,10 +94,10 @@ describe('One-time investments and the cart', () => {
 
   it('adds SIPs and one-time investments to the cart and removes them', async () => {
     const visitor = await clonePersona(db, 'kabir');
-    expect(await addToCart(db, visitor, { fundId: 3, kind: 'sip', amount: 2000, day: 4 })).toMatchObject({ status: 200 });
-    expect(await addToCart(db, visitor, { fundId: 5, kind: 'one_time', amount: 3000 })).toMatchObject({ status: 200 });
-    expect((await addToCart(db, visitor, { fundId: 3, kind: 'weekly', amount: 2000 })).status).toBe(400);
-    expect((await addToCart(db, visitor, { fundId: 3, kind: 'sip', amount: 2000, day: 31 })).status).toBe(400);
+    expect(await addToCart(db, visitor, { fundId: 3, kind: 'sip', amount: 2000, day: 4 }, TODAY)).toMatchObject({ status: 200 });
+    expect(await addToCart(db, visitor, { fundId: 5, kind: 'one_time', amount: 3000 }, TODAY)).toMatchObject({ status: 200 });
+    expect((await addToCart(db, visitor, { fundId: 3, kind: 'weekly', amount: 2000 }, TODAY)).status).toBe(400);
+    expect((await addToCart(db, visitor, { fundId: 3, kind: 'sip', amount: 2000, day: 31 }, TODAY)).status).toBe(400);
     const cart = await cartView(db, visitor);
     expect(cart.items.map((i) => [i.fund, i.label, i.amount])).toEqual([
       ['Monsoon Midcap Fund', 'Monthly SIP · on the 4th', '₹2,000'],
@@ -134,7 +137,7 @@ describe('The SIPs tab', () => {
     if (started.status !== 200) throw new Error(started.error);
     const rows = await sipList(db, visitor, TODAY);
     expect(rows.find((r) => r.id === started.id)).toMatchObject({
-      fund: 'Sundar Small Cap Fund', amount: '₹1,500', date: 'Monthly on 4th', next: '4 Nov 2026', status: 'active', goal: null, canPause: true, canStop: true,
+      fund: 'Sundar Small Cap Fund', amount: '₹1,500', date: 'Monthly on 4th', next: '4 Dec 2026', status: 'active', goal: null, canPause: true, canStop: true,
     });
     expect(rows.filter((r) => r.goal !== null).length).toBeGreaterThan(0);
   });
@@ -164,20 +167,22 @@ describe('The goal line (spec §2A)', () => {
 });
 
 describe('Start SIP (PRD F2)', () => {
-  it('starts a SIP with a goal, which shows on Home at once', async () => {
+  it('starts a SIP with a goal, pays the first instalment at once, and Home shows it', async () => {
     const visitor = await clonePersona(db, 'riya');
     const started = await startSip(db, visitor, { fundId: 3, amount: 2000, frequency: 'monthly', day: 2, goal: { kind: 'education', targetMonth: '2031-10' } }, TODAY);
     if (started.status !== 200) throw new Error(started.error);
 
     const state = await loadSip(db, visitor, started.id, TODAY);
     const sip = sipView(state!, TODAY);
-    expect(sip).toMatchObject({ fund: 'Monsoon Midcap Fund', amount: '₹2,000 a month', nextDue: '2 Nov 2026', hasGoal: true, change: null });
-    expect(sip.goalHeader).toBe('This SIP is for Education · by Oct 2031 · 60 instalments to go');
+    // The first instalment covers the 2 Nov due date and is paid today, so the next one is 2 Dec.
+    expect(sip).toMatchObject({ fund: 'Monsoon Midcap Fund', amount: '₹2,000 a month', nextDue: '2 Dec 2026', hasGoal: true, putIn: '₹2,000' });
+    expect(sip.goalHeader).toBe("This SIP is for Child's education · by Oct 2031 · 59 instalments to go");
+    expect(state!.paid).toEqual([{ date: '2026-11-02', paidOn: TODAY, amount: 2000 }]);
+    expect(sip.history[0]).toMatchObject({ date: '27 Oct 2026', label: 'Paid' });
 
-    const card = (await homeView(db, visitor, TODAY)).goals.find((g) => g.name === 'Education');
-    expect(card).toMatchObject({ paidLabel: '0 of 60 instalments paid', putIn: '₹0', planned: '₹1,20,000', change: null, dipSipId: null });
-    // No dip to explain before the first instalment.
-    expect(sip.explainDip).toBe(false);
+    const card = (await homeView(db, visitor, TODAY)).goals.find((g) => g.name === "Child's education");
+    expect(card).toMatchObject({ paidLabel: '1 of 60 instalments paid', putIn: '₹2,000', planned: '₹1,20,000', dipSipId: started.id });
+    expect(sip.explainDip).toBe(true);
   });
 
   it('starts a SIP with no goal, and Home counts it as one with no goal yet', async () => {
