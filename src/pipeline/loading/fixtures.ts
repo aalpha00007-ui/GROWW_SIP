@@ -77,6 +77,8 @@ export interface EvalCase {
   persona: PersonaKey;
   moment: 'before_stop' | 'is_this_normal';
   text: string;
+  /** Must pass every run, though it expects an answer (otherwise only declines, misreads and fallbacks are). */
+  must_pass?: boolean;
   expected: {
     outcome: Outcome;
     route?: Route;
@@ -102,6 +104,7 @@ export function loadEvalCases(): EvalCase[] {
     } else {
       check(c.text === '', file, `${where}: is_this_normal has no user text`);
     }
+    check(c.must_pass === undefined || typeof c.must_pass === 'boolean', file, `${where}: must_pass must be true or false`);
     const e = c.expected;
     check(e && OUTCOMES.includes(e.outcome), file, `${where}: expected.outcome must be one of ${OUTCOMES.join(', ')}`);
     check(e.route === undefined || (e.outcome === 'answer' && ROUTES.includes(e.route)), file, `${where}: expected.route must be a route, and only on an answer`);

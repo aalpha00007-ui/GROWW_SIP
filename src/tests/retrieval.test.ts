@@ -12,6 +12,7 @@ import { decideRoute } from '../pipeline/retrieval/decide';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
 import { findPii, PII_MESSAGE } from '../pipeline/retrieval/pii';
 import { factsProblem } from '../pipeline/chunking/facts';
+import { answerMessages, ROUTE_EXPLAINERS } from '../pipeline/retrieval/prompts';
 import { PERSONA_KEYS } from '../pipeline/loading/raw';
 import { startSip } from '../server/funds';
 import { investmentsView } from '../server/investments';
@@ -62,6 +63,17 @@ beforeAll(async () => {
   arjun = await clonePersona(db, 'arjun');
   riyaSips = (await db.query<{ id: number }>('SELECT id FROM sips WHERE investor_id = $1 ORDER BY id', [riya])).rows.map((r) => r.id);
 }, 120_000);
+
+describe('The cash route', () => {
+  it('gets the stopping explainer too, and says stopping gives no money back and a redemption may have an exit load', async () => {
+    expect(ROUTE_EXPLAINERS.cash).toEqual(['skip', 'pause', 'lower_amount', 'stop']);
+    const lookup = await retrieveFacts(db, arjun, (await db.query<{ id: number }>('SELECT id FROM sips WHERE investor_id = $1', [arjun])).rows[0].id, TODAY);
+    if (lookup.status === 'not_found') throw new Error('missing');
+    const [system, user] = answerMessages({ route: 'cash', facts: lookup.unit, explainers: [], language: 'en', moment: 'before_stop', reason: 'I need the money' });
+    expect(system.content).toContain('Say that stopping gives no money back; getting money out is a separate redemption, which may have an exit load.');
+    expect(user.content).toMatch(/- Exit load: /);
+  });
+});
 
 describe('The day of a demo market fall', () => {
   it('measures a fall on the day a new SIP started from the price it was bought at', async () => {

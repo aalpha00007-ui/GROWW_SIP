@@ -47,6 +47,24 @@ beforeAll(async () => {
   await setupDatabase(db, { today: TODAY });
 }, 120_000);
 
+describe('Before you stop: what each option does', () => {
+  it("says it in one fixed line per option, with this SIP's date, minimum and value", async () => {
+    const r = await riya();
+    const sip = await view(r.id, r.banyan);
+    expect(sip.optionNotes).toEqual({
+      skip: `Misses the ${sip.nextDue} instalment only. The SIP stays active.`,
+      lower: 'Future instalments take less, down to ₹500. Your units stay invested.',
+      pause: 'Skips the next 1 to 3 instalments, then restarts on its own.',
+      keep: 'Nothing changes.',
+      cancel: `Ends future instalments. Gives no money back and sells no units: your ${sip.value} stays invested until you redeem it.`,
+    });
+    // The facts carry the fund's exit load, so the cash route can say getting money out may cost one.
+    const facts = await retrieveFacts(db, r.id, r.banyan, TODAY);
+    if (facts.status === 'not_found') throw new Error('missing');
+    expect(facts.unit.lines).toContainEqual({ label: 'Exit load', value: '1% if redeemed within 1 year' });
+  });
+});
+
 describe('the SIP page (PRD F5)', () => {
   it("shows Riya's goal header, the next three instalments and the history", async () => {
     const r = await riya();

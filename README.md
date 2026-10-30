@@ -17,6 +17,7 @@ npm run e2e            # browser tests (Playwright, installed Chrome) against a 
 
 - **Landing page (`/`, PRD F1):** one tap on Kabir, Riya or Arjun copies that persona into a fresh investor, so testers never share data. The other personas (Meera, Sana, Vikram, Dev) stay in the seed for tests and evals. The tick box "Facts only. No investment advice." was removed on 30 Oct 2026 at the product owner's request; the yellow banner on every page and the line under the demo cards carry the disclaimer.
 - **Demo accounts:** a made-up username, then a 4-digit demo PIN (stored as a salted scrypt hash; 5 wrong PINs lock it for 5 minutes; 5 sign-ups an hour per network; 20 username checks every 10 minutes per network). PINs can't be reset. A new account starts with no SIPs, holdings, orders or watchlist.
+- **Before you stop:** every option has one fixed line, written in code from the approved explainers with this SIP's own date, minimum and value, saying what it does ("Stop anyway: Ends future instalments. Gives no money back and sells no units..."). Stop anyway stays one tap.
 - **Goals:** a monthly SIP or a one-time investment can have a goal. With a target amount, the goal step sets what will be put in by the goal date next to the target (plain facts, never a forecast) and links to the Goal planner; the Dashboard card and the SIP page show the target too. A one-time investment can also be added to one of the investor's goals; the goal card counts its money in "put in" and "value today", and lists it under the goal.
 - **Watchlist:** "Add to watchlist" on a fund page puts the fund in Mutual Funds -> Watchlist (table `fund_watchlist`; `npm run db:migrate` adds it to an existing database).
 - **Sign-in:** an httpOnly cookie `groww_sip_session` holds a random token for 7 days; only its SHA-256 is stored. The cookie is secure whenever the page is on HTTPS (always on Render).
@@ -90,10 +91,10 @@ npm run retrieve -- fresh riya            # start over with a clean copy
 
 ## Phase 6 · retrieval testing (the eval)
 
-`npm run eval` runs AI call 1 on the 20 hand-labelled golden posts and the 16 safety and routing cases through the full check-in. It stores every result in `eval_runs` and `eval_results`, prints a report, and exits 1 when the gate (PRD §7) fails:
+`npm run eval` runs AI call 1 on the 20 hand-labelled golden posts and the 18 safety and routing cases through the full check-in. It stores every result in `eval_runs` and `eval_results`, prints a report, and exits 1 when the gate (PRD §7) fails:
 
 - **Must pass every run:**
-    - the 8 safety cases: advice requests declined, refund misreads caught, nonsense to the fallback card
+    - the 10 must-pass cases: advice requests declined, refund misreads caught, nonsense to the fallback card, and someone who needs the money gets the cash route (s17 English, s18 Hinglish)
     - no answer with advice, wrong numbers or a missing disclaimer.
 - **Must not regress:**
     - golden-set theme agreement at least 65% (target 75%)
@@ -126,7 +127,7 @@ groww-sip-mvp/
 │   ├── vector_db/             Phase 4 · not used (D3)
 │   └── eval/                  Phase 6 · retrieval testing fixtures
 │       ├── golden_set/        20 Evidence Log posts + hand labels
-│       └── cases/             16 safety and routing cases (s01–s16)
+│       └── cases/             18 safety and routing cases (s01–s18)
 └── src/                       Code only
     ├── app/                   Next.js pages and server API routes
     │   ├── (demo)/            the signed-in app: Mutual Funds, Stocks, F&O, settings
@@ -143,7 +144,7 @@ groww-sip-mvp/
     │   └── retrieval/         Phase 5 · validate, PII guard, SQL facts, understand, route, context, quality check
     ├── llm/                   Groq and Mistral clients (server only)
     ├── db/                    Postgres client, schema, migrations
-    ├── eval/                  Phase 6 · eval runner (golden set + 16 cases)
+    ├── eval/                  Phase 6 · eval runner (golden set + 18 cases)
     ├── e2e/                   browser tests: the More menu, a new account starting clean
     └── tests/                 Phase 6 · API tests
 ```

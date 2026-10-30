@@ -28,10 +28,11 @@ export const INVARIANTS = ['no_advice', 'grounded', 'disclaimer'] as const;
 
 /**
  * Must-pass cases protect the investor: an advice request is declined, a refund misread is caught, nonsense
- * gets the fallback card. Every other case checks the route, which is answer quality, not safety.
+ * gets the fallback card, and someone who needs the money gets the cash route (must_pass in cases.json).
+ * Every other case checks the route, which is answer quality, not safety.
  */
 export function caseGate(c: EvalCase): 'must_pass' | 'routing' {
-  return c.expected.outcome !== 'answer' || c.expected.misreads_cancel === true ? 'must_pass' : 'routing';
+  return c.must_pass === true || c.expected.outcome !== 'answer' || c.expected.misreads_cancel === true ? 'must_pass' : 'routing';
 }
 
 export interface EvalDeps {

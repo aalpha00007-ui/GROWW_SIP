@@ -35,7 +35,12 @@ export default async function StopPage({ params }: { params: Promise<{ id: strin
       {sip.status === 'stopped' ? (
         <p className="rounded-xl border border-line bg-surface p-4">This SIP is already stopped. Your units stay invested until you redeem them.</p>
       ) : (
-        <BeforeYouStop sipId={sip.id} controls={sip.controls} pauseChoices={sip.pauseChoices} options={OPTIONS.map((o) => ({ key: o.key, label: o.label }))} />
+        <BeforeYouStop
+          sipId={sip.id}
+          controls={sip.controls}
+          pauseChoices={sip.pauseChoices}
+          options={OPTIONS.map((o) => ({ key: o.key, label: o.label, note: sip.optionNotes[o.key] }))}
+        />
       )}
     </div>
   );

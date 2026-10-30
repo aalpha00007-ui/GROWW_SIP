@@ -29,7 +29,7 @@ flowchart LR
 | 3. Embedding | None; call 1 (the reader model) does the language understanding | Not used (PRD §3.3, step 2a) |
 | 4. Vector store | None; Postgres holds data, the repo holds fixed text | Not used (PRD §3.3, step 2a) |
 | 5. Retrieval logic | Validate, PII guard, SQL facts, understand, route, assemble context | Built |
-| 6. Retrieval testing | API tests, 16 safety and routing cases, 20-post golden set, CI deploy gate | Built |
+| 6. Retrieval testing | API tests, 18 safety and routing cases, 20-post golden set, CI deploy gate | Built |
 
 ## 2. System context
 
@@ -65,7 +65,7 @@ Everything loaded is made up. No real person, fund, NAV or market feed enters th
 | Demo market fall | "Simulate a market fall" adds a -6% NAV day labelled demo, for that visitor only (F12). Liquid funds get the day flat, as a real fall barely moves them | Postgres | At runtime |
 | Four explainers | Fixed text for stop, skip, pause and lower amount | Repo (see decision D1) | Build |
 | Advice-phrase list | English, Hindi and Hinglish phrases for the no-advice check | Repo | Build |
-| Eval fixtures | 20 Evidence Log posts with hand labels; 16 safety and routing cases (s01–s16) | Repo | CI |
+| Eval fixtures | 20 Evidence Log posts with hand labels; 18 safety and routing cases (s01–s18) | Repo | CI |
 
 **Data rules (PRD Appendix B).** A goal stores only its type, name, target month (can be empty) and the optional target amount the investor typed. No column stores a total, a return, a status, a planned amount or a pass rate; all are computed when asked.
 
@@ -73,7 +73,7 @@ Everything loaded is made up. No real person, fund, NAV or market feed enters th
 
 **Decision: no text splitting.**
 
-- **Facts are not text.** They are computed fields for one SIP: months invested, instalments paid, skipped and planned, invested, current value, returns, worst fall since start, fund and category, goal and target month, time to go, the target amount (when given), what will have been put in by the goal date (instalments still to come x amount, never a value), and next due date. Each is formatted once (for example Rs 12,340 · 4.2% · 5 months), and the bundle for one SIP is the unit passed on.
+- **Facts are not text.** They are computed fields for one SIP: months invested, instalments paid, skipped and planned, invested, current value, returns, worst fall since start, fund and category, the fund's exit load, goal and target month, time to go, the target amount (when given), what will have been put in by the goal date (instalments still to come x amount, never a value), and next due date. Each is formatted once (for example Rs 12,340 · 4.2% · 5 months), and the bundle for one SIP is the unit passed on.
 - **Each explainer is one unit**, keyed by mechanic: `stop`, `skip`, `pause`, `lower_amount`. They are short, fixed texts we write, so splitting could only cut a rule in half.
 
 ## 5. Phase 3 — Embedding
@@ -164,7 +164,7 @@ sequenceDiagram
     - Make no predictions.
     - End with "This is not investment advice."
 
-    The explainers for the route are added: `explain` gets `stop`; `cash` gets `skip`, `pause` and `lower_amount` (decision D2).
+    The explainers for the route are added: `explain` gets `stop`; `cash` gets `skip`, `pause`, `lower_amount` and `stop` (decision D2). The cash route also says that stopping gives no money back, and that getting money out is a separate redemption, which may have an exit load (the fund's exit load is a fact line).
 7. **Answer (Mistral call 2).** At most 90 words, in the investor's language.
 8. **Quality check (code).** The answer must have no advice phrases (English, Hindi and Hinglish list), and every number in it must exist in the facts. The disclaimer must be present, and the answer must be at most 90 words. Any failure shows the Fallback card.
 9. **Show and log.** The answer card shows the quality strip and "Numbers as of <latest NAV date>". Every call is written to `ai_checks`. Requests stopped at steps 1-2 (invalid input, someone else's SIP, a stopped SIP, personal details) make no AI call and are not written there; a PII rejection goes to the server log as a redacted copy.
@@ -180,12 +180,12 @@ sequenceDiagram
 | Isolation | Two browsers as Riya stay separate; another investor's SIP returns 403 or 404 | No data crosses | CI (API tests) |
 | Input and PII | Empty or 600-character reason returns 400; PAN in reason or goal name is rejected and redacted | Expected status, nothing sent to Mistral | CI (API tests) |
 | Grounding invariant | A number the investor types (for example "I lost Rs 1,200") is never repeated unless it is in the facts | 0 grounding failures | CI (eval) |
-| Safety and routing | 16 cases (s01–s16): Hinglish doubt, cash need, misread refund, autopay, fund pick, return prediction, prompt injection, goal reached, gibberish | 8 safety cases 8 of 8; 8 routing cases at least 7 of 8; 0 advice leaks | CI (eval, gates deploy) |
+| Safety and routing | 18 cases (s01–s18): Hinglish doubt, cash need, misread refund, autopay, fund pick, return prediction, prompt injection, goal reached, gibberish, needing the money (English and Hinglish) | 10 must-pass cases 10 of 10; 8 routing cases at least 7 of 8; 0 advice leaks | CI (eval, gates deploy) |
 | Golden set | Primary theme from call 1 matches the hand label on 20 Evidence Log posts | At least 65% (gates deploy); target 75% | CI (eval) |
 | Mistral down | Unset key or timeout shows the Fallback card | Fallback shown, error logged | Manual |
 
 **The gate.** GitHub Actions runs the build and the API tests on every push. It runs the eval when the AI's prompts, pipeline or eval data change, because Groq's free plan caps tokens a day. Results are stored per commit in `eval_runs` and `eval_results`. Two parts of the gate (PRD §7):
-- **Must pass every run:** the 8 safety cases and the invariants.
+- **Must pass every run:** the 10 must-pass cases (the 8 safety cases, plus s17 and s18: needing the money gets the cash route) and the invariants.
 - **Must not regress:** golden-set agreement at least 65% and at least 7 of 8 routing cases.
 
 Render deploys only after CI passes. /quality reads the eval run whose commit equals `RENDER_GIT_COMMIT`, or the latest run, labelled as such. It computes pass rates at read time.
@@ -202,7 +202,7 @@ Render deploys only after CI passes. /quality reads the eval run whose commit eq
 | # | Decision | Why |
 | --- | --- | --- |
 | D1 | Explainers, the advice-phrase list and eval fixtures live in the repo, not the database | Each commit's eval tests exactly the text that commit deploys |
-| D2 | Route-to-explainer map: `explain` → stop; `cash` → skip, pause, lower amount; other routes use facts only | Follows the PRD's routes; the map itself is not spelled out in the PRD |
+| D2 | Route-to-explainer map: `explain` → stop; `cash` → skip, pause, lower amount, stop; other routes use facts only | Follows the PRD's routes; the map itself is not spelled out in the PRD |
 | D3 | No chunking, embeddings or vector store | PRD §3.3, step 2a |
 | D4 | Groq `openai/gpt-oss-120b` reads the reason (call 1); Mistral `ministral-8b-latest` writes the answer (call 2) and reads when Groq fails. Departs from the PRD's single Mistral model | The project must stay free. On Mistral's free plan, `mistral-small` and `mistral-medium` get 0 requests a minute. `ministral-8b` read the golden set at 55-65% (5 prompt versions; `ministral-14b` no better). `gpt-oss-120b` read it at 65-80% in 0.7 s, free with no card. Groq's free plan caps tokens a day, so Mistral backs it up and the eval waits out rate limits |
 

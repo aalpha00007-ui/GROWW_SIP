@@ -15,10 +15,10 @@ export type FactsLookup =
 export async function retrieveFacts(db: Db, investorId: string, sipId: number, today: string): Promise<FactsLookup> {
   const [sip] = (
     await db.query<{
-      fund_id: number; fund_name: string; category: string; amount: number; day_of_month: number;
+      fund_id: number; fund_name: string; category: string; exit_load_text: string; amount: number; day_of_month: number;
       started_on: string; goal_name: string | null; target_month: string | null; target_amount: string | null; stopped: boolean;
     }>(
-      `SELECT s.fund_id, f.name AS fund_name, f.category, s.amount, s.day_of_month, s.started_on::text,
+      `SELECT s.fund_id, f.name AS fund_name, f.category, f.exit_load_text, s.amount, s.day_of_month, s.started_on::text,
          g.name AS goal_name, g.target_month::text, g.target_amount::text,
          EXISTS (SELECT 1 FROM sip_events e WHERE e.sip_id = s.id AND e.kind = 'cancelled') AS stopped
        FROM sips s JOIN funds f ON f.id = s.fund_id LEFT JOIN goals g ON g.id = s.goal_id
@@ -92,6 +92,7 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
     as_of: latest.nav_date,
     fund_name: sip.fund_name,
     fund_category: sip.category,
+    exit_load: sip.exit_load_text,
     amount: sip.amount,
     months_invested: monthsInvested,
     instalments_paid: paid.count,

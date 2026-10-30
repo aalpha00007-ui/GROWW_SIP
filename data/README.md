@@ -12,6 +12,6 @@ All data here is made up or authored by us. No real person, fund, NAV or market 
 | `embeddings/` | 3. Embedding | Nothing; see its README | Not used (D3) |
 | `vector_db/` | 4. Vector store | Nothing; see its README | Not used (D3) |
 | `eval/golden_set/` | 6. Retrieval testing | 20 Evidence Log posts with hand labels | Used |
-| `eval/cases/` | 6. Retrieval testing | 16 safety and routing cases, s01–s16 | Used |
+| `eval/cases/` | 6. Retrieval testing | 18 safety and routing cases, s01–s18 (s17 and s18 must pass) | Used |
 
 Runtime data (per-visitor copies, `ai_checks`, `eval_runs`, `eval_results`) lives in Neon Postgres, not in this folder.

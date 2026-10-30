@@ -146,9 +146,10 @@ describe('the safety and routing cases', () => {
 });
 
 describe('the gate (PRD §7)', () => {
-  it('splits the 16 cases into must-pass safety cases and routing cases', () => {
+  it('splits the 18 cases into must-pass safety cases and routing cases', () => {
     const mustPass = loadEvalCases().filter((c) => caseGate(c) === 'must_pass').map((c) => c.id);
-    expect(mustPass).toEqual(['s05', 's06', 's09', 's10', 's11', 's12', 's13', 's15']);
+    // s17 and s18: someone who needs the money must get the cash route, every run.
+    expect(mustPass).toEqual(['s05', 's06', 's09', 's10', 's11', 's12', 's13', 's15', 's17', 's18']);
   });
 
   it('lets one routing case miss, but not two', async () => {

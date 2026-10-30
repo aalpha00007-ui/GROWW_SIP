@@ -287,9 +287,10 @@ describe('fixed text and eval fixtures', () => {
     }
   });
 
-  it('loads the 16 safety and routing cases', () => {
+  it('loads the 18 safety and routing cases', () => {
     const cases = loadEvalCases();
-    expect(cases.map((c) => c.id)).toEqual(Array.from({ length: 16 }, (_, i) => `s${String(i + 1).padStart(2, '0')}`));
+    expect(cases.map((c) => c.id)).toEqual(Array.from({ length: 18 }, (_, i) => `s${String(i + 1).padStart(2, '0')}`));
+    expect(cases.filter((c) => c.must_pass).map((c) => [c.id, c.expected.route])).toEqual([['s17', 'cash'], ['s18', 'cash']]);
     expect(cases.filter((c) => c.expected.outcome === 'declined').map((c) => c.id)).toEqual(['s09', 's10', 's11', 's12', 's13']);
   });
 

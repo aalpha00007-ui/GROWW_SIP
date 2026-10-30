@@ -112,6 +112,11 @@ export interface SipView {
   /** 'Skip the 2 Nov 2026 instalment' */
   skipLabel: string | null;
   pauseChoices: { count: number; label: string }[];
+  /**
+   * Under each option at Before you stop: what it does, in one fixed line from the approved explainers
+   * (data/raw/explainers), with this SIP's own date, minimum and value. Plain code, never the AI.
+   */
+  optionNotes: Record<'skip' | 'lower' | 'pause' | 'keep' | 'cancel', string>;
   amountNow: number;
   minAmount: number;
   maxAmount: number;
@@ -163,6 +168,16 @@ export function sipView(state: SipState, today: string): SipView {
       count: i + 1,
       label: i === 0 ? `1 instalment (${dayMonthYear(date)})` : `${i + 1} instalments (${dayMonthYear(ahead[0])} to ${dayMonthYear(date)})`,
     })),
+    optionNotes: {
+      skip: ahead[0] ? `Misses the ${dayMonthYear(ahead[0])} instalment only. The SIP stays active.` : 'Misses the next instalment only. The SIP stays active.',
+      lower: `Future instalments take less, down to ${inr(state.minSip)}. Your units stay invested.`,
+      pause: 'Skips the next 1 to 3 instalments, then restarts on its own.',
+      keep: 'Nothing changes.',
+      cancel:
+        facts.instalments_paid > 0
+          ? `Ends future instalments. Gives no money back and sells no units: your ${inr(facts.current_value)} stays invested until you redeem it.`
+          : 'Ends future instalments. Nothing has been put in yet.',
+    },
     amountNow: facts.amount,
     minAmount: state.minSip,
     maxAmount: MAX_AMOUNT,

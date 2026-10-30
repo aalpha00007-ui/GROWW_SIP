@@ -1,6 +1,7 @@
 'use client';
 // Before you stop (PRD F7): reason chips or free text in any language, the AI card, and five options.
 // Stop anyway is on screen from the start, the same size as Keep my SIP, and always one tap (PRD §3.4).
+// Each option has one fixed line saying what it does (people misread what stopping does), from plain code.
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { CheckInCard } from '@/server/checkin-card';
@@ -15,7 +16,7 @@ interface Props {
   sipId: number;
   controls: SipView['controls'];
   pauseChoices: SipView['pauseChoices'];
-  options: { key: string; label: string }[];
+  options: { key: string; label: string; note: string }[];
 }
 
 export function BeforeYouStop({ sipId, controls, pauseChoices, options }: Props) {
@@ -121,21 +122,26 @@ export function BeforeYouStop({ sipId, controls, pauseChoices, options }: Props)
 
       <section className="rounded-xl border border-line bg-surface p-4">
         <h2 className="font-bold">Your options</h2>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <ul className="mt-3 divide-y divide-line">
           {options.map((option) => (
-            <button
-              key={option.key}
-              type="button"
-              disabled={busy !== null || !available(option.key)}
-              aria-expanded={option.key === 'pause' ? pausing : undefined}
-              onClick={() => choose(option.key)}
-              // One style for all five: no option is pushed or played down.
-              className="flex min-h-12 items-center justify-center rounded-lg border border-primary px-3 text-sm font-semibold text-primary hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {busy === option.key ? 'One moment…' : option.label}
-            </button>
+            <li key={option.key} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:gap-4">
+              <button
+                type="button"
+                disabled={busy !== null || !available(option.key)}
+                aria-expanded={option.key === 'pause' ? pausing : undefined}
+                aria-describedby={`option-${option.key}`}
+                onClick={() => choose(option.key)}
+                // One style and one size for all five: no option is pushed or played down.
+                className="flex min-h-12 w-full shrink-0 items-center justify-center rounded-lg border border-primary px-3 text-sm font-semibold text-primary hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50 sm:w-40"
+              >
+                {busy === option.key ? 'One moment…' : option.label}
+              </button>
+              <p id={`option-${option.key}`} className="text-sm text-ink">
+                {option.note}
+              </p>
+            </li>
           ))}
-        </div>
+        </ul>
         {pausing && (
           <div className="mt-3 space-y-2 rounded-lg bg-page p-3">
             <p className="text-sm font-semibold">Skip the next</p>

@@ -12,6 +12,8 @@ export interface SipFacts {
   as_of: string;
   fund_name: string;
   fund_category: string;
+  /** The fund's exit load, as the fund page states it ('1% if redeemed within 1 year', 'Nil'). */
+  exit_load?: string;
   /** Rupees per instalment. */
   amount: number;
   months_invested: number;
@@ -76,6 +78,8 @@ export function buildFactsUnit(facts: SipFacts): FactsUnit {
     { label: 'Fund', value: `${facts.fund_name} (${facts.fund_category})` },
     { label: 'Instalment', value: `${rupees(facts.amount)} a month` },
   ];
+  // Getting money out is a redemption, which may have an exit load: the cash route says so.
+  if (facts.exit_load) lines.push({ label: 'Exit load', value: facts.exit_load });
 
   if (facts.instalments_paid === 0) {
     // Before the first instalment there is nothing invested, so no returns are shown.

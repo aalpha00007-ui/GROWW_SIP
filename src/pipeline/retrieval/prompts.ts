@@ -16,7 +16,7 @@ export type Language = 'en' | 'hi' | 'hinglish' | 'other';
 /** Which explainers each route's answer gets (architecture decision D2). */
 export const ROUTE_EXPLAINERS: Record<Route, ExplainerKey[]> = {
   explain: ['stop'],
-  cash: ['skip', 'pause', 'lower_amount'],
+  cash: ['skip', 'pause', 'lower_amount', 'stop'],
   doubt: [],
   autopay: [],
   neutral: [],
@@ -62,7 +62,7 @@ export function understandMessages(facts: FactsUnit, reason: string): ChatMessag
 const ROUTE_GUIDANCE: Record<Route, string> = {
   doubt: "Put today's numbers in the context of their goal and time to go, the months invested and the worst fall since start. Then say they can keep, skip, pause or lower the amount.",
   explain: 'Using the explainer, say what stopping does: it ends future instalments, refunds no money and sells no units; the units stay invested until they redeem. Say how skipping or pausing differs from stopping.',
-  cash: 'Using the explainers, first mention skipping the next instalment, pausing, or lowering the amount; then say that stopping is still available.',
+  cash: 'Using the explainers, first mention skipping the next instalment, pausing, or lowering the amount; then say that stopping is still available. Say that stopping gives no money back; getting money out is a separate redemption, which may have an exit load.',
   autopay: 'Acknowledge the autopay trouble. Say they can manage autopay on the autopay page in their profile, and that skipping or pausing is possible while it is sorted out.',
   neutral: 'Restate the key facts briefly and say they can keep, skip, pause, lower the amount or stop.',
 };
