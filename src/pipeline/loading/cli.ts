@@ -3,7 +3,7 @@
 import { connectNeon } from '../../db/client';
 import { loadEnvFiles } from '../../env';
 import { loadAdvicePatterns, loadEvalCases, loadExplainers, loadGoldenSet } from './fixtures';
-import { loadMarket, loadPersonas } from './raw';
+import { loadMarket, loadPersonas, loadTrading } from './raw';
 import { applySchema, setupDatabase, wipeDatabase } from './seed';
 import { verifyDatabase } from './verify';
 
@@ -51,13 +51,15 @@ async function main(command: string | undefined): Promise<void> {
 function checkData(): void {
   const market = loadMarket();
   const personas = loadPersonas(market);
+  const trading = loadTrading(market);
   const explainers = Object.values(loadExplainers());
   const patterns = loadAdvicePatterns();
   const cases = loadEvalCases();
   const golden = loadGoldenSet();
 
   console.log('Data check passed');
-  console.log(`  market: ${market.funds.length} funds, ${market.assets.length} assets, ${market.ipos.length} IPOs`);
+  console.log(`  market: ${market.funds.length} funds, ${market.assets.length} assets, ${market.ipos.length} IPOs, ${market.nfos.length} NFOs`);
+  console.log(`  stocks and F&O (display only): ${trading.bonds.length} bonds, ${trading.fo_stocks.length} F&O stocks, 12 F&O contracts`);
   console.log(`  personas: ${personas.map((p) => p.key).join(', ')}`);
   console.log(`  explainers: ${explainers.map((e) => `${e.key} (${e.status})`).join(', ')}`);
   console.log(`  advice patterns: ${patterns.length}`);

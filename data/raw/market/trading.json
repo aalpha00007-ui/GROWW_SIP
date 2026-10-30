@@ -1,0 +1,76 @@
+{
+  "source": "Made-up rows for the Stocks and F&O pages. Display only: nothing here can be bought or sold. Prices of sample rows are set relative to each made-up stock's latest demo price (vs_now), so gains and losses stay as written whatever the seed date.",
+  "bonds": [
+    { "name": "Banyan Infra Bond", "maturity": "2030-03", "yield_pct": 7.45, "rating": "AAA" },
+    { "name": "Cedar Civic Development Bond", "maturity": "2034-06", "yield_pct": 7.1, "rating": "AAA" },
+    { "name": "Kaveri Power Finance Bond", "maturity": "2031-12", "yield_pct": 7.65, "rating": "AAA" },
+    { "name": "Teak Housing Finance Bond", "maturity": "2029-09", "yield_pct": 7.9, "rating": "AA+" },
+    { "name": "Saltmarsh Bank Tier II Bond", "maturity": "2032-03", "yield_pct": 8.25, "rating": "AA" },
+    { "name": "Larkspire Auto Finance Bond", "maturity": "2028-06", "yield_pct": 8.6, "rating": "AA-" },
+    { "name": "Ferncliff Pharma Bond", "maturity": "2029-01", "yield_pct": 8.85, "rating": "A+" },
+    { "name": "Tidewick Logistics Bond", "maturity": "2027-11", "yield_pct": 9.4, "rating": "A" }
+  ],
+  "stock_holdings": [
+    { "symbol": "QUILL", "qty": 12, "vs_now": 0.91 },
+    { "symbol": "PBMR", "qty": 40, "vs_now": 1.06 },
+    { "symbol": "BFPWR", "qty": 100, "vs_now": 0.84 },
+    { "symbol": "FERNP", "qty": 15, "vs_now": 1.02 },
+    { "symbol": "SLTMB", "qty": 20, "vs_now": 0.95 },
+    { "symbol": "LRKSP", "qty": 8, "vs_now": 1.11 }
+  ],
+  "stock_positions": [
+    { "symbol": "ANVRG", "side": "buy", "qty": 200, "vs_now": 0.988 },
+    { "symbol": "TDWK", "side": "sell", "qty": 50, "vs_now": 1.004 },
+    { "symbol": "QUILL", "side": "buy", "qty": 10, "vs_now": 1.012 },
+    { "symbol": "SLTMB", "side": "buy", "qty": 25, "vs_now": 0.993 },
+    { "symbol": "BFPWR", "side": "sell", "qty": 150, "vs_now": 0.996 },
+    { "symbol": "PBMR", "side": "buy", "qty": 60, "vs_now": 1.007 }
+  ],
+  "stock_orders": [
+    { "symbol": "QUILL", "side": "buy", "qty": 10, "vs_now": 0.998, "status": "Executed", "days_ago": 0 },
+    { "symbol": "SLTMB", "side": "buy", "qty": 25, "vs_now": 0.993, "status": "Executed", "days_ago": 0 },
+    { "symbol": "BFPWR", "side": "sell", "qty": 150, "vs_now": 1.01, "status": "Executed", "days_ago": 0 },
+    { "symbol": "LRKSP", "side": "buy", "qty": 5, "vs_now": 0.97, "status": "Cancelled", "days_ago": 1 },
+    { "symbol": "FERNP", "side": "buy", "qty": 15, "vs_now": 1.02, "status": "Executed", "days_ago": 6 },
+    { "symbol": "TDWK", "side": "sell", "qty": 50, "vs_now": 1.004, "status": "Executed", "days_ago": 0 },
+    { "symbol": "ANVRG", "side": "buy", "qty": 500, "vs_now": 0.9, "status": "Rejected", "days_ago": 3 },
+    { "symbol": "PBMR", "side": "buy", "qty": 40, "vs_now": 1.06, "status": "Executed", "days_ago": 21 }
+  ],
+  "stock_watchlist": ["QUILL", "SLTMB", "LRKSP", "FERNP", "KNIFTY", "CBANK", "MITETF", "BGOLD"],
+  "fo_top_traded": {
+    "equity": [
+      { "name": "Nifty 50 Futures", "price": 24850, "vol": 0.009 },
+      { "name": "Bank Nifty Futures", "price": 55300, "vol": 0.011 },
+      { "name": "Fin Nifty Futures", "price": 26150, "vol": 0.01 },
+      { "name": "Nifty Midcap Futures", "price": 12900, "vol": 0.012 },
+      { "name": "Quillstone Software Futures", "price": 1425, "vol": 0.016 },
+      { "name": "Saltmarsh Bank Futures", "price": 762, "vol": 0.015 }
+    ],
+    "commodities": [
+      { "name": "Gold Mini", "price": 76500, "vol": 0.008 },
+      { "name": "Silver Micro", "price": 91200, "vol": 0.012 },
+      { "name": "Crude Oil", "price": 6150, "vol": 0.018 },
+      { "name": "Natural Gas", "price": 265, "vol": 0.025 },
+      { "name": "Copper", "price": 812, "vol": 0.012 },
+      { "name": "Zinc", "price": 268, "vol": 0.013 }
+    ]
+  },
+  "fo_stocks": [
+    { "symbol": "QUILL", "lot_size": 175 },
+    { "symbol": "PBMR", "lot_size": 1100 },
+    { "symbol": "BFPWR", "lot_size": 1900 },
+    { "symbol": "FERNP", "lot_size": 450 },
+    { "symbol": "ANVRG", "lot_size": 2700 },
+    { "symbol": "TDWK", "lot_size": 750 },
+    { "symbol": "SLTMB", "lot_size": 550 },
+    { "symbol": "LRKSP", "lot_size": 350 }
+  ],
+  "fo_orders": [
+    { "contract": "Nifty 50 Futures", "side": "buy", "lots": 1, "status": "Cancelled", "days_ago": 0 },
+    { "contract": "Bank Nifty Futures", "side": "sell", "lots": 1, "status": "Rejected", "days_ago": 1 },
+    { "contract": "Gold Mini", "side": "buy", "lots": 2, "status": "Cancelled", "days_ago": 2 },
+    { "contract": "Crude Oil", "side": "sell", "lots": 1, "status": "Expired", "days_ago": 5 },
+    { "contract": "Quillstone Software Futures", "side": "buy", "lots": 1, "status": "Rejected", "days_ago": 7 },
+    { "contract": "Silver Micro", "side": "buy", "lots": 3, "status": "Expired", "days_ago": 12 }
+  ]
+}

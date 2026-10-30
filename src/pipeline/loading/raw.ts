@@ -104,6 +104,53 @@ export interface PersonaSeed {
   watchlist: string[];
 }
 
+/** Display-only rows for the Stocks and F&O pages (raw/market/trading.json). */
+export interface TradingSeed {
+  bonds: { name: string; maturity: string; yield_pct: number; rating: string }[];
+  stock_holdings: { symbol: string; qty: number; vs_now: number }[];
+  stock_positions: { symbol: string; side: 'buy' | 'sell'; qty: number; vs_now: number }[];
+  stock_orders: { symbol: string; side: 'buy' | 'sell'; qty: number; vs_now: number; status: string; days_ago: number }[];
+  stock_watchlist: string[];
+  fo_top_traded: Record<'equity' | 'commodities', { name: string; price: number; vol: number }[]>;
+  fo_stocks: { symbol: string; lot_size: number }[];
+  fo_orders: { contract: string; side: 'buy' | 'sell'; lots: number; status: string; days_ago: number }[];
+}
+
+const BOND_RATINGS = ['AAA', 'AA+', 'AA', 'AA-', 'A+', 'A'];
+
+/** Checks trading.json: 6-8 rows per list (the brief's rule), known symbols and contracts, sensible numbers. */
+export function loadTrading(market: Market): TradingSeed {
+  const file = 'raw/market/trading.json';
+  const t: TradingSeed = readJson(file);
+  const symbols = new Set(market.assets.map((a) => a.symbol));
+  const sixToEight = (list: unknown[], what: string) => check(Array.isArray(list) && list.length >= 6 && list.length <= 8, file, `${what} needs 6-8 rows`);
+  sixToEight(t.bonds, 'bonds');
+  for (const b of t.bonds) {
+    check(isText(b.name) && /^\d{4}-(0[1-9]|1[0-2])$/.test(b.maturity), file, `bond ${b.name}: name and maturity (YYYY-MM) are required`);
+    check(b.yield_pct > 0 && b.yield_pct < 20 && BOND_RATINGS.includes(b.rating), file, `bond ${b.name}: yield or rating out of range`);
+  }
+  for (const [what, rows] of [['stock_holdings', t.stock_holdings], ['stock_positions', t.stock_positions], ['stock_orders', t.stock_orders]] as const) {
+    sixToEight(rows, what);
+    for (const r of rows) {
+      check(symbols.has(r.symbol), file, `${what}: unknown symbol "${r.symbol}"`);
+      check(isPositiveInt(r.qty) && r.vs_now > 0.5 && r.vs_now < 1.5, file, `${what} ${r.symbol}: qty or vs_now out of range`);
+    }
+  }
+  sixToEight(t.stock_watchlist, 'stock_watchlist');
+  for (const s of t.stock_watchlist) check(symbols.has(s), file, `stock_watchlist: unknown symbol "${s}"`);
+  for (const kind of ['equity', 'commodities'] as const) {
+    const list = t.fo_top_traded?.[kind];
+    check(Array.isArray(list) && list.length === 6, file, `fo_top_traded.${kind} needs 6 contracts`);
+    for (const c of list) check(isText(c.name) && c.price > 0 && c.vol > 0 && c.vol < 0.1, file, `fo_top_traded.${kind} ${c.name}: price or vol out of range`);
+  }
+  sixToEight(t.fo_stocks, 'fo_stocks');
+  for (const s of t.fo_stocks) check(symbols.has(s.symbol) && isPositiveInt(s.lot_size), file, `fo_stocks: bad row "${s.symbol}"`);
+  sixToEight(t.fo_orders, 'fo_orders');
+  const contracts = new Set([...t.fo_top_traded.equity, ...t.fo_top_traded.commodities].map((c) => c.name));
+  for (const o of t.fo_orders) check(contracts.has(o.contract) && isPositiveInt(o.lots), file, `fo_orders: unknown contract "${o.contract}"`);
+  return t;
+}
+
 export class DataError extends Error {}
 
 export function check(condition: unknown, file: string, message: string): asserts condition {

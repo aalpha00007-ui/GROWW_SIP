@@ -14,6 +14,7 @@ const TOOLS: Record<string, string> = {
   screener: 'Screener',
   events: 'Events calendar',
   options: 'Option chain',
+  margin: 'Margin calculator',
   'fo-learn': 'Learn F&O',
 };
 
