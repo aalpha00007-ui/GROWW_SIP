@@ -119,8 +119,7 @@ groww-sip-mvp/
     │   ├── api/
     │   │   ├── ai/            Before you stop (F7), dip explainer (F6)
     │   │   ├── auth/          username check, sign-up, log-in, log-out
-    │   │   ├── sips/          SIP controls (F5)
-    │   │   └── quality/       quality data (F11)
+    │   │   └── sips/          Start SIP and the SIP controls (F5)
     │   └── quality/           /quality page (F11)
     ├── components/            header, More menu, sign-up modal, goal card, check-in cards, calculators
     ├── pipeline/

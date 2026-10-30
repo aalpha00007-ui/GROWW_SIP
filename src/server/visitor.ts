@@ -4,10 +4,7 @@
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 import { getDb } from '../db/pool';
-import { SESSION_COOKIE, SESSION_DAYS, sessionInvestor } from './auth';
-
-export { SESSION_COOKIE };
-export const SESSION_MAX_AGE_S = 60 * 60 * 24 * SESSION_DAYS;
+import { SESSION_COOKIE, sessionInvestor } from './auth';
 
 export interface Visitor {
   id: string;

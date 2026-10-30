@@ -1,12 +1,10 @@
 // "Not part of this prototype" (spec §0 PLACEHOLDER): every product and tool this case study does not build.
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { PRODUCTS } from '@/components/products';
 
 const TOOLS: Record<string, string> = {
   terminal: 'Terminal',
   nfo: 'New fund offers',
-  'sip-calculator': 'SIP calculator',
   compare: 'Compare funds',
   import: 'Import funds',
   tax: 'File tax',
@@ -16,11 +14,14 @@ const TOOLS: Record<string, string> = {
   options: 'Option chain',
   margin: 'Margin calculator',
   'fo-learn': 'Learn F&O',
+  etfs: 'ETFs',
+  ipo: 'IPO',
+  bonds: 'Bonds',
 };
 
 export default async function Soon({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
-  const label = TOOLS[key] ?? PRODUCTS.find((p) => p.key === key && p.key !== 'mf')?.label;
+  const label = TOOLS[key];
   if (!label) notFound();
   return (
     <section className="mx-auto max-w-2xl rounded-xl border border-line bg-surface p-6">
