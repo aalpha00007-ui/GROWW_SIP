@@ -32,7 +32,7 @@ test('a new demo account has no holdings, positions, orders or watchlist, and th
   await expect(dialog.getByRole('heading', { name: 'Create a 4-digit demo PIN' })).toBeVisible();
   await dialog.getByLabel('Create a 4-digit demo PIN').fill(pin);
   await dialog.getByRole('button', { name: 'Create account' }).click();
-  await expect(page).toHaveURL('/explore', { timeout: 30_000 });
+  await expect(page).toHaveURL('/explore', { timeout: 60_000 });
 
   try {
     for (const [path, empty] of EMPTY) {

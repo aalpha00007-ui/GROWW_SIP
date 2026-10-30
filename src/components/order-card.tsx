@@ -2,7 +2,8 @@
 // The fund page's order card, after the layout reference: Monthly SIP or One-time, a big ₹ amount with
 // quick-add chips, the SIP date, how it is paid, the NEW goal row, then Add to cart and Start SIP. Start SIP
 // with no goal opens the goal step (brief phase 4), where skipping is one tap. A one-time investment has the
-// same goal row and step, and can also go to one of the investor's goals. Demo orders: no real money.
+// same goal row and step, and can also go to one of the investor's goals. The goal row always says why a goal
+// helps; the dark "New" tip says it once more until the investor closes it. Demo orders: no real money.
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -96,7 +97,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
 
   async function start() {
     if (!checkAmount()) return;
-    if (mode === 'sip' && tip) closeTip();
+    if (tip) closeTip();
     if (!goal) setStep('start');
     else if (mode === 'sip') await startSip(goal, 'saved');
     else await investOnce(goal);
@@ -203,10 +204,13 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
       </p>
 
       <div>
-        {mode === 'sip' && tip && (
+        {tip && !goal && (
           <div role="note" aria-label="New feature" className="relative mb-3 rounded-lg bg-strong p-3 text-sm text-white shadow-lg">
             <p>
-              <span className="font-bold">New:</span> tell us what this SIP is for. When the market falls, we&apos;ll show you this goal next to your SIP.
+              <span className="font-bold">New:</span>{' '}
+              {mode === 'sip'
+                ? 'tell us what this SIP is for. When the market falls, we’ll show you this goal next to your SIP.'
+                : 'tell us what this money is for. When the market falls, we’ll show you this goal next to it.'}
             </p>
             <button type="button" onClick={closeTip} className="mt-2 min-h-9 rounded-md bg-white px-3 text-sm font-semibold text-strong hover:bg-primary-soft">
               Got it
@@ -233,10 +237,14 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
               if (tip) closeTip();
               setStep('edit');
             }}
-            className="flex min-h-12 w-full items-center gap-2 rounded-lg border border-dashed border-primary px-3 text-left text-sm hover:bg-primary-soft"
+            className="flex min-h-12 w-full items-center gap-2 rounded-lg border border-dashed border-primary px-3 py-2 text-left text-sm hover:bg-primary-soft"
           >
             <span className="rounded bg-accent-tint px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-accent-ink">New</span>
-            <span className="flex-1 font-medium text-strong">{mode === 'sip' ? 'What’s this SIP for?' : 'What’s this investment for?'}</span>
+            <span className="flex-1">
+              <span className="block font-medium text-strong">{mode === 'sip' ? 'What’s this SIP for?' : 'What’s this investment for?'}</span>
+              {/* Why a goal helps, always here: the tip above goes away once closed. */}
+              <span className="block text-xs text-muted">We’ll show it next to your money when the market falls.</span>
+            </span>
             <span className="flex items-center font-semibold text-primary">
               Add a goal
               <Icon name="chevron" size={16} />
