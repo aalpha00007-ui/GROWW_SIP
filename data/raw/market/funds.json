@@ -9,7 +9,18 @@
       "min_sip": 500,
       "exit_load_text": "1% if redeemed within 1 year",
       "expense_ratio": 0.72,
-      "walk": { "start": 52.4, "drift": 0.12, "vol": 0.15, "end_fall": [0.08, 0.12] }
+      "walk": {
+        "start": 52.4,
+        "drift": 0.12,
+        "vol": 0.15,
+        "end_fall": [
+          0.08,
+          0.12
+        ]
+      },
+      "sub_category": "Flexi cap",
+      "aum_cr": 18420,
+      "rating": 4
     },
     {
       "id": 2,
@@ -19,7 +30,18 @@
       "min_sip": 500,
       "exit_load_text": "Nil",
       "expense_ratio": 0.2,
-      "walk": { "start": 28.75, "drift": 0.11, "vol": 0.14, "end_fall": [0.08, 0.12] }
+      "walk": {
+        "start": 28.75,
+        "drift": 0.11,
+        "vol": 0.14,
+        "end_fall": [
+          0.08,
+          0.12
+        ]
+      },
+      "sub_category": "Index",
+      "aum_cr": 9870,
+      "rating": 4
     },
     {
       "id": 3,
@@ -29,7 +51,18 @@
       "min_sip": 500,
       "exit_load_text": "1% if redeemed within 1 year",
       "expense_ratio": 0.81,
-      "walk": { "start": 74.1, "drift": 0.15, "vol": 0.2, "end_fall": [0.08, 0.12] }
+      "walk": {
+        "start": 74.1,
+        "drift": 0.15,
+        "vol": 0.2,
+        "end_fall": [
+          0.08,
+          0.12
+        ]
+      },
+      "sub_category": "Mid cap",
+      "aum_cr": 12310,
+      "rating": 4
     },
     {
       "id": 4,
@@ -39,7 +72,18 @@
       "min_sip": 500,
       "exit_load_text": "Nil (3-year lock-in)",
       "expense_ratio": 0.77,
-      "walk": { "start": 96.3, "drift": 0.13, "vol": 0.17, "end_fall": [0.08, 0.12] }
+      "walk": {
+        "start": 96.3,
+        "drift": 0.13,
+        "vol": 0.17,
+        "end_fall": [
+          0.08,
+          0.12
+        ]
+      },
+      "sub_category": "ELSS",
+      "aum_cr": 6540,
+      "rating": 3
     },
     {
       "id": 5,
@@ -49,7 +93,15 @@
       "min_sip": 500,
       "exit_load_text": "Nil after 7 days",
       "expense_ratio": 0.18,
-      "walk": { "start": 2875.4, "drift": 0.065, "vol": 0.004, "end_fall": null }
+      "walk": {
+        "start": 2875.4,
+        "drift": 0.065,
+        "vol": 0.004,
+        "end_fall": null
+      },
+      "sub_category": "Liquid",
+      "aum_cr": 22150,
+      "rating": 4
     },
     {
       "id": 6,
@@ -59,7 +111,18 @@
       "min_sip": 500,
       "exit_load_text": "1% if redeemed within 1 year",
       "expense_ratio": 0.85,
-      "walk": { "start": 41.2, "drift": 0.17, "vol": 0.24, "end_fall": [0.08, 0.12] }
+      "walk": {
+        "start": 41.2,
+        "drift": 0.17,
+        "vol": 0.24,
+        "end_fall": [
+          0.08,
+          0.12
+        ]
+      },
+      "sub_category": "Small cap",
+      "aum_cr": 7980,
+      "rating": 3
     },
     {
       "id": 7,
@@ -69,7 +132,18 @@
       "min_sip": 500,
       "exit_load_text": "1% if redeemed within 1 year",
       "expense_ratio": 0.79,
-      "walk": { "start": 33.6, "drift": 0.09, "vol": 0.09, "end_fall": [0.08, 0.12] }
+      "walk": {
+        "start": 33.6,
+        "drift": 0.09,
+        "vol": 0.09,
+        "end_fall": [
+          0.08,
+          0.12
+        ]
+      },
+      "sub_category": "Hybrid",
+      "aum_cr": 15640,
+      "rating": 4
     },
     {
       "id": 8,
@@ -79,7 +153,690 @@
       "min_sip": 500,
       "exit_load_text": "1% if redeemed within 1 year",
       "expense_ratio": 0.74,
-      "walk": { "start": 61.85, "drift": 0.13, "vol": 0.16, "end_fall": [0.08, 0.12] }
+      "walk": {
+        "start": 61.85,
+        "drift": 0.13,
+        "vol": 0.16,
+        "end_fall": [
+          0.08,
+          0.12
+        ]
+      },
+      "sub_category": "Large & mid cap",
+      "aum_cr": 11200,
+      "rating": 4
+    },
+    {
+      "id": 9,
+      "name": "Peepal Large Cap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.62,
+      "walk": {
+        "start": 48.2,
+        "drift": 0.11,
+        "vol": 0.14,
+        "end_fall": [
+          0.07,
+          0.1
+        ]
+      },
+      "sub_category": "Large cap",
+      "aum_cr": 24300,
+      "rating": 5
+    },
+    {
+      "id": 10,
+      "name": "Heron Bluechip Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.71,
+      "walk": {
+        "start": 61.5,
+        "drift": 0.105,
+        "vol": 0.14,
+        "end_fall": [
+          0.07,
+          0.1
+        ]
+      },
+      "sub_category": "Large cap",
+      "aum_cr": 19850,
+      "rating": 4
+    },
+    {
+      "id": 11,
+      "name": "Granite Large Cap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 500,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.84,
+      "walk": {
+        "start": 35.9,
+        "drift": 0.1,
+        "vol": 0.15,
+        "end_fall": [
+          0.07,
+          0.1
+        ]
+      },
+      "sub_category": "Large cap",
+      "aum_cr": 8420,
+      "rating": 3
+    },
+    {
+      "id": 12,
+      "name": "Saal Top 100 Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.58,
+      "walk": {
+        "start": 72.4,
+        "drift": 0.115,
+        "vol": 0.14,
+        "end_fall": [
+          0.07,
+          0.1
+        ]
+      },
+      "sub_category": "Large cap",
+      "aum_cr": 31200,
+      "rating": 5
+    },
+    {
+      "id": 13,
+      "name": "Coral Large Cap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.77,
+      "walk": {
+        "start": 27.6,
+        "drift": 0.1,
+        "vol": 0.145,
+        "end_fall": [
+          0.07,
+          0.1
+        ]
+      },
+      "sub_category": "Large cap",
+      "aum_cr": 5960,
+      "rating": 3
+    },
+    {
+      "id": 14,
+      "name": "Ridge Large Cap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 500,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.69,
+      "walk": {
+        "start": 54.1,
+        "drift": 0.108,
+        "vol": 0.14,
+        "end_fall": [
+          0.07,
+          0.1
+        ]
+      },
+      "sub_category": "Large cap",
+      "aum_cr": 12740,
+      "rating": 4
+    },
+    {
+      "id": 15,
+      "name": "Sparrow Mid Cap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.79,
+      "walk": {
+        "start": 41.3,
+        "drift": 0.155,
+        "vol": 0.19,
+        "end_fall": [
+          0.08,
+          0.12
+        ]
+      },
+      "sub_category": "Mid cap",
+      "aum_cr": 14300,
+      "rating": 4
+    },
+    {
+      "id": 16,
+      "name": "Amber Midcap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.86,
+      "walk": {
+        "start": 66.8,
+        "drift": 0.15,
+        "vol": 0.2,
+        "end_fall": [
+          0.08,
+          0.12
+        ]
+      },
+      "sub_category": "Mid cap",
+      "aum_cr": 9870,
+      "rating": 4
+    },
+    {
+      "id": 17,
+      "name": "Riverbend Mid Cap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 500,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.92,
+      "walk": {
+        "start": 23.4,
+        "drift": 0.145,
+        "vol": 0.2,
+        "end_fall": [
+          0.08,
+          0.12
+        ]
+      },
+      "sub_category": "Mid cap",
+      "aum_cr": 4650,
+      "rating": 3
+    },
+    {
+      "id": 18,
+      "name": "Jasmine Midcap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.74,
+      "walk": {
+        "start": 88.1,
+        "drift": 0.16,
+        "vol": 0.19,
+        "end_fall": [
+          0.08,
+          0.12
+        ]
+      },
+      "sub_category": "Mid cap",
+      "aum_cr": 17420,
+      "rating": 5
+    },
+    {
+      "id": 19,
+      "name": "Flint Mid Cap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.81,
+      "walk": {
+        "start": 37.7,
+        "drift": 0.15,
+        "vol": 0.21,
+        "end_fall": [
+          0.08,
+          0.12
+        ]
+      },
+      "sub_category": "Mid cap",
+      "aum_cr": 6210,
+      "rating": 3
+    },
+    {
+      "id": 20,
+      "name": "Firefly Small Cap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.88,
+      "walk": {
+        "start": 29.5,
+        "drift": 0.18,
+        "vol": 0.23,
+        "end_fall": [
+          0.09,
+          0.13
+        ]
+      },
+      "sub_category": "Small cap",
+      "aum_cr": 11980,
+      "rating": 4
+    },
+    {
+      "id": 21,
+      "name": "Pebble Small Cap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.95,
+      "walk": {
+        "start": 45.2,
+        "drift": 0.17,
+        "vol": 0.24,
+        "end_fall": [
+          0.09,
+          0.13
+        ]
+      },
+      "sub_category": "Small cap",
+      "aum_cr": 7340,
+      "rating": 3
+    },
+    {
+      "id": 22,
+      "name": "Hummingbird Small Cap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 500,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.83,
+      "walk": {
+        "start": 52.9,
+        "drift": 0.175,
+        "vol": 0.23,
+        "end_fall": [
+          0.09,
+          0.13
+        ]
+      },
+      "sub_category": "Small cap",
+      "aum_cr": 13560,
+      "rating": 4
+    },
+    {
+      "id": 23,
+      "name": "Saffron Small Cap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.91,
+      "walk": {
+        "start": 19.8,
+        "drift": 0.165,
+        "vol": 0.25,
+        "end_fall": [
+          0.09,
+          0.13
+        ]
+      },
+      "sub_category": "Small cap",
+      "aum_cr": 3870,
+      "rating": 3
+    },
+    {
+      "id": 24,
+      "name": "Mosaic Small Cap Fund",
+      "category": "Equity",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 1 year",
+      "expense_ratio": 0.79,
+      "walk": {
+        "start": 63.3,
+        "drift": 0.185,
+        "vol": 0.23,
+        "end_fall": [
+          0.09,
+          0.13
+        ]
+      },
+      "sub_category": "Small cap",
+      "aum_cr": 16240,
+      "rating": 5
+    },
+    {
+      "id": 25,
+      "name": "Falcon Nifty Next 50 Index Fund",
+      "category": "Index",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "Nil",
+      "expense_ratio": 0.3,
+      "walk": {
+        "start": 18.6,
+        "drift": 0.12,
+        "vol": 0.17,
+        "end_fall": [
+          0.07,
+          0.1
+        ]
+      },
+      "sub_category": "Index",
+      "aum_cr": 4120,
+      "rating": 4
+    },
+    {
+      "id": 26,
+      "name": "Orchid Sensex Index Fund",
+      "category": "Index",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "Nil",
+      "expense_ratio": 0.2,
+      "walk": {
+        "start": 24.7,
+        "drift": 0.11,
+        "vol": 0.14,
+        "end_fall": [
+          0.07,
+          0.1
+        ]
+      },
+      "sub_category": "Index",
+      "aum_cr": 6870,
+      "rating": 4
+    },
+    {
+      "id": 27,
+      "name": "Lark Nifty Midcap 150 Index Fund",
+      "category": "Index",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "Nil",
+      "expense_ratio": 0.32,
+      "walk": {
+        "start": 16.2,
+        "drift": 0.15,
+        "vol": 0.19,
+        "end_fall": [
+          0.08,
+          0.12
+        ]
+      },
+      "sub_category": "Index",
+      "aum_cr": 3240,
+      "rating": 4
+    },
+    {
+      "id": 28,
+      "name": "Willow Nifty Bank Index Fund",
+      "category": "Index",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "Nil",
+      "expense_ratio": 0.28,
+      "walk": {
+        "start": 21.4,
+        "drift": 0.1,
+        "vol": 0.18,
+        "end_fall": [
+          0.07,
+          0.11
+        ]
+      },
+      "sub_category": "Index",
+      "aum_cr": 2980,
+      "rating": 3
+    },
+    {
+      "id": 29,
+      "name": "Maple Nifty 100 Index Fund",
+      "category": "Index",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "Nil",
+      "expense_ratio": 0.24,
+      "walk": {
+        "start": 31.8,
+        "drift": 0.11,
+        "vol": 0.14,
+        "end_fall": [
+          0.07,
+          0.1
+        ]
+      },
+      "sub_category": "Index",
+      "aum_cr": 5430,
+      "rating": 4
+    },
+    {
+      "id": 30,
+      "name": "Teal ELSS Tax Saver Fund",
+      "category": "ELSS",
+      "risk_level": "Very High",
+      "min_sip": 500,
+      "exit_load_text": "Nil (3-year lock-in)",
+      "expense_ratio": 0.81,
+      "walk": {
+        "start": 57.2,
+        "drift": 0.135,
+        "vol": 0.17,
+        "end_fall": [
+          0.08,
+          0.11
+        ]
+      },
+      "sub_category": "ELSS",
+      "aum_cr": 9120,
+      "rating": 4
+    },
+    {
+      "id": 31,
+      "name": "Oakleaf Tax Saver Fund",
+      "category": "ELSS",
+      "risk_level": "Very High",
+      "min_sip": 500,
+      "exit_load_text": "Nil (3-year lock-in)",
+      "expense_ratio": 0.76,
+      "walk": {
+        "start": 83.9,
+        "drift": 0.13,
+        "vol": 0.16,
+        "end_fall": [
+          0.08,
+          0.11
+        ]
+      },
+      "sub_category": "ELSS",
+      "aum_cr": 12680,
+      "rating": 5
+    },
+    {
+      "id": 32,
+      "name": "Bamboo ELSS Fund",
+      "category": "ELSS",
+      "risk_level": "Very High",
+      "min_sip": 500,
+      "exit_load_text": "Nil (3-year lock-in)",
+      "expense_ratio": 0.89,
+      "walk": {
+        "start": 34.1,
+        "drift": 0.125,
+        "vol": 0.18,
+        "end_fall": [
+          0.08,
+          0.11
+        ]
+      },
+      "sub_category": "ELSS",
+      "aum_cr": 4310,
+      "rating": 3
+    },
+    {
+      "id": 33,
+      "name": "Magnolia Tax Saver Fund",
+      "category": "ELSS",
+      "risk_level": "Very High",
+      "min_sip": 500,
+      "exit_load_text": "Nil (3-year lock-in)",
+      "expense_ratio": 0.72,
+      "walk": {
+        "start": 46.6,
+        "drift": 0.14,
+        "vol": 0.17,
+        "end_fall": [
+          0.08,
+          0.11
+        ]
+      },
+      "sub_category": "ELSS",
+      "aum_cr": 7590,
+      "rating": 4
+    },
+    {
+      "id": 34,
+      "name": "Crest ELSS Tax Saver Fund",
+      "category": "ELSS",
+      "risk_level": "Very High",
+      "min_sip": 500,
+      "exit_load_text": "Nil (3-year lock-in)",
+      "expense_ratio": 0.84,
+      "walk": {
+        "start": 28.3,
+        "drift": 0.13,
+        "vol": 0.18,
+        "end_fall": [
+          0.08,
+          0.11
+        ]
+      },
+      "sub_category": "ELSS",
+      "aum_cr": 3760,
+      "rating": 3
+    },
+    {
+      "id": 35,
+      "name": "Marigold Gold Fund",
+      "category": "Gold & Silver",
+      "risk_level": "High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 15 days",
+      "expense_ratio": 0.15,
+      "walk": {
+        "start": 22.8,
+        "drift": 0.09,
+        "vol": 0.12,
+        "end_fall": [
+          0.01,
+          0.03
+        ]
+      },
+      "sub_category": "Gold",
+      "aum_cr": 4870,
+      "rating": 4
+    },
+    {
+      "id": 36,
+      "name": "Sunbeam Gold Savings Fund",
+      "category": "Gold & Silver",
+      "risk_level": "High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 15 days",
+      "expense_ratio": 0.18,
+      "walk": {
+        "start": 19.4,
+        "drift": 0.088,
+        "vol": 0.12,
+        "end_fall": [
+          0.01,
+          0.03
+        ]
+      },
+      "sub_category": "Gold",
+      "aum_cr": 3120,
+      "rating": 4
+    },
+    {
+      "id": 37,
+      "name": "Ember Gold FoF",
+      "category": "Gold & Silver",
+      "risk_level": "High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 15 days",
+      "expense_ratio": 0.21,
+      "walk": {
+        "start": 25.6,
+        "drift": 0.09,
+        "vol": 0.125,
+        "end_fall": [
+          0.01,
+          0.03
+        ]
+      },
+      "sub_category": "Gold",
+      "aum_cr": 1980,
+      "rating": 3
+    },
+    {
+      "id": 38,
+      "name": "Moonstone Silver FoF",
+      "category": "Gold & Silver",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 15 days",
+      "expense_ratio": 0.32,
+      "walk": {
+        "start": 14.9,
+        "drift": 0.1,
+        "vol": 0.2,
+        "end_fall": [
+          0.02,
+          0.05
+        ]
+      },
+      "sub_category": "Silver",
+      "aum_cr": 1450,
+      "rating": 3
+    },
+    {
+      "id": 39,
+      "name": "Pearl Silver Fund",
+      "category": "Gold & Silver",
+      "risk_level": "Very High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 15 days",
+      "expense_ratio": 0.29,
+      "walk": {
+        "start": 12.7,
+        "drift": 0.105,
+        "vol": 0.21,
+        "end_fall": [
+          0.02,
+          0.05
+        ]
+      },
+      "sub_category": "Silver",
+      "aum_cr": 2260,
+      "rating": 4
+    },
+    {
+      "id": 40,
+      "name": "Glint Gold & Silver FoF",
+      "category": "Gold & Silver",
+      "risk_level": "High",
+      "min_sip": 100,
+      "exit_load_text": "1% if redeemed within 15 days",
+      "expense_ratio": 0.26,
+      "walk": {
+        "start": 17.3,
+        "drift": 0.095,
+        "vol": 0.15,
+        "end_fall": [
+          0.01,
+          0.04
+        ]
+      },
+      "sub_category": "Gold",
+      "aum_cr": 1730,
+      "rating": 4
     }
   ]
 }

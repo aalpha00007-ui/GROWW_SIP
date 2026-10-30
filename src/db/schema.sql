@@ -11,6 +11,11 @@ CREATE TABLE IF NOT EXISTS funds (
   exit_load_text text NOT NULL,
   expense_ratio  numeric(4,2) NOT NULL
 );
+-- Added for the Explore and fund pages: made-up sub-category, fund size (₹ crore) and rating (1-5).
+-- Added with ALTER so a deploy's db:migrate adds them to a database that already has the table.
+ALTER TABLE funds ADD COLUMN IF NOT EXISTS sub_category text NULL;
+ALTER TABLE funds ADD COLUMN IF NOT EXISTS aum_cr int NULL;
+ALTER TABLE funds ADD COLUMN IF NOT EXISTS rating int NULL CHECK (rating BETWEEN 1 AND 5);
 
 CREATE TABLE IF NOT EXISTS nav_history (
   fund_id  int NOT NULL REFERENCES funds(id) ON DELETE CASCADE,

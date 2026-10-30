@@ -9,13 +9,17 @@ import { postJson } from './post-json';
 type Props = Pick<SipView, 'id' | 'controls' | 'skipLabel' | 'pauseChoices' | 'amountNow' | 'minAmount' | 'maxAmount' | 'amountRange'> & {
   /** Open the amount form on arrival, for "Lower amount" at Before you stop. */
   openAmount: boolean;
+  /** Open the pause choices on arrival, for Pause on the SIPs tab. */
+  openPause?: boolean;
 };
 
 const BUTTON = 'flex min-h-11 w-full items-center justify-center rounded-lg border border-line px-3 text-sm font-semibold hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50';
 
-export function SipControls({ id, controls, skipLabel, pauseChoices, amountNow, minAmount, maxAmount, amountRange, openAmount }: Props) {
+export function SipControls({ id, controls, skipLabel, pauseChoices, amountNow, minAmount, maxAmount, amountRange, openAmount, openPause = false }: Props) {
   const router = useRouter();
-  const [open, setOpen] = useState<'amount' | 'pause' | null>(openAmount && controls.amount ? 'amount' : null);
+  const [open, setOpen] = useState<'amount' | 'pause' | null>(
+    openAmount && controls.amount ? 'amount' : openPause && controls.pause ? 'pause' : null,
+  );
   const [amount, setAmount] = useState(String(amountNow));
   const [pauseCount, setPauseCount] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);

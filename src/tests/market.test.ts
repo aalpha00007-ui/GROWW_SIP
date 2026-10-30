@@ -5,7 +5,7 @@ import { applyMarketFall } from '../pipeline/loading/market-fall';
 import { clonePersona } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
 import { homeView } from '../server/home';
-import { dayChange, homeFunds, marketStrip } from '../server/market';
+import { dayChange, marketStrip } from '../server/market';
 import { stopSip } from '../server/sip-actions';
 import { pgliteDb } from './pglite-db';
 
@@ -43,32 +43,6 @@ describe('the market strip (demo data only)', () => {
     expect(after.note).toBe('Numbers as of 28 Oct 2026 · Includes 1 simulated market fall · Demo data');
     // Another visitor's strip is untouched.
     expect((await marketStrip(db, await clonePersona(db, 'riya'))).indices[0].value).toBe('24,800.00');
-  });
-});
-
-describe('Home fund rows', () => {
-  it('shows four made-up popular funds whose day change follows the simulated fall', async () => {
-    const visitor = await clonePersona(db, 'riya');
-    const { popular } = await homeFunds(db, visitor);
-    expect(popular.map((f) => [f.name, f.initials])).toEqual([
-      ['Kestrel Nifty 50 Index Fund', 'KN'],
-      ['Banyan Flexi Cap Fund', 'BF'],
-      ['Lotus ELSS Tax Saver Fund', 'LE'],
-      ['Monsoon Midcap Fund', 'MM'],
-    ]);
-    expect(popular[0].nav).toMatch(/^₹[\d,]+\.\d\d$/);
-    await applyMarketFall(db, visitor);
-    expect((await homeFunds(db, visitor)).popular.every((f) => f.change?.startsWith('-') && f.change.endsWith('(6.00%)'))).toBe(true);
-  });
-
-  it('groups the funds by category with a risk word for each', async () => {
-    const { categories } = await homeFunds(db, await clonePersona(db, 'riya'));
-    expect(categories.map((c) => [c.label, c.count, c.risk.label, c.risk.level, c.href])).toEqual([
-      ['Index funds', '1 fund', 'Very High risk', 'high', '/explore?category=Index'],
-      ['Tax saver (ELSS)', '1 fund', 'Very High risk', 'high', '/explore?category=ELSS'],
-      ['Equity funds', '4 funds', 'Very High risk', 'high', '/explore?category=Equity'],
-      ['Liquid funds', '1 fund', 'Low to Moderate risk', 'low', '/explore?category=Liquid'],
-    ]);
   });
 });
 

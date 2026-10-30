@@ -14,6 +14,8 @@ const IPO_STATUSES = ['open', 'upcoming', 'closed'] as const;
 /** Months of daily NAVs and of daily asset prices that the seed generates. */
 export const NAV_MONTHS = 30;
 export const PRICE_MONTHS = 12;
+/** Before the daily NAVs, weekly ones go back this far, for the fund page's 3Y, 5Y and All charts. */
+export const HISTORY_MONTHS = 72;
 
 export interface FundSeed {
   id: number;
@@ -24,6 +26,20 @@ export interface FundSeed {
   exit_load_text: string;
   expense_ratio: number;
   walk: WalkSpec;
+  /** 'Large cap', 'Gold' and so on: what Explore's collections filter on. */
+  sub_category: string;
+  /** Made-up fund size in ₹ crore. */
+  aum_cr: number;
+  /** Made-up rating, 1-5. */
+  rating: number;
+}
+
+/** A made-up new fund offer, shown on Explore only: it cannot be bought in this prototype. */
+export interface NfoSeed {
+  name: string;
+  category: string;
+  closes_in_days: number;
+  min_amount: number;
 }
 
 export interface AssetSeed {
@@ -50,6 +66,7 @@ export interface Market {
   funds: FundSeed[];
   assets: AssetSeed[];
   ipos: IpoSeed[];
+  nfos: NfoSeed[];
 }
 
 export interface GoalSeed {
@@ -116,6 +133,9 @@ export function loadMarket(): Market {
     check(isPositiveInt(f.min_sip), fundsFile, `${where}: min_sip must be a positive integer`);
     check(isText(f.exit_load_text), fundsFile, `${where}: exit_load_text is required`);
     check(typeof f.expense_ratio === 'number' && f.expense_ratio >= 0 && f.expense_ratio < 100, fundsFile, `${where}: expense_ratio out of range`);
+    check(isText(f.sub_category), fundsFile, `${where}: sub_category is required`);
+    check(isPositiveInt(f.aum_cr), fundsFile, `${where}: aum_cr must be a positive whole number of crore`);
+    check(Number.isInteger(f.rating) && f.rating >= 1 && f.rating <= 5, fundsFile, `${where}: rating must be 1-5`);
     checkWalk(f.walk, fundsFile, where, true);
   }
   checkUnique(funds.map((f) => f.id), fundsFile, 'fund id');
@@ -151,7 +171,16 @@ export function loadMarket(): Market {
   }
   checkUnique(ipos.map((i) => i.id), iposFile, 'ipo id');
 
-  return { funds, assets, ipos };
+  const nfosFile = 'raw/market/nfos.json';
+  const nfos: NfoSeed[] = readJson(nfosFile).nfos;
+  check(Array.isArray(nfos) && nfos.length >= 4 && nfos.length <= 8, nfosFile, 'needs 4-8 "nfos"');
+  for (const nfo of nfos) {
+    check(isText(nfo.name) && isText(nfo.category), nfosFile, 'every NFO needs a name and a category');
+    check(isPositiveInt(nfo.closes_in_days) && isPositiveInt(nfo.min_amount), nfosFile, `${nfo.name}: closes_in_days and min_amount must be positive whole numbers`);
+  }
+  checkUnique([...funds, ...nfos].map((f) => f.name), nfosFile, 'fund or NFO name');
+
+  return { funds, assets, ipos, nfos };
 }
 
 export function loadPersonas(market: Market): PersonaSeed[] {

@@ -23,9 +23,10 @@ export interface WalkPoint {
 export function randomWalk(spec: WalkSpec, dates: string[], seed: number, decimals: number): WalkPoint[] {
   const rng = mulberry32(seed);
   const normal = normalSampler(rng);
-  const dt = 1 / 365;
   const steps: number[] = [];
   for (let i = 1; i < dates.length; i++) {
+    // One step per gap between dates, in years: 1/365 for daily dates, 7/365 for weekly ones.
+    const dt = (Date.parse(dates[i]) - Date.parse(dates[i - 1])) / 86_400_000 / 365;
     steps.push((spec.drift - spec.vol ** 2 / 2) * dt + spec.vol * Math.sqrt(dt) * normal());
   }
 

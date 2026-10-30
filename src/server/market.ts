@@ -1,4 +1,4 @@
-// The market strip under the header and the Home fund rows (layout reference). Every number is made up and
+// The market strip under the header (layout reference). Every number is made up and
 // computed from this visitor's demo fund NAVs: each index is a fixed level that moves with one demo fund,
 // so "Simulate a market fall" moves the strip, the fund cards and the goal cards together. Never live data.
 import type { Db } from '../db/client';
@@ -15,15 +15,6 @@ const INDICES = [
   { name: 'NIFTY SMALLCAP', fund: 'Sundar Small Cap Fund', level: 17_900 },
   { name: 'NIFTY IT', fund: 'Banyan Flexi Cap Fund', level: 37_200 },
 ];
-
-const POPULAR = ['Kestrel Nifty 50 Index Fund', 'Banyan Flexi Cap Fund', 'Lotus ELSS Tax Saver Fund', 'Monsoon Midcap Fund'];
-
-const CATEGORIES = [
-  { category: 'Index', label: 'Index funds', icon: 'index' },
-  { category: 'ELSS', label: 'Tax saver (ELSS)', icon: 'elss' },
-  { category: 'Equity', label: 'Equity funds', icon: 'equity' },
-  { category: 'Liquid', label: 'Liquid funds', icon: 'liquid' },
-] as const;
 
 const TWO = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -95,53 +86,4 @@ export async function marketStrip(db: Db, investorId: string | null): Promise<Ma
       .filter(Boolean)
       .join(' · '),
   };
-}
-
-export type RiskLevel = 'low' | 'moderate' | 'high';
-
-export interface HomeFunds {
-  popular: { id: number; name: string; initials: string; nav: string; change: string | null }[];
-  categories: { category: string; label: string; icon: (typeof CATEGORIES)[number]['icon']; count: string; risk: { label: string; level: RiskLevel }; href: string }[];
-}
-
-/** "Popular funds" and "Funds by category" on Home, from the made-up funds only. */
-export async function homeFunds(db: Db, investorId: string): Promise<HomeFunds> {
-  const moves = await fundMoves(db, investorId);
-  return {
-    popular: POPULAR.flatMap((name) => {
-      const fund = moves.find((m) => m.name === name);
-      if (!fund) return [];
-      return [
-        {
-          id: fund.id,
-          name: fund.name,
-          initials: fund.name.split(' ').slice(0, 2).map((word) => word[0]).join(''),
-          nav: `₹${TWO.format(Number(fund.latest))}`,
-          change: dayChange(Number(fund.latest), fund.prev === null ? null : Number(fund.prev)),
-        },
-      ];
-    }),
-    categories: CATEGORIES.flatMap((c) => {
-      const funds = moves.filter((m) => m.category === c.category);
-      if (funds.length === 0) return [];
-      const risk = funds[0].risk_level;
-      return [
-        {
-          category: c.category,
-          label: c.label,
-          icon: c.icon,
-          count: funds.length === 1 ? '1 fund' : `${funds.length} funds`,
-          risk: { label: `${risk} risk`, level: riskLevel(risk) },
-          href: `/explore?category=${encodeURIComponent(c.category)}`,
-        },
-      ];
-    }),
-  };
-}
-
-/** 'Low to Moderate' -> low, 'Moderately High' -> moderate, 'Very High' -> high. */
-function riskLevel(label: string): RiskLevel {
-  if (/^low/i.test(label)) return 'low';
-  if (/^(very )?high$/i.test(label)) return 'high';
-  return 'moderate';
 }

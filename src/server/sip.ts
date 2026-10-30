@@ -2,7 +2,7 @@
 // retrieveFacts; the SIP's status is computed from sip_events, never stored (build spec §5).
 import type { Db } from '../db/client';
 import type { FactsUnit, SipFacts } from '../pipeline/chunking/facts';
-import { dayMonthYear, monthsBetween, monthYear, percent } from '../pipeline/chunking/format';
+import { dayMonthYear, monthsBetween, monthYear, ordinal, percent } from '../pipeline/chunking/format';
 import { inr } from './money';
 import { addMonths, monthStart } from '../pipeline/loading/dates';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
@@ -194,21 +194,26 @@ export function goalYearChoices(today: string, current: string | null) {
   return { quickYears, allYears };
 }
 
-/** The SIPs tab: one row per SIP. */
+/** The SIPs tab: one row per SIP, with its goal (or "Add a goal") and what can be done to it. */
 export async function sipList(db: Db, investorId: string, today: string) {
-  const { rows } = await db.query<{ id: number }>('SELECT id FROM sips WHERE investor_id = $1 ORDER BY id', [investorId]);
-  const lookups = await Promise.all(rows.map((r) => retrieveFacts(db, investorId, r.id, today)));
-  return lookups.flatMap((lookup) => {
-    if (lookup.status === 'not_found') return [];
-    const { facts } = lookup;
+  const { rows } = await db.query<{ id: number; day_of_month: number }>('SELECT id, day_of_month FROM sips WHERE investor_id = $1 ORDER BY id', [investorId]);
+  const states = await Promise.all(rows.map((r) => loadSip(db, investorId, r.id, today)));
+  return states.flatMap((state, i) => {
+    if (!state) return [];
+    const { facts } = state;
+    const view = sipView(state, today);
     return [
       {
         id: facts.sip_id,
         fund: facts.fund_name,
-        amount: `${inr(facts.amount)} a month`,
-        goal: facts.goal ? facts.goal.name : 'No goal',
-        hasGoal: facts.goal !== null,
-        next: lookup.status === 'stopped' ? 'Stopped' : facts.next_due_date ? `Next instalment ${dayMonthYear(facts.next_due_date)}` : '',
+        amount: inr(facts.amount),
+        date: `Monthly on ${ordinal(rows[i].day_of_month)}`,
+        next: state.status === 'stopped' ? 'Stopped' : facts.next_due_date ? dayMonthYear(facts.next_due_date) : 'None due',
+        status: state.status,
+        statusLabel: view.statusLabel,
+        goal: facts.goal ? `${facts.goal.name}${facts.goal.target_month ? ` · by ${monthYear(facts.goal.target_month)}` : ''}` : null,
+        canPause: view.controls.pause,
+        canStop: view.controls.stop,
       },
     ];
   });

@@ -1,8 +1,8 @@
 import type { Db } from '../../db/client';
 import { addMonths, dateRange, monthlyDueDates } from './dates';
 import { TEMPLATE_IDS } from './personas';
-import { loadMarket, loadPersonas, NAV_MONTHS, PRICE_MONTHS } from './raw';
-import { TABLES } from './seed';
+import { loadMarket, loadPersonas, PRICE_MONTHS } from './raw';
+import { navCalendar, TABLES } from './seed';
 
 export interface Check {
   name: string;
@@ -36,10 +36,11 @@ export async function verifyDatabase(db: Db): Promise<Check[]> {
   const funds = await n('SELECT count(*)::int AS n FROM funds');
   add('Funds', funds === market.funds.length, `${funds} of ${market.funds.length}`);
 
-  const navDays = dateRange(addMonths(seededOn, -NAV_MONTHS), seededOn).length;
+  const calendar = navCalendar(seededOn);
+  const navDays = calendar.weekly.length + calendar.daily.length;
   const shortNav = await n('SELECT count(*)::int AS n FROM (SELECT fund_id FROM nav_history GROUP BY fund_id HAVING count(*) <> $1) t', [navDays]);
   const navRows = await n('SELECT count(*)::int AS n FROM nav_history');
-  add('NAV history', shortNav === 0 && navRows === funds * navDays, `${navRows} rows, ${navDays} days per fund, up to ${seededOn}`);
+  add('NAV history', shortNav === 0 && navRows === funds * navDays, `${navRows} rows, ${navDays} days per fund (${calendar.weekly.length} weekly, then daily), up to ${seededOn}`);
 
   const assets = await n('SELECT count(*)::int AS n FROM assets');
   const priceDays = dateRange(addMonths(seededOn, -PRICE_MONTHS), seededOn).length;

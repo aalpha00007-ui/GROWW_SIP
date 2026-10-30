@@ -5,6 +5,7 @@ import { EXPLAINER_KEYS, loadAdvicePatterns, loadEvalCases, loadExplainers, load
 import { applyMarketFall } from '../pipeline/loading/market-fall';
 import { clonePersona, TEMPLATE_IDS } from '../pipeline/loading/personas';
 import { setupDatabase, type SeedSummary } from '../pipeline/loading/seed';
+import { loadMarket } from '../pipeline/loading/raw';
 import { pgliteDb } from './pglite-db';
 
 const TODAY = '2026-10-27';
@@ -39,33 +40,54 @@ describe('dates', () => {
 });
 
 describe('demo market', () => {
-  it('loads 8 funds with 30 months of daily NAVs ending today', async () => {
+  it('loads 40 funds with 30 months of daily NAVs ending today, and weekly ones back to 6 years', async () => {
     const days = dateRange(addMonths(TODAY, -30), TODAY).length;
-    const perFund = await rows<{ n: number; last: string }>(
-      'SELECT count(*)::int AS n, max(nav_date)::text AS last FROM nav_history GROUP BY fund_id ORDER BY fund_id',
+    const daily = await rows<{ n: number; last: string }>(
+      'SELECT count(*)::int AS n, max(nav_date)::text AS last FROM nav_history WHERE nav_date >= $1 GROUP BY fund_id ORDER BY fund_id',
+      [addMonths(TODAY, -30)],
     );
-    expect(perFund).toHaveLength(8);
-    for (const f of perFund) expect(f).toEqual({ n: days, last: TODAY });
-    expect(summary.navRows).toBe(8 * days);
+    expect(daily).toHaveLength(40);
+    for (const f of daily) expect(f).toEqual({ n: days, last: TODAY });
+    const older = await rows<{ first: string; gaps: number[] }>(
+      `SELECT min(nav_date)::text AS first, array_agg(DISTINCT gap) AS gaps FROM (
+         SELECT nav_date, nav_date - lag(nav_date) OVER (PARTITION BY fund_id ORDER BY nav_date) AS gap FROM nav_history WHERE nav_date <= $1
+       ) t`,
+      [addMonths(TODAY, -30)],
+    );
+    expect(older[0].first <= addDays(addMonths(TODAY, -72), 7)).toBe(true);
+    expect(older[0].gaps.filter((g) => g !== null)).toEqual([7]);
+    expect(summary.navRows).toBe(Number((await rows<{ n: number }>('SELECT count(*)::int AS n FROM nav_history'))[0].n));
   });
 
-  it('ends every non-liquid fund with an 8-12% fall over the last 4 weeks, and keeps the liquid fund steady', async () => {
-    const funds = await rows<{ category: string; now: string; before: string }>(
-      `SELECT f.category, n1.nav::text AS now, n0.nav::text AS before
+  it("ends every fund with its own demo fall over the last 4 weeks, and keeps the liquid fund steady", async () => {
+    const market = loadMarket();
+    const funds = await rows<{ id: number; category: string; now: string; before: string }>(
+      `SELECT f.id, f.category, n1.nav::text AS now, n0.nav::text AS before
        FROM funds f
        JOIN nav_history n1 ON n1.fund_id = f.id AND n1.nav_date = $1
        JOIN nav_history n0 ON n0.fund_id = f.id AND n0.nav_date = $2`,
       [TODAY, addDays(TODAY, -28)],
     );
-    expect(funds).toHaveLength(8);
+    expect(funds).toHaveLength(40);
     for (const f of funds) {
       const fall = 1 - Number(f.now) / Number(f.before);
+      const range = market.funds.find((m) => m.id === f.id)!.walk.end_fall;
       if (f.category === 'Liquid') expect(Math.abs(fall)).toBeLessThan(0.01);
       else {
-        expect(fall).toBeGreaterThanOrEqual(0.0795);
-        expect(fall).toBeLessThanOrEqual(0.1205);
+        expect(fall).toBeGreaterThanOrEqual(range![0] - 0.0005);
+        expect(fall).toBeLessThanOrEqual(range![1] + 0.0005);
       }
     }
+  });
+
+  it('joins the older weekly NAVs to the daily ones without a jump', async () => {
+    const [edge] = await rows<{ before: string; after: string }>(
+      `SELECT (SELECT nav::text FROM nav_history WHERE fund_id = 1 AND nav_date < $1 ORDER BY nav_date DESC LIMIT 1) AS before,
+         (SELECT nav::text FROM nav_history WHERE fund_id = 1 AND nav_date = $1) AS after`,
+      [addMonths(TODAY, -30)],
+    );
+    expect(Math.abs(Number(edge.before) / Number(edge.after) - 1)).toBeLessThan(0.1);
+    expect(Number(edge.after)).toBe(52.4);
   });
 
   it('gives the same NAVs on every run (fixed seed)', async () => {
@@ -165,7 +187,7 @@ describe('persona templates', () => {
     await setupDatabase(db, { today: TODAY });
     expect(await count('SELECT count(*)::int AS n FROM investors WHERE id = ANY($1::uuid[])', [Object.values(TEMPLATE_IDS)])).toBe(Object.keys(TEMPLATE_IDS).length);
     expect(await count('SELECT count(*)::int AS n FROM sips WHERE investor_id = $1', [TEMPLATE_IDS.riya])).toBe(3);
-    expect(await count('SELECT count(*)::int AS n FROM funds')).toBe(8);
+    expect(await count('SELECT count(*)::int AS n FROM funds')).toBe(40);
   });
 });
 
@@ -223,7 +245,7 @@ describe('demo market fall', () => {
     expect(latest.filter((f) => f.category === 'Liquid')).toHaveLength(1);
 
     const first = await applyMarketFall(db, visitor);
-    expect(first).toHaveLength(8);
+    expect(first).toHaveLength(40);
     first.forEach((row, i) => {
       expect(row.fund_id).toBe(latest[i].fund_id);
       expect(row.nav_date).toBe(addDays(TODAY, 1));
@@ -236,7 +258,7 @@ describe('demo market fall', () => {
       expect(Number(row.nav)).toBeCloseTo(Number(first[i].nav) * move(i), 4);
     });
 
-    expect(await count('SELECT count(*)::int AS n FROM demo_nav_history WHERE investor_id = $1', [visitor])).toBe(16);
+    expect(await count('SELECT count(*)::int AS n FROM demo_nav_history WHERE investor_id = $1', [visitor])).toBe(80);
     expect(await count('SELECT count(*)::int AS n FROM demo_nav_history WHERE investor_id = $1', [other])).toBe(0);
     expect(await count('SELECT count(*)::int AS n FROM nav_history WHERE nav_date > $1', [TODAY])).toBe(0);
   });

@@ -22,6 +22,12 @@ export function percent(value: number, signed = false): string {
   return signed && rounded > 0 ? `+${text}` : text;
 }
 
+/** 1 -> '1st', 22 -> '22nd', 13 -> '13th' */
+export function ordinal(n: number): string {
+  const suffix = n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th';
+  return `${n}${suffix}`;
+}
+
 export function months(count: number): string {
   return `${count} ${count === 1 ? 'month' : 'months'}`;
 }

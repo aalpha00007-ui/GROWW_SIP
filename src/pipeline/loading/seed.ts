@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { Db } from '../../db/client';
 import { addDays, addMonths, dateRange, todayInIndia } from './dates';
 import { insertTemplate, TEMPLATE_IDS } from './personas';
-import { loadMarket, loadPersonas, NAV_MONTHS, PRICE_MONTHS } from './raw';
+import { HISTORY_MONTHS, loadMarket, loadPersonas, NAV_MONTHS, PRICE_MONTHS, type FundSeed } from './raw';
 import { randomWalk, WALK_SEED, type WalkPoint } from './walk';
 
 const SCHEMA_FILE = path.join(process.cwd(), 'src', 'db', 'schema.sql');
@@ -35,9 +35,9 @@ export async function setupDatabase(db: Db, options: { today?: string } = {}): P
   const market = loadMarket();
   const personas = loadPersonas(market);
 
-  const navDates = dateRange(addMonths(today, -NAV_MONTHS), today);
+  const calendar = navCalendar(today);
   const priceDates = dateRange(addMonths(today, -PRICE_MONTHS), today);
-  const navs = new Map(market.funds.map((f) => [f.id, randomWalk(f.walk, navDates, WALK_SEED + f.id, 4)]));
+  const navs = new Map(market.funds.map((f) => [f.id, fundHistory(f, calendar)]));
   const prices = new Map(market.assets.map((a) => [a.id, randomWalk(a.walk, priceDates, WALK_SEED + 1000 + a.id, 2)]));
 
   await applySchema(db);
@@ -45,12 +45,13 @@ export async function setupDatabase(db: Db, options: { today?: string } = {}): P
   return db.transaction(async (tx) => {
     for (const f of market.funds) {
       await tx.query(
-        `INSERT INTO funds (id, name, category, risk_level, min_sip, exit_load_text, expense_ratio)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO funds (id, name, category, risk_level, min_sip, exit_load_text, expense_ratio, sub_category, aum_cr, rating)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, category = EXCLUDED.category,
            risk_level = EXCLUDED.risk_level, min_sip = EXCLUDED.min_sip,
-           exit_load_text = EXCLUDED.exit_load_text, expense_ratio = EXCLUDED.expense_ratio`,
-        [f.id, f.name, f.category, f.risk_level, f.min_sip, f.exit_load_text, f.expense_ratio],
+           exit_load_text = EXCLUDED.exit_load_text, expense_ratio = EXCLUDED.expense_ratio,
+           sub_category = EXCLUDED.sub_category, aum_cr = EXCLUDED.aum_cr, rating = EXCLUDED.rating`,
+        [f.id, f.name, f.category, f.risk_level, f.min_sip, f.exit_load_text, f.expense_ratio, f.sub_category, f.aum_cr, f.rating],
       );
     }
     await tx.query('DELETE FROM nav_history');
@@ -91,13 +92,36 @@ export async function setupDatabase(db: Db, options: { today?: string } = {}): P
     return {
       today,
       funds: market.funds.length,
-      navRows: market.funds.length * navDates.length,
+      navRows: market.funds.length * (calendar.weekly.length + calendar.daily.length),
       assets: market.assets.length,
       priceRows: market.assets.length * priceDates.length,
       ipos: market.ipos.length,
       personas: personaCounts,
     };
   });
+}
+
+/**
+ * NAV dates: daily for the last NAV_MONTHS (every persona instalment falls on one of these days),
+ * and weekly before that back to HISTORY_MONTHS, for the fund page's 3Y, 5Y and All charts.
+ */
+export function navCalendar(today: string): { weekly: string[]; daily: string[] } {
+  const daily = dateRange(addMonths(today, -NAV_MONTHS), today);
+  const weekly: string[] = [];
+  for (let d = addDays(daily[0], -7); d >= addMonths(today, -HISTORY_MONTHS); d = addDays(d, -7)) weekly.unshift(d);
+  return { weekly, daily };
+}
+
+/**
+ * One fund's NAVs. The daily walk is the one the personas, the AI facts and the eval were built on.
+ * The older weekly walk has a seed of its own and is scaled to end exactly where the daily walk
+ * starts, so adding it changed no NAV that was already there.
+ */
+function fundHistory(fund: FundSeed, calendar: { weekly: string[]; daily: string[] }): WalkPoint[] {
+  const recent = randomWalk(fund.walk, calendar.daily, WALK_SEED + fund.id, 4);
+  const older = randomWalk({ ...fund.walk, start: 1, end_fall: null }, [...calendar.weekly, calendar.daily[0]], WALK_SEED + 5000 + fund.id, 12);
+  const scale = recent[0].value / older[older.length - 1].value;
+  return [...older.slice(0, -1).map((p) => ({ date: p.date, value: Math.round(p.value * scale * 10_000) / 10_000 })), ...recent];
 }
 
 /** schema.sql only: every statement is safe to re-run, so a deploy runs it before the app starts. */

@@ -1,0 +1,11 @@
+{
+  "source": "Made-up new fund offers for the Explore page. Display only: an NFO cannot be bought in this prototype.",
+  "nfos": [
+    { "name": "Starling Multi Asset Fund", "category": "Hybrid", "closes_in_days": 6, "min_amount": 500 },
+    { "name": "Nilgiri Value Fund", "category": "Equity", "closes_in_days": 9, "min_amount": 1000 },
+    { "name": "Kaveri Business Cycle Fund", "category": "Equity", "closes_in_days": 12, "min_amount": 500 },
+    { "name": "Deccan Innovation Fund", "category": "Equity", "closes_in_days": 4, "min_amount": 1000 },
+    { "name": "Konkan Dividend Yield Fund", "category": "Equity", "closes_in_days": 15, "min_amount": 500 },
+    { "name": "Thar Quality Index Fund", "category": "Index", "closes_in_days": 8, "min_amount": 100 }
+  ]
+}

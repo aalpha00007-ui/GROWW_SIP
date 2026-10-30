@@ -124,6 +124,7 @@ export default async function SipPage({
               maxAmount={sip.maxAmount}
               amountRange={sip.amountRange}
               openAmount={change === 'amount'}
+              openPause={change === 'pause'}
             />
           )}
           <section className="rounded-xl border border-line bg-surface p-4">

@@ -59,8 +59,8 @@ describe('visible_nav_history', () => {
     expect(await count('SELECT count(*)::int AS n FROM visible_nav_history($1)', [visitor])).toBe(shared);
 
     await applyMarketFall(db, visitor);
-    expect(await count('SELECT count(*)::int AS n FROM visible_nav_history($1) WHERE is_demo', [visitor])).toBe(8);
-    expect(await count('SELECT count(*)::int AS n FROM visible_nav_history($1)', [visitor])).toBe(shared + 8);
+    expect(await count('SELECT count(*)::int AS n FROM visible_nav_history($1) WHERE is_demo', [visitor])).toBe(40);
+    expect(await count('SELECT count(*)::int AS n FROM visible_nav_history($1)', [visitor])).toBe(shared + 40);
     expect(await count('SELECT count(*)::int AS n FROM visible_nav_history($1) WHERE is_demo', [other])).toBe(0);
   });
 
