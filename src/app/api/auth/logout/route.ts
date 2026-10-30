@@ -5,7 +5,7 @@ import { getDb } from '@/db/pool';
 import { withoutSession } from '@/server/api';
 import { endSession, SESSION_COOKIE } from '@/server/auth';
 
-export async function POST() {
+export async function POST(request: Request) {
   await endSession(getDb(), (await cookies()).get(SESSION_COOKIE)?.value);
-  return withoutSession(NextResponse.json({ ok: true }));
+  return withoutSession(NextResponse.json({ ok: true }), request);
 }

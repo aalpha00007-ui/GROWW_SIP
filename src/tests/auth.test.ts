@@ -3,6 +3,7 @@ import type { Db } from '../db/client';
 import { TEMPLATE_IDS } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
 import { allowUsernameCheck, checkUsername, contactDetailsIn, createSession, deleteInvestor, endSession, logIn, sessionInvestor, setDisplayName, signUp, startPersona, verifyPin } from '../server/auth';
+import { overHttps } from '../server/api';
 import { DEMOS, FEATURE_TRIES } from '../server/demos';
 import { exploreFunds } from '../server/funds';
 import { PERSONA_KEYS } from '../pipeline/loading/raw';
@@ -23,6 +24,14 @@ beforeAll(async () => {
   db = pgliteDb();
   await setupDatabase(db, { today: TODAY });
 }, 120_000);
+
+describe('The sign-in cookie', () => {
+  it('is secure over HTTPS (Render) and plain over http, so a phone on the same Wi-Fi can stay signed in', () => {
+    expect(overHttps(new Request('https://groww-sip.onrender.com/api/demo/start'))).toBe(true);
+    expect(overHttps(new Request('http://10.0.0.5:10000/api/demo/start', { headers: { 'x-forwarded-proto': 'https' } }))).toBe(true);
+    expect(overHttps(new Request('http://192.168.29.239:3000/api/demo/start'))).toBe(false);
+  });
+});
 
 describe('Step 1: the username', () => {
   it('says whether a username is new or taken, ignoring case and spaces', async () => {

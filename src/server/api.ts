@@ -24,20 +24,29 @@ export async function idParam(params: Promise<{ id: string }>): Promise<number> 
   return /^\d{1,9}$/.test(id) ? Number(id) : NaN;
 }
 
-/** Signs the browser in: the session token in an httpOnly cookie, secure in production, for 7 days. */
-export function withSession(response: NextResponse, token: string): NextResponse {
+/**
+ * Whether the browser came over HTTPS, directly or through Render's proxy. A secure cookie sent over plain http
+ * is dropped by the browser (localhost aside), so a phone on the same Wi-Fi testing http://192.168.x.x:3000
+ * would never stay signed in.
+ */
+export function overHttps(request: Request): boolean {
+  return request.headers.get('x-forwarded-proto')?.split(',')[0].trim() === 'https' || request.url.startsWith('https:');
+}
+
+/** Signs the browser in: the session token in an httpOnly cookie for 7 days, secure whenever the page is on HTTPS. */
+export function withSession(response: NextResponse, token: string, request: Request): NextResponse {
   response.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: overHttps(request),
     maxAge: 60 * 60 * 24 * SESSION_DAYS,
     path: '/',
   });
   return response;
 }
 
-export function withoutSession(response: NextResponse): NextResponse {
-  response.cookies.set(SESSION_COOKIE, '', { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 0, path: '/' });
+export function withoutSession(response: NextResponse, request: Request): NextResponse {
+  response.cookies.set(SESSION_COOKIE, '', { httpOnly: true, sameSite: 'lax', secure: overHttps(request), maxAge: 0, path: '/' });
   return response;
 }
 

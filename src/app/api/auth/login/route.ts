@@ -6,5 +6,5 @@ import { logIn } from '@/server/auth';
 
 export async function POST(request: Request) {
   const result = await logIn(getDb(), await readJson(request));
-  return result.status === 200 ? withSession(NextResponse.json({ ok: true }), result.token) : reply(result);
+  return result.status === 200 ? withSession(NextResponse.json({ ok: true }), result.token, request) : reply(result);
 }

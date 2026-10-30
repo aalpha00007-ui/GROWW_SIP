@@ -5,9 +5,9 @@ import { noVisitor, withoutSession } from '@/server/api';
 import { deleteInvestor } from '@/server/auth';
 import { currentVisitor } from '@/server/visitor';
 
-export async function POST() {
+export async function POST(request: Request) {
   const visitor = await currentVisitor();
   if (!visitor) return noVisitor();
   await deleteInvestor(getDb(), visitor.id);
-  return withoutSession(NextResponse.json({ ok: true }));
+  return withoutSession(NextResponse.json({ ok: true }), request);
 }

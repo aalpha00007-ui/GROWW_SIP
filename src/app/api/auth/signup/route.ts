@@ -7,5 +7,5 @@ import { ipHash, signUp } from '@/server/auth';
 
 export async function POST(request: Request) {
   const result = await signUp(getDb(), await readJson(request), ipHash(request));
-  return result.status === 200 ? withSession(NextResponse.json({ ok: true }), result.token) : reply(result);
+  return result.status === 200 ? withSession(NextResponse.json({ ok: true }), result.token, request) : reply(result);
 }

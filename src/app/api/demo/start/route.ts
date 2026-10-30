@@ -13,5 +13,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Choose one of the demo personas.' }, { status: 400 });
   }
   const { token } = await startPersona(getDb(), persona);
-  return withSession(NextResponse.json({ ok: true }), token);
+  return withSession(NextResponse.json({ ok: true }), token, request);
 }
