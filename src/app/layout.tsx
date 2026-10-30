@@ -8,6 +8,8 @@ const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-jakart
 export const metadata: Metadata = {
   title: 'Groww · Case-study prototype',
   description: 'A goal anchor and an AI check-in for first-year SIP investors. Not affiliated with Groww. Demo data. Not investment advice.',
+  // A case-study prototype that looks like a real app stays out of search results (next.config.ts sends the same header).
+  robots: { index: false, follow: false },
 };
 
 // themeColor must be a literal colour, not a CSS variable: it is --primary from globals.css.

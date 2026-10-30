@@ -1,0 +1,33 @@
+# Render Blueprint (render.com > New > Blueprint > this repo). One free web service in Ohio, next to the Neon
+# database (us-east-2), so each query is a few milliseconds instead of a quarter second. It deploys only after
+# GitHub's CI (checks and the AI eval) has passed. The three secrets are typed into Render, never committed.
+services:
+  - type: web
+    name: groww-sip
+    runtime: node
+    region: ohio
+    plan: free
+    branch: main
+    # --include=dev: the build needs Tailwind and TypeScript, and the start command's db:migrate runs with tsx.
+    buildCommand: npm ci --include=dev && npm run build
+    # db:migrate adds new tables and columns only; it never changes data.
+    startCommand: npm run db:migrate && npm start
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false
+      - key: MISTRAL_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      # Salt for hashing visitors' network addresses (the sign-up limit); Render makes a random one.
+      - key: AUTH_SALT
+        generateValue: true
+      - key: MISTRAL_MODEL
+        value: ministral-8b-latest
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: PROMPT_VERSION
+        value: v6

@@ -1,6 +1,6 @@
 // A brand-new demo account starts clean, on desktop and on a phone (npm run e2e): the header's logo, and no SIPs,
 // holdings, positions, orders or watchlist it didn't make. Each run signs up one account per screen size and deletes it at
-// the end. Sign-ups are limited to 5 an hour per network, so run this file at most twice an hour.
+// the end. Sign-ups are limited to 5 an hour per network: past that, the test is skipped with a note, not failed.
 import { expect, test } from '@playwright/test';
 
 const EMPTY = [
@@ -32,7 +32,13 @@ test('a new demo account has no holdings, positions, orders or watchlist, and th
   await expect(dialog.getByRole('heading', { name: 'Create a 4-digit demo PIN' })).toBeVisible();
   await dialog.getByLabel('Create a 4-digit demo PIN').fill(pin);
   await dialog.getByRole('button', { name: 'Create account' }).click();
-  await expect(page).toHaveURL('/explore', { timeout: 60_000 });
+  // Signed in, or turned away by the sign-up limit (5 an hour from one network): the limit is working, not a bug.
+  const outcome = await Promise.race([
+    page.waitForURL('**/explore', { timeout: 60_000 }).then(() => 'in', () => 'timeout'),
+    dialog.getByText('Too many new demo accounts').waitFor({ timeout: 60_000 }).then(() => 'limited', () => 'timeout'),
+  ]);
+  test.skip(outcome === 'limited', 'The sign-up limit (5 an hour from this network) is reached: run this test again later.');
+  await expect(page).toHaveURL('/explore');
 
   try {
     for (const [path, empty] of EMPTY) {

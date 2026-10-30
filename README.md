@@ -23,6 +23,18 @@ npm run e2e            # browser tests (Playwright, installed Chrome) against a 
 - **On a phone:** with `npm start` running, open `http://<this computer's Wi-Fi address>:3000` (shown as "Network" when the server starts) on a phone on the same Wi-Fi. `localhost` on a phone means the phone itself.
 - **Public pages, no login:** the header's More menu opens the calculators (`/calculators/sip`, `/goal`, `/swp`), `/about/ai`, `/about` and `/learn/sip-basics`. Everything else sits in the `(demo)` route group, whose layout sends a signed-out visitor to `/`.
 
+## Deploy on Render
+
+`render.yaml` describes the service, so on render.com choose **New > Blueprint** and pick this repo:
+
+- One free web service in **Ohio**, next to the Neon database (us-east-2).
+- Build: `npm ci --include=dev && npm run build`. The build needs the dev tools (Tailwind, TypeScript), and the start command's `db:migrate` runs with `tsx`.
+- Start: `npm run db:migrate && npm start`. `db:migrate` only adds new tables and columns.
+- Deploys only after GitHub's CI passes (checks and the AI eval).
+- Type in the secrets when Render asks: `DATABASE_URL`, `MISTRAL_API_KEY`, `GROQ_API_KEY`. Render generates `AUTH_SALT`.
+- A free service sleeps after 15 idle minutes; the first visit after that takes about a minute. Open the link a minute before a demo.
+- On demo day, `npm run db:setup` reloads the seed so the dates look current. It wipes every visitor and eval run, so run `npm run eval` (or the Run workflow button) after it to refill /quality.
+
 ## Phase 1 · data loading
 
 Needs Node 22 or later.
