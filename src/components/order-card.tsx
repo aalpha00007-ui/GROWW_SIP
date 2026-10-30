@@ -1,7 +1,8 @@
 'use client';
 // The fund page's order card, after the layout reference: Monthly SIP or One-time, a big ₹ amount with
 // quick-add chips, the SIP date, how it is paid, the NEW goal row, then Add to cart and Start SIP. Start SIP
-// with no goal opens the goal step (brief phase 4), where skipping is one tap. Demo orders: no real money.
+// with no goal opens the goal step (brief phase 4), where skipping is one tap. A one-time investment has the
+// same goal row and step, and can also go to one of the investor's goals. Demo orders: no real money.
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -75,20 +76,30 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
     else setMessage({ text: result.error, error: true });
   }
 
-  async function start() {
-    if (!checkAmount()) return;
-    if (mode === 'sip') {
-      if (tip) closeTip();
-      if (goal) await startSip(goal, 'saved');
-      else setStep('start');
+  /** Invests once; from the goal step, errors show in the panel. */
+  async function investOnce(withGoal: GoalDraft | null) {
+    setBusy(true);
+    setStepError(null);
+    setMessage(null);
+    const result = await postJson('/api/invest', { fundId, amount: value, goal: withGoal ? goalApiBody(withGoal) : undefined });
+    setBusy(false);
+    if (result.ok) {
+      setStep(null);
+      setGoal(null);
+      setMessage({ text: result.data.message ?? 'Invested.', error: false });
+      router.refresh();
       return;
     }
-    setBusy(true);
-    setMessage(null);
-    const result = await postJson('/api/invest', { fundId, amount: value });
-    setMessage(result.ok ? { text: result.data.message ?? 'Invested.', error: false } : { text: result.error, error: true });
-    setBusy(false);
-    if (result.ok) router.refresh();
+    if (step) setStepError(result.error);
+    else setMessage({ text: result.error, error: true });
+  }
+
+  async function start() {
+    if (!checkAmount()) return;
+    if (mode === 'sip' && tip) closeTip();
+    if (!goal) setStep('start');
+    else if (mode === 'sip') await startSip(goal, 'saved');
+    else await investOnce(goal);
   }
 
   async function addToCart() {
@@ -100,7 +111,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
       kind: mode === 'sip' ? 'sip' : 'one_time',
       amount: value,
       day: mode === 'sip' ? day : undefined,
-      goal: mode === 'sip' && goal ? goalApiBody(goal) : undefined,
+      goal: goal ? goalApiBody(goal) : undefined,
     });
     setBusy(false);
     setMessage(result.ok ? { text: result.data.message ?? 'Added to cart.', error: false, cart: true } : { text: result.error, error: true });
@@ -110,7 +121,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
   function saveGoal(next: GoalDraft) {
     if (step === 'start') {
       setGoal(next);
-      void startSip(next, 'saved');
+      void (mode === 'sip' ? startSip(next, 'saved') : investOnce(next));
     } else {
       setGoal(next);
       setStep(null);
@@ -127,6 +138,8 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
             onClick={() => {
               setMode(m);
               setMessage(null);
+              // One of the investor's own goals is only for a one-time investment; a new goal suits both.
+              if (m === 'sip' && goal?.goalId !== undefined) setGoal(null);
             }}
             aria-pressed={mode === m}
             className={`min-h-10 rounded-md text-sm font-semibold ${mode === m ? 'bg-surface text-strong shadow-sm' : 'text-muted hover:text-ink'}`}
@@ -189,50 +202,48 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
         {mode === 'sip' ? mandate : balance}
       </p>
 
-      {mode === 'sip' && (
-        <div>
-          {tip && (
-            <div role="note" aria-label="New feature" className="relative mb-3 rounded-lg bg-strong p-3 text-sm text-white shadow-lg">
-              <p>
-                <span className="font-bold">New:</span> tell us what this SIP is for. When the market falls, we&apos;ll show you this goal next to your SIP.
-              </p>
-              <button type="button" onClick={closeTip} className="mt-2 min-h-9 rounded-md bg-white px-3 text-sm font-semibold text-strong hover:bg-primary-soft">
-                Got it
-              </button>
-              <span aria-hidden="true" className="absolute -bottom-1.5 left-8 size-3 rotate-45 bg-strong" />
-            </div>
-          )}
-          {goal ? (
-            <div className="flex min-h-12 items-center justify-between gap-2 rounded-lg border border-primary bg-primary-soft px-3">
-              <span className="text-sm font-semibold text-primary">{goalLabel(goal, goalStep)}</span>
-              <button
-                type="button"
-                onClick={() => setStep('edit')}
-                aria-label="Edit goal"
-                className="grid size-10 shrink-0 place-items-center rounded-full text-primary hover:bg-surface"
-              >
-                <Icon name="edit" size={18} />
-              </button>
-            </div>
-          ) : (
+      <div>
+        {mode === 'sip' && tip && (
+          <div role="note" aria-label="New feature" className="relative mb-3 rounded-lg bg-strong p-3 text-sm text-white shadow-lg">
+            <p>
+              <span className="font-bold">New:</span> tell us what this SIP is for. When the market falls, we&apos;ll show you this goal next to your SIP.
+            </p>
+            <button type="button" onClick={closeTip} className="mt-2 min-h-9 rounded-md bg-white px-3 text-sm font-semibold text-strong hover:bg-primary-soft">
+              Got it
+            </button>
+            <span aria-hidden="true" className="absolute -bottom-1.5 left-8 size-3 rotate-45 bg-strong" />
+          </div>
+        )}
+        {goal ? (
+          <div className="flex min-h-12 items-center justify-between gap-2 rounded-lg border border-primary bg-primary-soft px-3">
+            <span className="text-sm font-semibold text-primary">{goalLabel(goal, goalStep)}</span>
             <button
               type="button"
-              onClick={() => {
-                if (tip) closeTip();
-                setStep('edit');
-              }}
-              className="flex min-h-12 w-full items-center gap-2 rounded-lg border border-dashed border-primary px-3 text-left text-sm hover:bg-primary-soft"
+              onClick={() => setStep('edit')}
+              aria-label="Edit goal"
+              className="grid size-10 shrink-0 place-items-center rounded-full text-primary hover:bg-surface"
             >
-              <span className="rounded bg-accent-tint px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-accent-ink">New</span>
-              <span className="flex-1 font-medium text-strong">What&apos;s this SIP for?</span>
-              <span className="flex items-center font-semibold text-primary">
-                Add a goal
-                <Icon name="chevron" size={16} />
-              </span>
+              <Icon name="edit" size={18} />
             </button>
-          )}
-        </div>
-      )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              if (tip) closeTip();
+              setStep('edit');
+            }}
+            className="flex min-h-12 w-full items-center gap-2 rounded-lg border border-dashed border-primary px-3 text-left text-sm hover:bg-primary-soft"
+          >
+            <span className="rounded bg-accent-tint px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-accent-ink">New</span>
+            <span className="flex-1 font-medium text-strong">{mode === 'sip' ? 'What’s this SIP for?' : 'What’s this investment for?'}</span>
+            <span className="flex items-center font-semibold text-primary">
+              Add a goal
+              <Icon name="chevron" size={16} />
+            </span>
+          </button>
+        )}
+      </div>
 
       {message && (
         <p role={message.error ? 'alert' : 'status'} className={`rounded-lg px-3 py-2 text-sm ${message.error ? 'bg-loss-soft text-loss-strong' : 'bg-primary-soft text-primary'}`}>
@@ -268,10 +279,13 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
           {busy && !step ? 'Please wait…' : mode === 'sip' ? 'Start SIP' : 'Invest now'}
         </button>
       </div>
-      <p className="-mt-2 text-center text-xs text-muted">Demo order, no real money. The first instalment is paid from your demo balance.</p>
+      <p className="-mt-2 text-center text-xs text-muted">
+        {mode === 'sip' ? 'Demo order, no real money. The first instalment is paid from your demo balance.' : 'Demo order, no real money. Paid from your demo balance.'}
+      </p>
 
       <GoalStep
         open={step !== null}
+        kind={mode === 'sip' ? 'sip' : 'once'}
         mode={step ?? 'edit'}
         fundId={fundId}
         amount={amountOk ? value : minAmount}
@@ -282,7 +296,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
         busy={busy}
         error={stepError}
         onSave={saveGoal}
-        onSkip={() => void startSip(null, 'skipped')}
+        onSkip={() => void (mode === 'sip' ? startSip(null, 'skipped') : investOnce(null))}
         onClose={() => {
           setStep(null);
           setStepError(null);

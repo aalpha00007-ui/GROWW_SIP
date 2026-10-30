@@ -8,7 +8,7 @@ import { addDays, addMonths, firstDueDate, monthlyDueDates } from '../pipeline/l
 import { loadMarket } from '../pipeline/loading/raw';
 import { logEvent, tooltipDismissed } from './events';
 import { demoBalance } from './shell';
-import { GOAL_NAME_MAX, goalOptions, insertGoal, parseGoal, TARGET_MAX, TARGET_MIN } from './sip-actions';
+import { GOAL_NAME_MAX, goalChoices, goalOptions, insertGoal, oneTimeGoal, parseGoal, TARGET_MAX, TARGET_MIN } from './sip-actions';
 import { MAX_AMOUNT } from './sip';
 
 interface FundRow {
@@ -185,13 +185,14 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
   if (!Number.isInteger(fundId)) return null;
   const fund = (await funds(db, investorId)).find((f) => f.id === fundId);
   if (!fund) return null;
-  const [history, balance, tipDone] = await Promise.all([
+  const [history, balance, tipDone, choices] = await Promise.all([
     db.query<{ d: string; nav: string }>('SELECT nav_date::text AS d, nav::text FROM visible_nav_history($1) WHERE fund_id = $2 ORDER BY nav_date', [
       investorId,
       fundId,
     ]),
     demoBalance(db, investorId),
     tooltipDismissed(db, investorId),
+    goalChoices(db, investorId),
   ]);
   const rate = return3y(fund);
   return {
@@ -230,15 +231,18 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
       defaultDay: Math.min(Number(today.slice(8, 10)), 28),
       mandate: DEMO_MANDATE,
       balance: `Pay from demo balance · ${inr(balance)}`,
-      goalStep: goalStepOptions(today),
+      goalStep: goalStepOptions(today, choices),
       /** The one-time "New: tell us what this SIP is for" tooltip, until the investor closes it. */
       showGoalTip: !tipDone,
     },
   };
 }
 
-/** What the goal step offers: the 8 chips, the name limit, the years for "By when?" and the target amount range. */
-export function goalStepOptions(today: string) {
+/**
+ * What the goal step offers: the 8 chips, the name limit, the years for "By when?", the target amount range, and
+ * for a one-time investment the investor's own goals to add the money to.
+ */
+export function goalStepOptions(today: string, existing: { id: number; label: string }[] = []) {
   const year = Number(today.slice(0, 4));
   return {
     kinds: goalOptions(today, null).kinds,
@@ -246,12 +250,21 @@ export function goalStepOptions(today: string) {
     years: Array.from({ length: 51 }, (_, i) => String(year + i)),
     targetMin: TARGET_MIN,
     targetMax: TARGET_MAX,
+    existing,
   };
 }
 
-/** POST /api/invest {fundId, amount}: a one-time investment at the latest NAV this visitor sees, paid from the demo balance. */
-export async function investOnce(db: Db, investorId: string, input: unknown): Promise<{ status: 200; message: string } | { status: 400 | 404; error: string }> {
-  const body = (input ?? {}) as { fundId?: unknown; amount?: unknown; cartItemId?: unknown };
+/**
+ * POST /api/invest {fundId, amount, goal?, cartItemId?}: a one-time investment at the latest NAV this visitor sees,
+ * paid from the demo balance. The goal is one of the investor's goals ({goalId}) or a new one from the goal step.
+ */
+export async function investOnce(
+  db: Db,
+  investorId: string,
+  input: unknown,
+  today: string,
+): Promise<{ status: 200; message: string } | { status: 400 | 404; error: string }> {
+  const body = (input ?? {}) as { fundId?: unknown; amount?: unknown; cartItemId?: unknown; goal?: unknown };
   const [fund] = (
     await db.query<{ id: number; name: string; min_sip: number; nav: string }>(
       `SELECT f.id, f.name, f.min_sip, (SELECT nav::text FROM visible_nav_history($2) WHERE fund_id = f.id ORDER BY nav_date DESC LIMIT 1) AS nav
@@ -264,16 +277,27 @@ export async function investOnce(db: Db, investorId: string, input: unknown): Pr
   if (typeof amount !== 'number' || !Number.isInteger(amount) || amount < fund.min_sip || amount > MAX_AMOUNT) {
     return { status: 400, error: `Enter a whole amount from ${inr(fund.min_sip)} to ${inr(MAX_AMOUNT)}.` };
   }
+  const goal = await oneTimeGoal(db, investorId, body.goal, today);
+  if (!goal.ok) return { status: 400, error: goal.error };
   const balance = await demoBalance(db, investorId);
   if (amount > balance) return { status: 400, error: `That is more than your demo balance of ${inr(balance)}.` };
   const units = Math.round((amount / Number(fund.nav)) * 10_000) / 10_000;
   await db.transaction(async (tx) => {
-    await tx.query('INSERT INTO lumpsums (investor_id, fund_id, amount, nav, units) VALUES ($1, $2, $3, $4, $5)', [investorId, fund.id, amount, fund.nav, units]);
+    const goalId = goal.goalId ?? (goal.create ? await insertGoal(tx, investorId, goal.create) : null);
+    await tx.query('INSERT INTO lumpsums (investor_id, fund_id, goal_id, amount, nav, units) VALUES ($1, $2, $3, $4, $5, $6)', [
+      investorId,
+      fund.id,
+      goalId,
+      amount,
+      fund.nav,
+      units,
+    ]);
     if (Number.isInteger(body.cartItemId)) {
       await tx.query('UPDATE cart_items SET removed_at = now() WHERE id = $1 AND investor_id = $2 AND removed_at IS NULL', [body.cartItemId, investorId]);
     }
   });
-  return { status: 200, message: `${inr(amount)} invested in ${fund.name} at ${nav(fund.nav)} a unit. Demo order, no real money.` };
+  const forGoal = goal.name ? ` for ${goal.name}` : '';
+  return { status: 200, message: `${inr(amount)} invested in ${fund.name}${forGoal} at ${nav(fund.nav)} a unit. Demo order, no real money.` };
 }
 
 export type GoalPreview = { status: 200; instalments: number; putInTotal: string; line: string } | { status: 400 | 404; error: string };

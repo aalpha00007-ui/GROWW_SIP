@@ -17,6 +17,7 @@ npm run e2e            # browser tests (Playwright, installed Chrome) against a 
 
 - **Landing page (`/`, PRD F1):** one tap on Kabir, Riya or Arjun copies that persona into a fresh investor, so testers never share data. The other personas (Meera, Sana, Vikram, Dev) stay in the seed for tests and evals. The tick box "Facts only. No investment advice." was removed on 30 Oct 2026 at the product owner's request; the yellow banner on every page and the line under the demo cards carry the disclaimer.
 - **Demo accounts:** a made-up username, then a 4-digit demo PIN (stored as a salted scrypt hash; 5 wrong PINs lock it for 5 minutes; 5 sign-ups an hour per network; 20 username checks every 10 minutes per network). PINs can't be reset. A new account starts with no SIPs, holdings, orders or watchlist.
+- **Goals:** a monthly SIP or a one-time investment can have a goal. A one-time investment can also be added to one of the investor's goals; the goal card counts its money in "put in" and "value today", and lists it under the goal.
 - **Sign-in:** an httpOnly cookie `groww_sip_session` holds a random token for 7 days; only its SHA-256 is stored.
 - **Public pages, no login:** the header's More menu opens the calculators (`/calculators/sip`, `/goal`, `/swp`), `/about/ai`, `/about` and `/learn/sip-basics`. Everything else sits in the `(demo)` route group, whose layout sends a signed-out visitor to `/`.
 

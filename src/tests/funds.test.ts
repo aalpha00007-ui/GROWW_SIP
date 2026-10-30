@@ -7,11 +7,15 @@ import { collection, exploreFunds, fundList, fundPage, goalPreview, investOnce, 
 import { homeView } from '../server/home';
 import { investmentsView, xirr } from '../server/investments';
 import { loadSip, sipList, sipView } from '../server/sip';
+import { goalChoices } from '../server/sip-actions';
 import { pgliteDb } from './pglite-db';
 
 const TODAY = '2026-10-27';
 let db: Db;
 let riya: string;
+
+/** '₹1,20,000' -> 120000 */
+const rupeesOf = (text: string) => Number(text.replace(/[^\d-]/g, ''));
 
 const sipCount = async (investorId: string) =>
   (await db.query<{ n: number }>('SELECT count(*)::int AS n FROM sips WHERE investor_id = $1', [investorId])).rows[0].n;
@@ -82,14 +86,73 @@ describe('One-time investments and the cart', () => {
   it('invests once from the demo balance, which then shows in Your investments', async () => {
     const visitor = await clonePersona(db, 'kabir');
     expect(await investmentsView(db, visitor)).toBeNull();
-    const done = await investOnce(db, visitor, { fundId: 2, amount: 5000 });
+    const done = await investOnce(db, visitor, { fundId: 2, amount: 5000 }, TODAY);
     expect(done).toMatchObject({ status: 200 });
     const view = await investmentsView(db, visitor);
     expect(view?.rows.find((r) => r.label === 'Invested')?.value).toBe('₹5,000');
     expect(view?.holdings).toMatchObject([{ sipId: null, fund: 'Kestrel Nifty 50 Index Fund', kind: 'One-time', goal: null, putIn: '₹5,000' }]);
-    expect(await investOnce(db, visitor, { fundId: 2, amount: 100_000 })).toEqual({ status: 400, error: 'That is more than your demo balance of ₹95,000.' });
-    expect((await investOnce(db, visitor, { fundId: 2, amount: 10 })).status).toBe(400);
-    expect((await investOnce(db, visitor, { fundId: 999, amount: 5000 })).status).toBe(404);
+    expect(await investOnce(db, visitor, { fundId: 2, amount: 100_000 }, TODAY)).toEqual({ status: 400, error: 'That is more than your demo balance of ₹95,000.' });
+    expect((await investOnce(db, visitor, { fundId: 2, amount: 10 }, TODAY)).status).toBe(400);
+    expect((await investOnce(db, visitor, { fundId: 999, amount: 5000 }, TODAY)).status).toBe(404);
+  });
+
+  it('adds a one-time investment to one of your goals, or to a new goal, and the goal card counts it', async () => {
+    const visitor = await clonePersona(db, 'riya');
+    const before = (await homeView(db, visitor, TODAY)).goals.find((g) => g.name === 'Home down payment')!;
+    const home = (await goalChoices(db, visitor)).find((c) => c.label.startsWith('Home down payment'))!;
+    expect(home.id).toBe(before.id);
+
+    const done = await investOnce(db, visitor, { fundId: 2, amount: 5000, goal: { goalId: home.id } }, TODAY);
+    expect(done).toMatchObject({ status: 200, message: expect.stringContaining('Kestrel Nifty 50 Index Fund for Home down payment') });
+    const after = (await homeView(db, visitor, TODAY)).goals.find((g) => g.id === home.id)!;
+    // The ₹5,000 counts in what was put in and what is planned; the instalments stay the SIP's.
+    expect(rupeesOf(after.putIn)).toBe(rupeesOf(before.putIn) + 5000);
+    expect(rupeesOf(after.planned!)).toBe(rupeesOf(before.planned!) + 5000);
+    expect(after.paidLabel).toBe(before.paidLabel);
+    expect(after.oneTime).toEqual(['Kestrel Nifty 50 Index Fund · ₹5,000 one-time']);
+
+    // A new goal with only one-time money gets its own card, with no instalments and no dip explainer.
+    expect(await investOnce(db, visitor, { fundId: 3, amount: 2000, goal: { kind: 'travel', targetMonth: '2027-06' } }, TODAY)).toMatchObject({ status: 200 });
+    const trip = (await homeView(db, visitor, TODAY)).goals.find((g) => g.name === 'Travel')!;
+    expect(trip).toMatchObject({
+      paidLabel: '1 one-time investment',
+      putIn: '₹2,000',
+      targetMonth: 'by Jun 2027',
+      planned: null,
+      barPct: null,
+      sips: [],
+      oneTime: ['Monsoon Midcap Fund · ₹2,000 one-time'],
+      dipSipId: null,
+    });
+    expect((await goalChoices(db, visitor)).map((c) => c.label)).toContain('Travel · by Jun 2027');
+    // Holdings say what the money is for.
+    expect((await investmentsView(db, visitor))?.holdings).toEqual(
+      expect.arrayContaining([expect.objectContaining({ fund: 'Monsoon Midcap Fund', kind: 'One-time', goal: 'For: Travel · by Jun 2027' })]),
+    );
+  });
+
+  it("refuses a goal that isn't yours, and checks a new goal like a SIP's", async () => {
+    const visitor = await clonePersona(db, 'kabir');
+    const [riyaGoal] = await goalChoices(db, riya);
+    expect(await investOnce(db, visitor, { fundId: 2, amount: 1000, goal: { goalId: riyaGoal.id } }, TODAY)).toEqual({ status: 400, error: 'We could not find that goal.' });
+    expect((await investOnce(db, visitor, { fundId: 2, amount: 1000, goal: { goalId: 'home' } }, TODAY)).status).toBe(400);
+    expect((await investOnce(db, visitor, { fundId: 2, amount: 1000, goal: { kind: 'home', targetMonth: '2020-01' } }, TODAY)).status).toBe(400);
+    expect((await investOnce(db, visitor, { fundId: 2, amount: 1000, goal: { kind: 'yacht' } }, TODAY)).status).toBe(400);
+    // Nothing was invested, and Kabir has no goals to offer yet.
+    expect(await investmentsView(db, visitor)).toBeNull();
+    expect(await goalChoices(db, visitor)).toEqual([]);
+  });
+
+  it("keeps a one-time item's goal in the cart and invests it with that goal", async () => {
+    const visitor = await clonePersona(db, 'riya');
+    const home = (await goalChoices(db, visitor)).find((c) => c.label.startsWith('Home down payment'))!;
+    expect(await addToCart(db, visitor, { fundId: 5, kind: 'one_time', amount: 3000, goal: { goalId: home.id } }, TODAY)).toMatchObject({ status: 200 });
+    expect((await addToCart(db, visitor, { fundId: 5, kind: 'one_time', amount: 3000, goal: { goalId: 999_999 } }, TODAY)).status).toBe(400);
+    const [item] = (await cartView(db, visitor)).items;
+    expect(item.goal?.text).toBe(`For: ${home.label}`);
+    expect(await investOnce(db, visitor, { fundId: item.fundId, amount: item.amountValue, cartItemId: item.id, goal: item.goal?.body }, TODAY)).toMatchObject({ status: 200 });
+    expect((await cartView(db, visitor)).items).toHaveLength(0);
+    expect((await homeView(db, visitor, TODAY)).goals.find((g) => g.id === home.id)?.oneTime).toEqual(['Harbor Liquid Fund · ₹3,000 one-time']);
   });
 
   it('adds SIPs and one-time investments to the cart and removes them', async () => {

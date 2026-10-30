@@ -180,6 +180,47 @@ export async function setGoal(db: Db, investorId: string, sipId: number, input: 
   return { status: 200, message: `Saved: this SIP is for ${goal.name}${goal.target ? `, by ${monthYear(goal.target)}` : ''}.` };
 }
 
+/**
+ * A one-time investment's goal: one of the investor's own goals ({goalId}), a new goal from the goal step's
+ * chips, or none. A new goal's month only has to come after this month: no instalments are to come.
+ */
+export async function oneTimeGoal(
+  db: Db,
+  investorId: string,
+  input: unknown,
+  today: string,
+): Promise<{ ok: true; goalId: number | null; create: GoalInput | null; name: string | null } | { ok: false; error: string }> {
+  if (input === undefined || input === null) return { ok: true, goalId: null, create: null, name: null };
+  const { goalId } = input as { goalId?: unknown };
+  if (goalId !== undefined) {
+    const [found] = Number.isInteger(goalId)
+      ? (await db.query<{ name: string }>('SELECT name FROM goals WHERE id = $1 AND investor_id = $2', [goalId, investorId])).rows
+      : [];
+    return found ? { ok: true, goalId: goalId as number, create: null, name: found.name } : { ok: false, error: 'We could not find that goal.' };
+  }
+  const parsed = parseGoal(input, { today, firstDue: today });
+  if (!parsed.ok) return parsed;
+  return { ok: true, goalId: null, create: parsed.goal, name: parsed.goal?.name ?? null };
+}
+
+/** "Add to one of your goals" for a one-time investment: the goals that already hold money, one per name and month. */
+export async function goalChoices(db: Db, investorId: string): Promise<{ id: number; label: string }[]> {
+  const { rows } = await db.query<{ id: number; name: string; target_month: string | null }>(
+    `SELECT g.id, g.name, g.target_month::text FROM goals g
+     WHERE g.investor_id = $1
+       AND (EXISTS (SELECT 1 FROM sips s WHERE s.goal_id = g.id) OR EXISTS (SELECT 1 FROM lumpsums l WHERE l.goal_id = g.id))
+     ORDER BY g.id`,
+    [investorId],
+  );
+  const seen = new Set<string>();
+  return rows.flatMap((g) => {
+    const label = `${g.name}${g.target_month ? ` · by ${monthYear(g.target_month)}` : ''}`;
+    if (seen.has(label)) return [];
+    seen.add(label);
+    return [{ id: g.id, label }];
+  });
+}
+
 export async function insertGoal(db: Db, investorId: string, goal: GoalInput): Promise<number> {
   const { rows } = await db.query<{ id: number }>(
     'INSERT INTO goals (investor_id, kind, name, target_month, target_amount) VALUES ($1, $2, $3, $4, $5) RETURNING id',

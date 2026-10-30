@@ -1,5 +1,5 @@
 // The Home goal card (PRD F4): goal, target month, time to go, instalments paid of planned, put in,
-// value today and change, plus "What does this dip mean for my goal?".
+// value today and change, the SIPs and one-time investments for it, plus "What does this dip mean for my goal?".
 import Link from 'next/link';
 import type { GoalCard as Card } from '@/server/home';
 import { ChangePill } from './change-pill';
@@ -50,6 +50,11 @@ export function GoalCard({ goal }: { goal: Card }) {
             <Link href={`/sips/${sip.id}`} className="text-primary underline underline-offset-2 hover:text-primary-hover">
               {sip.label}
             </Link>
+          </li>
+        ))}
+        {goal.oneTime.map((label, i) => (
+          <li key={i} className="text-ink">
+            {label}
           </li>
         ))}
       </ul>

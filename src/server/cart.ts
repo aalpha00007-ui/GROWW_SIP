@@ -5,7 +5,7 @@ import { ordinal } from '../pipeline/chunking/format';
 import { checkSip } from './funds';
 import { inr } from './money';
 import { MAX_AMOUNT } from './sip';
-import { GOAL_KINDS, parseGoal } from './sip-actions';
+import { GOAL_KINDS, oneTimeGoal, parseGoal } from './sip-actions';
 import { firstDueDate } from '../pipeline/loading/dates';
 import { monthYear } from '../pipeline/chunking/format';
 
@@ -14,7 +14,7 @@ function goalText(goal: { kind: string; name?: string; targetMonth?: string | nu
   return `For: ${label}${goal.targetMonth ? ` · by ${monthYear(`${goal.targetMonth}-01`)}` : ''}`;
 }
 
-/** POST /api/cart {fundId, kind: 'sip' | 'one_time', amount, day?, goal?}: a SIP may carry the goal set in the order card. */
+/** POST /api/cart {fundId, kind: 'sip' | 'one_time', amount, day?, goal?}: either may carry the goal set in the order card. */
 export async function addToCart(
   db: Db,
   investorId: string,
@@ -28,16 +28,24 @@ export async function addToCart(
   // A one-time investment has no date, so check its amount against a date that always passes.
   const checked = checkSip(body.amount, body.kind === 'sip' ? body.day : 1, fund.min_sip);
   if (checked) return checked;
-  // The goal is checked now and checked again when the SIP starts from the cart.
-  const goal = body.kind === 'sip' ? parseGoal(body.goal, { today, firstDue: firstDueDate(today, body.day as number) }) : ({ ok: true, goal: null } as const);
-  if (!goal.ok) return { status: 400, error: goal.error };
+  // The goal is checked now and checked again when the item is started from the cart.
+  let hasGoal: boolean;
+  if (body.kind === 'sip') {
+    const goal = parseGoal(body.goal, { today, firstDue: firstDueDate(today, body.day as number) });
+    if (!goal.ok) return { status: 400, error: goal.error };
+    hasGoal = goal.goal !== null;
+  } else {
+    const goal = await oneTimeGoal(db, investorId, body.goal, today);
+    if (!goal.ok) return { status: 400, error: goal.error };
+    hasGoal = goal.goalId !== null || goal.create !== null;
+  }
   await db.query('INSERT INTO cart_items (investor_id, fund_id, kind, amount, day_of_month, goal) VALUES ($1, $2, $3, $4, $5, $6)', [
     investorId,
     fund.id,
     body.kind,
     body.amount,
     body.kind === 'sip' ? body.day : null,
-    goal.goal ? body.goal : null,
+    hasGoal ? body.goal : null,
   ]);
   return { status: 200, message: `${fund.name} is in your cart.` };
 }
@@ -68,9 +76,13 @@ export interface CartItem {
 export async function cartView(db: Db, investorId: string): Promise<{ items: CartItem[]; total: string; maxAmount: number }> {
   const { rows } = await db.query<{
     id: number; fund_id: number; fund: string; kind: 'sip' | 'one_time'; amount: number; day_of_month: number | null;
-    goal: { kind: string; name?: string; targetMonth?: string | null } | null;
+    goal: { kind: string; name?: string; targetMonth?: string | null } | { goalId: number } | null;
+    goal_name: string | null; goal_month: string | null;
   }>(
-    `SELECT c.id, c.fund_id, f.name AS fund, c.kind, c.amount, c.day_of_month, c.goal FROM cart_items c JOIN funds f ON f.id = c.fund_id
+    // A one-time item can point at one of the investor's goals ({goalId}); its name comes from the goal.
+    `SELECT c.id, c.fund_id, f.name AS fund, c.kind, c.amount, c.day_of_month, c.goal, g.name AS goal_name, g.target_month::text AS goal_month
+     FROM cart_items c JOIN funds f ON f.id = c.fund_id
+     LEFT JOIN goals g ON g.id = (c.goal->>'goalId')::int AND g.investor_id = c.investor_id
      WHERE c.investor_id = $1 AND c.removed_at IS NULL ORDER BY c.id`,
     [investorId],
   );
@@ -84,7 +96,11 @@ export async function cartView(db: Db, investorId: string): Promise<{ items: Car
       amount: inr(r.amount),
       amountValue: r.amount,
       day: r.day_of_month,
-      goal: r.goal ? { body: r.goal, text: goalText(r.goal) } : null,
+      goal: !r.goal
+        ? null
+        : 'goalId' in r.goal
+          ? { body: r.goal, text: `For: ${r.goal_name ?? 'your goal'}${r.goal_month ? ` · by ${monthYear(r.goal_month)}` : ''}` }
+          : { body: r.goal, text: goalText(r.goal) },
     })),
     total: inr(rows.reduce((sum, r) => sum + r.amount, 0)),
     maxAmount: MAX_AMOUNT,

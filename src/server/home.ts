@@ -1,6 +1,7 @@
 // Home (PRD F4, F12): one card per goal, the "no goal yet" row, the coming-up instalments and a
-// mutual-fund summary. Every number comes from retrieveFacts, the same facts the AI answers from,
-// and is formatted here: the page prints these strings and does no maths (spec §5).
+// mutual-fund summary. Every SIP number comes from retrieveFacts, the same facts the AI answers from; a
+// goal card adds the one-time investments made for that goal. Formatted here: the page prints these strings
+// and does no maths (spec §5).
 import type { Db } from '../db/client';
 import type { SipFacts } from '../pipeline/chunking/facts';
 import { dayMonthYear, duration, monthsBetween, monthYear, percent } from '../pipeline/chunking/format';
@@ -22,18 +23,20 @@ export interface GoalCard {
   targetMonth: string | null;
   /** '4 years 5 months to go', 'This month', 'Goal date reached' or 'No target date'. */
   timeToGo: string;
-  /** '7 of 60 instalments paid', or '4 instalments paid' without a target month. */
+  /** '7 of 60 instalments paid', '4 instalments paid' without a target month, or '1 one-time investment'. */
   paidLabel: string;
   /** Width of the paid-of-planned bar, 0-100; null without a target month. */
   barPct: number | null;
   /** '₹14,000' */
   putIn: string;
-  /** What will have been put in by the target month if the SIPs carry on: '₹1,20,000'. Never a value forecast. */
+  /** What will have been put in by the target month if the SIPs carry on, one-time money included: '₹1,20,000'. Never a value forecast. */
   planned: string | null;
   value: string;
   /** Null before the first instalment is paid. */
   change: Change | null;
   sips: { id: number; label: string }[];
+  /** 'Kestrel Nifty 50 Index Fund · ₹5,000 one-time' */
+  oneTime: string[];
   /** The SIP "What does this dip mean for my goal?" explains: the one with the most put in. Null before anything is put in. */
   dipSipId: number | null;
 }
@@ -59,6 +62,16 @@ interface SipRow {
   target_month: string | null;
 }
 
+/** A one-time investment made for a goal, valued at the latest NAV this visitor sees (demo falls included). */
+interface OneTimeRow {
+  goal_id: number;
+  goal_name: string;
+  target_month: string | null;
+  fund: string;
+  amount: number;
+  value: number;
+}
+
 export async function homeView(db: Db, investorId: string, today: string): Promise<HomeView> {
   const { rows } = await db.query<SipRow>(
     `SELECT s.id, s.goal_id, g.name AS goal_name, g.target_month::text
@@ -76,12 +89,23 @@ export async function homeView(db: Db, investorId: string, today: string): Promi
   const [demo] = (
     await db.query<{ days: number }>('SELECT count(DISTINCT nav_date)::int AS days FROM demo_nav_history WHERE investor_id = $1', [investorId])
   ).rows;
+  const oneTime = (
+    await db.query<OneTimeRow>(
+      `SELECT l.goal_id, g.name AS goal_name, g.target_month::text, f.name AS fund, l.amount,
+         (l.units * (SELECT v.nav FROM visible_nav_history($1) v WHERE v.fund_id = l.fund_id ORDER BY v.nav_date DESC LIMIT 1))::float8 AS value
+       FROM lumpsums l JOIN goals g ON g.id = l.goal_id JOIN funds f ON f.id = l.fund_id
+       WHERE l.investor_id = $1 ORDER BY l.id`,
+      [investorId],
+    )
+  ).rows;
 
   const byGoal = new Map<number, GoalSip[]>();
   for (const sip of sips) {
     if (sip.row.goal_id === null) continue;
     byGoal.set(sip.row.goal_id, [...(byGoal.get(sip.row.goal_id) ?? []), sip]);
   }
+  // A goal can hold only one-time money; its card comes after the goals with SIPs.
+  for (const o of oneTime) if (!byGoal.has(o.goal_id)) byGoal.set(o.goal_id, []);
   // A stopped SIP needs no goal, so only active ones count as "no goal yet".
   const noGoal = sips.filter((s) => s.row.goal_id === null && !s.stopped);
   const asOf = sips.reduce<string | null>((latest, s) => (latest && latest > s.facts.as_of ? latest : s.facts.as_of), null);
@@ -90,7 +114,7 @@ export async function homeView(db: Db, investorId: string, today: string): Promi
     asOf: asOf ? `Numbers as of ${dayMonthYear(asOf)}` : null,
     demoNote: demo.days > 0 ? `Includes ${demo.days} simulated market ${demo.days === 1 ? 'fall' : 'falls'}` : null,
     summary: sips.length ? summary(sips.map((s) => s.facts)) : null,
-    goals: [...byGoal.entries()].map(([id, group]) => goalCard(id, group, today)),
+    goals: [...byGoal.entries()].map(([id, group]) => goalCard(id, group, oneTime.filter((o) => o.goal_id === id), today)),
     noGoal: noGoal.length
       ? {
           text: noGoal.length === 1 ? '1 SIP has no goal yet' : `${noGoal.length} SIPs have no goal yet`,
@@ -113,34 +137,44 @@ interface GoalSip {
   stopped: boolean;
 }
 
-function goalCard(id: number, group: GoalSip[], today: string): GoalCard {
-  const { goal_name, target_month } = group[0].row;
+function goalCard(id: number, group: GoalSip[], oneTime: OneTimeRow[], today: string): GoalCard {
+  const { goal_name, target_month } = group[0]?.row ?? oneTime[0];
   const all = group.map((g) => g.facts);
   const paid = sum(all, (f) => f.instalments_paid);
+  const oneTimeIn = sum(oneTime, (o) => o.amount);
   // A stopped SIP plans nothing more: it counts what was paid. With every SIP stopped there is no plan to show.
   const planning = target_month !== null && group.some((g) => !g.stopped);
   const planned = planning ? sum(group, (g) => (g.stopped ? g.facts.instalments_paid : (g.facts.instalments_planned ?? 0))) : null;
-  // Instalments still to come, counted the way the facts unit counts them.
+  // Instalments still to come, counted the way the facts unit counts them, plus the one-time money already in.
   const plannedPutIn = planning
-    ? sum(group, ({ facts: f, stopped }) => f.invested + (stopped ? 0 : Math.max(0, (f.instalments_planned ?? 0) - f.instalments_paid - f.instalments_skipped) * f.amount))
+    ? oneTimeIn +
+      sum(group, ({ facts: f, stopped }) => f.invested + (stopped ? 0 : Math.max(0, (f.instalments_planned ?? 0) - f.instalments_paid - f.instalments_skipped) * f.amount))
     : null;
   const main = [...all].sort((a, b) => b.invested - a.invested || a.sip_id - b.sip_id)[0];
-  const change = changeOf(all);
+  const putIn = sum(all, (f) => f.invested) + oneTimeIn;
+  const value = sum(all, (f) => f.current_value) + sum(oneTime, (o) => o.value);
+  const change = changeBetween(putIn, value);
 
   return {
     id,
     name: goal_name!,
     targetMonth: target_month ? `by ${monthYear(target_month)}` : null,
     timeToGo: timeToGo(today, target_month),
-    paidLabel: planned !== null ? `${paid} of ${planned} instalments paid` : `${paid} ${paid === 1 ? 'instalment' : 'instalments'} paid`,
+    paidLabel:
+      group.length === 0
+        ? `${oneTime.length} one-time ${oneTime.length === 1 ? 'investment' : 'investments'}`
+        : planned !== null
+          ? `${paid} of ${planned} instalments paid`
+          : `${paid} ${paid === 1 ? 'instalment' : 'instalments'} paid`,
     barPct: planned ? Math.min(100, Math.round((paid / planned) * 1000) / 10) : null,
-    putIn: inr(sum(all, (f) => f.invested)),
+    putIn: inr(putIn),
     planned: plannedPutIn !== null ? inr(plannedPutIn) : null,
-    value: inr(sum(all, (f) => f.current_value)),
+    value: inr(value),
     change,
     sips: group.map(({ facts: f, stopped }) => ({ id: f.sip_id, label: `${f.fund_name} · ${stopped ? 'stopped' : `${inr(f.amount)} a month`}` })),
-    // Only a goal that is down has a dip to explain.
-    dipSipId: change?.direction === 'down' ? main.sip_id : null,
+    oneTime: oneTime.map((o) => `${o.fund} · ${inr(o.amount)} one-time`),
+    // Only a goal that is down has a dip to explain, and the explainer reads a SIP's facts.
+    dipSipId: change?.direction === 'down' && main ? main.sip_id : null,
   };
 }
 
@@ -155,9 +189,16 @@ function summary(all: SipFacts[]): NonNullable<HomeView['summary']> {
 
 /** The change vs put in across these SIPs; null before anything is put in. */
 export function changeOf(all: SipFacts[]): Change | null {
-  const invested = sum(all, (f) => f.invested);
+  return changeBetween(
+    sum(all, (f) => f.invested),
+    sum(all, (f) => f.current_value),
+  );
+}
+
+/** The change from what was put in to what it is worth; null before anything is put in. */
+function changeBetween(invested: number, value: number): Change | null {
   if (invested === 0) return null;
-  const diff = sum(all, (f) => f.current_value) - invested;
+  const diff = value - invested;
   const whole = Math.round(diff);
   return {
     text: `${signedInr(diff)} (${percent((diff / invested) * 100, true)})`,
