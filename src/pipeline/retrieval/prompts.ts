@@ -32,7 +32,7 @@ Return only a JSON object with exactly these keys:
 - "asks_for_advice": true ONLY when they ask which fund or stock to pick, whether to buy, sell or switch a specific product, or for a return prediction or guarantee. "Should I stop my SIP?" is not an advice request.
 - "misreads_cancel": true when they believe stopping refunds money, sells their units, or cannot be undone. It is only this flag, never a theme: such a misread has the theme "Confusion"
 - "language": "en", "hi", "hinglish" or "other"
-- "confidence": a number from 0 to 1, how sure you are about primary_theme
+- "confidence": how sure you are about primary_theme, a number from 0 to 1 written in digits only
 - "summary": at most 20 words in English saying what they mean
 Pick the themes from the investor's own words only. The SIP facts are context for later steps: a loss in the facts is never a reason to pick "Returns" or "Market fear".
 What each theme means:
