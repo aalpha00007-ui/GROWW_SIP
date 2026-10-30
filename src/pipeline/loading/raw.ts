@@ -38,7 +38,6 @@ export interface FundSeed {
 export interface NfoSeed {
   name: string;
   category: string;
-  closes_in_days: number;
   min_amount: number;
 }
 
@@ -223,7 +222,7 @@ export function loadMarket(): Market {
   check(Array.isArray(nfos) && nfos.length >= 4 && nfos.length <= 8, nfosFile, 'needs 4-8 "nfos"');
   for (const nfo of nfos) {
     check(isText(nfo.name) && isText(nfo.category), nfosFile, 'every NFO needs a name and a category');
-    check(isPositiveInt(nfo.closes_in_days) && isPositiveInt(nfo.min_amount), nfosFile, `${nfo.name}: closes_in_days and min_amount must be positive whole numbers`);
+    check(isPositiveInt(nfo.min_amount), nfosFile, `${nfo.name}: min_amount must be a positive whole number`);
   }
   checkUnique([...funds, ...nfos].map((f) => f.name), nfosFile, 'fund or NFO name');
 

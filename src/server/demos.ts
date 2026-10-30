@@ -20,8 +20,8 @@ export const DEMOS: readonly Demo[] = [
 
 /**
  * "Try the new feature" in the header's More menu: each item starts a fresh copy of one demo and opens the page
- * that shows the feature. Fund 2 is Kestrel Nifty 50 Index Fund, the first of Explore's popular funds (ids are
- * fixed in data/raw/market/funds.json); its order card has the goal row.
+ * that shows the feature. Fund 2 is Kestrel Nifty 50 Index Fund (ids are fixed in
+ * data/raw/market/funds.json); its order card has the goal row.
  */
 export const FEATURE_TRIES = [
   { title: 'Set a goal for a SIP', text: 'Start a SIP as Kabir and add a goal', persona: 'kabir', href: '/fund/2' },

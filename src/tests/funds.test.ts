@@ -39,30 +39,32 @@ describe('Explore and the fund page', () => {
     expect(all.funds.every((f) => f.return3y !== null && /^[+-]?\d+\.\d%$/.test(f.return3y))).toBe(true);
   });
 
-  it('shows 8 popular funds, 8 collections of 6-8 funds and the made-up new fund offers', async () => {
+  it('shows the first 8 funds A to Z, 6 neutral collections in name order and the made-up offers, with nothing ranked', async () => {
     const explore = await exploreFunds(db, riya);
-    expect(explore.popular).toHaveLength(8);
-    expect(explore.popular[0]).toMatchObject({ name: 'Kestrel Nifty 50 Index Fund', initials: 'KN' });
-    expect(explore.collections.map((c) => c.label)).toEqual([
-      'Highest 3Y return (demo)', 'Popular for SIPs', 'Gold & Silver', 'Large cap', 'Mid cap', 'Small cap', 'Index funds', 'Tax saver (ELSS)',
-    ]);
+    const names = explore.az.map((f) => f.name);
+    expect(names).toHaveLength(8);
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+    expect(names[0]).toBe((await fundList(db, riya, {})).funds[0].name);
+    expect(explore.collections.map((c) => c.label)).toEqual(['Gold & Silver', 'Large cap', 'Mid cap', 'Small cap', 'Index funds', 'Tax saver (ELSS)']);
     for (const c of explore.collections) {
-      const found = await collection(db, riya, c.key);
-      expect(found!.funds.length).toBeGreaterThanOrEqual(6);
-      expect(found!.funds.length).toBeLessThanOrEqual(8);
+      const found = (await collection(db, riya, c.key))!.funds.map((f) => f.name);
+      expect(found.length).toBeGreaterThanOrEqual(6);
+      expect(found.length).toBeLessThanOrEqual(8);
+      expect(found).toEqual([...found].sort((a, b) => a.localeCompare(b)));
     }
-    const best = (await collection(db, riya, 'high-return'))!.funds.map((f) => parseFloat(f.return3y!));
-    expect(best).toEqual([...best].sort((x, y) => y - x));
+    // The ranked collections are gone: their old links are not found.
+    expect(await collection(db, riya, 'high-return')).toBeNull();
+    expect(await collection(db, riya, 'popular-sip')).toBeNull();
     expect(await collection(db, riya, 'crypto')).toBeNull();
     expect(explore.nfos.length).toBeGreaterThanOrEqual(4);
-    expect(explore.nfos[0]).toMatchObject({ closes: 'Closes in 6 days', minAmount: 'Min. ₹500' });
+    expect(explore.nfos[0]).toEqual({ name: 'Starling Multi Asset Fund', initials: 'SM', category: 'Hybrid', minAmount: 'Min. ₹500' });
   });
 
   it('shows the fund page: stats, 6 years of NAVs for the chart, the demo 3Y return and an order card with no goal preselected', async () => {
     const fund = await fundPage(db, riya, 1, TODAY);
     expect(fund).toMatchObject({ name: 'Banyan Flexi Cap Fund', initials: 'BF', navDate: 'NAV on 27 Oct 2026' });
     expect(fund?.stats.map((s) => [s.label, s.value])).toEqual([
-      ['NAV', fund!.nav], ['Min. for SIP', '₹500'], ['Fund size', '₹18,420 Cr'], ['Expense ratio', '0.72%'], ['Rating', '4 of 5'],
+      ['NAV', fund!.nav], ['Min. for SIP', '₹500'], ['Fund size', '₹18,420 Cr'], ['Expense ratio', '0.72%'],
     ]);
     expect(fund!.chart[0][0] <= '2020-11-03').toBe(true);
     expect(fund!.chart.at(-1)![0]).toBe('2026-10-27');

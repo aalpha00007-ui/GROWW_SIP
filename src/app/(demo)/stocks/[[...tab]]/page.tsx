@@ -1,5 +1,5 @@
-// Stocks (brief phase 5), display only. Explore in two columns after the layout reference: Popular stocks and
-// Popular bonds on the left; Your investments (empty) and Products & Tools on the right. Holdings, Positions,
+// Stocks (brief phase 5), display only. Explore in two columns after the layout reference: Stocks (demo) and
+// Bonds (demo) on the left, in name order; Your investments (empty) and Products & Tools on the right. Holdings, Positions,
 // Orders and Watchlist are sample tables; a new demo account's are empty. Every company, bond and price is made
 // up; Buy and Sell do nothing.
 import Link from 'next/link';
@@ -35,14 +35,14 @@ export default async function Stocks({ params }: { params: Promise<{ tab?: strin
   const db = getDb();
   const today = todayInIndia();
   const samples = showsSampleRows(visitor);
-  return section ? <StockTable db={db} today={today} section={section} samples={samples} /> : <Explore db={db} today={today} samples={samples} />;
+  return section ? <StockTable db={db} today={today} section={section} samples={samples} /> : <Explore db={db} samples={samples} />;
 }
 
-async function Explore({ db, today, samples }: { db: ReturnType<typeof getDb>; today: string; samples: boolean }) {
-  const data = await stocksExplore(db, today);
+async function Explore({ db, samples }: { db: ReturnType<typeof getDb>; samples: boolean }) {
+  const data = await stocksExplore(db);
   const tools: { label: string; href: string; icon: IconName; pill?: string }[] = [
-    { label: 'IPO', href: '/soon/ipo', icon: 'ipo', pill: `${data.openIpos} open` },
-    { label: 'Bonds', href: '/soon/bonds', icon: 'bond', pill: `${data.openBonds} open` },
+    { label: 'IPO', href: '/soon/ipo', icon: 'ipo' },
+    { label: 'Bonds', href: '/soon/bonds', icon: 'bond' },
     { label: 'ETFs', href: '/soon/etfs', icon: 'etf' },
     { label: 'Stock SIP', href: '/soon/stock-sip', icon: 'sips' },
     { label: 'Screener', href: '/soon/screener', icon: 'screener' },
@@ -54,9 +54,9 @@ async function Explore({ db, today, samples }: { db: ReturnType<typeof getDb>; t
       <div className="@container space-y-8">
         <section>
           {/* "See more" opens the watchlist, which a new demo account starts without. */}
-          <SectionTitle title="Popular stocks" link={samples ? { label: 'See more', href: '/stocks/watchlist' } : undefined} />
+          <SectionTitle title="Stocks (demo)" link={samples ? { label: 'See more', href: '/stocks/watchlist' } : undefined} />
           <ul className="grid grid-cols-2 gap-4 @2xl:grid-cols-4">
-            {data.popular.map((s) => (
+            {data.stocks.map((s) => (
               <li key={s.symbol} className={`${CARD} flex flex-col`}>
                 <Initials text={s.initials} />
                 <span className="mt-3 line-clamp-2 block min-h-12 text-[15px] text-ink">{s.name}</span>
@@ -75,7 +75,7 @@ async function Explore({ db, today, samples }: { db: ReturnType<typeof getDb>; t
         </section>
 
         <section>
-          <SectionTitle title="Popular bonds" link={{ label: 'See more', href: '/soon/bonds' }} />
+          <SectionTitle title="Bonds (demo)" link={{ label: 'See more', href: '/soon/bonds' }} />
           <ul className="divide-y divide-line rounded-xl border border-line bg-surface">
             {data.bonds.map((b) => (
               <li key={b.name} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
@@ -87,10 +87,6 @@ async function Explore({ db, today, samples }: { db: ReturnType<typeof getDb>; t
                   <div className="text-right">
                     <dt className="text-xs text-muted">Yield</dt>
                     <dd className="tabular font-semibold text-strong">{b.yield}</dd>
-                  </div>
-                  <div className="text-right">
-                    <dt className="text-xs text-muted">Left</dt>
-                    <dd className="tabular text-strong">{b.months}</dd>
                   </div>
                   <div>
                     <dt className="text-xs text-muted">Rating</dt>

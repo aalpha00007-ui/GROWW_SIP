@@ -21,7 +21,6 @@ interface FundRow {
   exit_load_text: string;
   expense_ratio: string;
   aum_cr: number;
-  rating: number;
   nav: string;
   nav_date: string;
   /** The NAV 3 years before the latest one (or on the closest earlier date). */
@@ -45,7 +44,7 @@ async function funds(db: Db, investorId: string): Promise<FundRow[]> {
          SELECT DISTINCT ON (fund_id) fund_id, nav, nav_date FROM visible_nav_history($1) ORDER BY fund_id, nav_date DESC
        )
        SELECT f.id, f.name, f.category, f.sub_category, f.risk_level, f.min_sip, f.exit_load_text, f.expense_ratio::text,
-         f.aum_cr, f.rating, l.nav::text, l.nav_date::text,
+         f.aum_cr, l.nav::text, l.nav_date::text,
          (SELECT h.nav::text FROM nav_history h WHERE h.fund_id = f.id AND h.nav_date <= (l.nav_date - interval '3 years')::date
           ORDER BY h.nav_date DESC LIMIT 1) AS nav_3y
        FROM funds f JOIN latest l ON l.fund_id = f.id ORDER BY f.id`,
@@ -69,7 +68,6 @@ export interface FundCard {
   return3y: string | null;
   /** '₹18,420 Cr' */
   size: string;
-  rating: number;
 }
 
 function card(f: FundRow): FundCard {
@@ -81,7 +79,6 @@ function card(f: FundRow): FundCard {
     about: `${f.sub_category} · ${f.risk_level} risk`,
     return3y: r === null ? null : percent(r * 100, true),
     size: `₹${WHOLE.format(f.aum_cr)} Cr`,
-    rating: f.rating,
   };
 }
 
@@ -94,35 +91,13 @@ export function initials(name: string): string {
     .join('');
 }
 
-/** "Popular funds" on Explore: 8 made-up funds, two rows of four. */
-const POPULAR = [
-  'Kestrel Nifty 50 Index Fund', 'Banyan Flexi Cap Fund', 'Peepal Large Cap Fund', 'Monsoon Midcap Fund',
-  'Jasmine Midcap Fund', 'Mosaic Small Cap Fund', 'Oakleaf Tax Saver Fund', 'Marigold Gold Fund',
-];
+/** Funds in name order: no list is ranked by return, size or popularity (the brief bans steering). */
+const byName = (a: FundRow, b: FundRow) => a.name.localeCompare(b.name);
 
-const POPULAR_FOR_SIPS = [
-  'Kestrel Nifty 50 Index Fund', 'Banyan Flexi Cap Fund', 'Saal Top 100 Fund', 'Sparrow Mid Cap Fund',
-  'Hummingbird Small Cap Fund', 'Teak Balanced Advantage Fund', 'Lotus ELSS Tax Saver Fund', 'Cedar Large & Mid Cap Fund',
-];
+export type CollectionIcon = 'gold' | 'largeCap' | 'midCap' | 'smallCap' | 'index' | 'elss';
 
-export type CollectionIcon = 'trendUp' | 'sipStar' | 'gold' | 'largeCap' | 'midCap' | 'smallCap' | 'index' | 'elss';
-
-/** Explore's collections: each opens a list of 6-8 made-up funds. */
+/** Explore's collections, neutral categories only: each opens its made-up funds in name order. */
 export const COLLECTIONS: { key: string; label: string; icon: CollectionIcon; about: string; pick: (all: FundRow[]) => FundRow[] }[] = [
-  {
-    key: 'high-return',
-    label: 'Highest 3Y return (demo)',
-    icon: 'trendUp',
-    about: "The 8 made-up funds with the highest 3-year return in this demo. Past returns don't guarantee future returns.",
-    pick: (all) => all.filter((f) => return3y(f) !== null).sort((a, b) => return3y(b)! - return3y(a)!).slice(0, 8),
-  },
-  {
-    key: 'popular-sip',
-    label: 'Popular for SIPs',
-    icon: 'sipStar',
-    about: 'Made-up funds that demo investors often start SIPs in. Popular is not the same as right for you.',
-    pick: (all) => POPULAR_FOR_SIPS.flatMap((name) => all.filter((f) => f.name === name)),
-  },
   { key: 'gold-silver', label: 'Gold & Silver', icon: 'gold', about: 'Made-up funds that follow gold and silver prices.', pick: bySub('Gold', 'Silver') },
   { key: 'large-cap', label: 'Large cap', icon: 'largeCap', about: 'Made-up funds that invest mostly in the biggest companies.', pick: bySub('Large cap') },
   { key: 'mid-cap', label: 'Mid cap', icon: 'midCap', about: 'Made-up funds that invest mostly in mid-sized companies.', pick: bySub('Mid cap') },
@@ -138,20 +113,21 @@ export const COLLECTIONS: { key: string; label: string; icon: CollectionIcon; ab
 ];
 
 function bySub(...subs: string[]) {
-  return (all: FundRow[]) => all.filter((f) => subs.includes(f.sub_category)).sort((a, b) => b.aum_cr - a.aum_cr);
+  return (all: FundRow[]) => all.filter((f) => subs.includes(f.sub_category)).sort(byName);
 }
 
-/** Mutual Funds -> Explore, left column: Popular funds, Collections and the new fund offers. */
+/** Mutual Funds -> Explore, left column: the first funds A to Z, the collections and the new fund offers. */
 export async function exploreFunds(db: Db, investorId: string) {
   const all = await funds(db, investorId);
   return {
-    popular: POPULAR.flatMap((name) => all.filter((f) => f.name === name).map(card)),
+    /** "Funds A–Z (demo)": the first 8 by name, two rows of four; "All mutual funds" has the rest. */
+    az: [...all].sort(byName).slice(0, 8).map(card),
     collections: COLLECTIONS.map(({ key, label, icon }) => ({ key, label, icon, href: `/collections/${key}` })),
+    // No closing dates or countdowns: an offer that can't be bought here has nothing to hurry for.
     nfos: loadMarket().nfos.map((n) => ({
       name: n.name,
       initials: initials(n.name),
       category: n.category,
-      closes: n.closes_in_days === 1 ? 'Closes tomorrow' : `Closes in ${n.closes_in_days} days`,
       minAmount: `Min. ${inr(n.min_amount)}`,
     })),
   };
@@ -174,7 +150,8 @@ export async function fundList(db: Db, investorId: string, filters: { category?:
     risk: risk ?? null,
     categories: [...new Set(all.map((f) => f.category))],
     risks: [...new Set(all.map((f) => f.risk_level))],
-    funds: all
+    funds: [...all]
+      .sort(byName)
       .filter((f) => (!category || f.category === category) && (!risk || f.risk_level === risk))
       .map((f) => ({ ...card(f), category: f.category, risk: f.risk_level, minSip: `Min SIP ${inr(f.min_sip)}`, nav: nav(f.nav) })),
   };
@@ -208,7 +185,6 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
       { label: 'Min. for SIP', value: inr(fund.min_sip) },
       { label: 'Fund size', value: `₹${WHOLE.format(fund.aum_cr)} Cr` },
       { label: 'Expense ratio', value: `${Number(fund.expense_ratio).toFixed(2)}%` },
-      { label: 'Rating', value: `${fund.rating} of 5`, stars: fund.rating },
     ],
     facts: [
       { label: 'Category', value: fund.sub_category === fund.category ? fund.category : `${fund.category} · ${fund.sub_category}` },

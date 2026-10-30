@@ -14,15 +14,17 @@ beforeAll(async () => {
 }, 120_000);
 
 describe('Stocks (display only)', () => {
-  it('shows 8 made-up stocks with a price and day change, and 8 bonds with yield, months left and a rating', async () => {
-    const data = await stocksExplore(db, TODAY);
-    expect(data.popular).toHaveLength(8);
-    expect(data.popular[0]).toMatchObject({ symbol: 'QUILL', name: 'Quillstone Software', initials: 'QS' });
-    expect(data.popular.every((s) => /^₹[\d,]+\.\d\d$/.test(s.price) && /^[+-]?[\d,]+\.\d\d \([\d.]+%\)$/.test(s.change ?? ''))).toBe(true);
+  it('shows 8 made-up stocks with a price and day change, and 8 bonds with yield and a rating, in name order', async () => {
+    const data = await stocksExplore(db);
+    expect(data.stocks).toHaveLength(8);
+    expect(data.stocks.map((s) => s.name)).toEqual([...data.stocks.map((s) => s.name)].sort((a, b) => a.localeCompare(b)));
+    expect(data.stocks.find((s) => s.symbol === 'QUILL')).toMatchObject({ name: 'Quillstone Software', initials: 'QS' });
+    expect(data.stocks.every((s) => /^₹[\d,]+\.\d\d$/.test(s.price) && /^[+-]?[\d,]+\.\d\d \([\d.]+%\)$/.test(s.change ?? ''))).toBe(true);
     expect(data.bonds).toHaveLength(8);
-    expect(data.bonds[0]).toEqual({ name: 'Banyan Infra Bond', maturity: 'Matures Mar 2030', yield: '7.45%', months: '41 months', rating: 'AAA', level: 'high' });
-    expect(data.bonds.map((b) => b.level)).toEqual(['high', 'high', 'high', 'high', 'mid', 'mid', 'low', 'low']);
-    expect(data).toMatchObject({ openIpos: 1, openBonds: 8 });
+    expect(data.bonds.map((b) => b.name)).toEqual([...data.bonds.map((b) => b.name)].sort((a, b) => a.localeCompare(b)));
+    // No "months left" countdown and no "open" counts.
+    expect(data.bonds.find((b) => b.name === 'Banyan Infra Bond')).toEqual({ name: 'Banyan Infra Bond', maturity: 'Matures Mar 2030', yield: '7.45%', rating: 'AAA', level: 'high' });
+    expect(Object.keys(data)).toEqual(['stocks', 'bonds']);
   });
 
   it('prices the sample holdings, positions, orders and watchlist from the demo prices', async () => {

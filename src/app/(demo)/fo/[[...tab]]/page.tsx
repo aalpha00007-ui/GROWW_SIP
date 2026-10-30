@@ -1,4 +1,4 @@
-// F&O (brief phase 5), display only. Explore after the layout reference: Top traded (Equity / Commodities, with
+// F&O (brief phase 5), display only. Explore after the layout reference: Contracts (demo) (Equity / Commodities, with
 // candles) and F&O stocks on the left; Positions (F&O returns ₹0.00) and Products & tools on the right.
 // Positions is empty and Orders lists sample orders that never filled (a new demo account has none). Every
 // contract and price is made up.
@@ -76,7 +76,7 @@ export default async function FutureAndOptions({ params }: { params: Promise<{ t
     <div className="grid gap-8 lg:grid-cols-[minmax(0,65fr)_minmax(0,35fr)] lg:items-start">
       <div className="@container space-y-8">
         <section>
-          <SectionTitle title="Top traded" link={{ label: 'See more', href: '/soon/options' }} />
+          <SectionTitle title="Contracts (demo)" link={{ label: 'See more', href: '/soon/options' }} />
           <FoTopTraded equity={data.equity} commodities={data.commodities} />
         </section>
 

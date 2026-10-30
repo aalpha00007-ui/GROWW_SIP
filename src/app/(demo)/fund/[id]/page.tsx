@@ -3,7 +3,7 @@
 // stays in view from 1024px. Every fund and number is made up.
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { Initials, Stars } from '@/components/fund-rows';
+import { Initials } from '@/components/fund-rows';
 import { NavChart } from '@/components/nav-chart';
 import { OrderCard } from '@/components/order-card';
 import { ReturnCalculator } from '@/components/return-calculator';
@@ -55,15 +55,7 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
             {fund.stats.map((s) => (
               <div key={s.label}>
                 <dt className="text-sm text-muted">{s.label}</dt>
-                <dd className="tabular font-semibold text-strong">
-                  {s.stars ? (
-                    <>
-                      <Stars count={s.stars} /> <span className="text-sm font-normal text-muted">{s.value}</span>
-                    </>
-                  ) : (
-                    s.value
-                  )}
-                </dd>
+                <dd className="tabular font-semibold text-strong">{s.value}</dd>
                 {s.note && <dd className="text-xs text-muted">{s.note}</dd>}
               </div>
             ))}

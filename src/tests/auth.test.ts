@@ -5,7 +5,7 @@ import { setupDatabase } from '../pipeline/loading/seed';
 import { allowUsernameCheck, checkUsername, contactDetailsIn, createSession, deleteInvestor, endSession, logIn, sessionInvestor, setDisplayName, signUp, startPersona, verifyPin } from '../server/auth';
 import { overHttps } from '../server/api';
 import { DEMOS, FEATURE_TRIES } from '../server/demos';
-import { exploreFunds } from '../server/funds';
+import { fundPage } from '../server/funds';
 import { PERSONA_KEYS } from '../pipeline/loading/raw';
 import { pgliteDb } from './pglite-db';
 
@@ -201,9 +201,8 @@ describe('The three demos on the landing page', () => {
       ['riya', '/dashboard'],
       ['arjun', '/sips'],
     ]);
-    // Kabir's try opens the first of Explore's popular funds, where the order card has the goal row.
+    // Kabir's try opens Kestrel Nifty 50 Index Fund, whose order card has the goal row.
     const kabir = await startPersona(db, 'kabir');
-    const { popular } = await exploreFunds(db, kabir.investorId);
-    expect(FEATURE_TRIES[0].href).toBe(`/fund/${popular[0].id}`);
+    expect((await fundPage(db, kabir.investorId, Number(FEATURE_TRIES[0].href.split('/')[2]), '2026-10-27'))?.name).toBe('Kestrel Nifty 50 Index Fund');
   });
 });

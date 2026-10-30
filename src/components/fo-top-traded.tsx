@@ -1,5 +1,5 @@
 'use client';
-// F&O -> Explore, "Top traded": chips Equity / Commodities, each with 6 cards (3 a row): a made-up contract,
+// F&O -> Explore, "Contracts (demo)": chips Equity / Commodities, each with 6 cards (3 a row): a made-up contract,
 // its candles, price and day change with sign and colour.
 import { useState } from 'react';
 import type { Candle } from '@/server/trading';

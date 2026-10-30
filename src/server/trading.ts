@@ -3,7 +3,7 @@
 // Candles come from a fixed seed, so they look the same on every load. Nothing here can be bought or sold.
 // The sample trades and watchlist belong to the demo personas only: a new demo account starts empty.
 import type { Db } from '../db/client';
-import { dayMonthYear, monthsBetween, monthYear } from '../pipeline/chunking/format';
+import { dayMonthYear, monthYear } from '../pipeline/chunking/format';
 import { addDays } from '../pipeline/loading/dates';
 import { loadMarket, loadTrading } from '../pipeline/loading/raw';
 import { mulberry32 } from '../pipeline/loading/walk';
@@ -52,27 +52,24 @@ function ratingLevel(rating: string): 'high' | 'mid' | 'low' {
   return 'low';
 }
 
-/** Stocks -> Explore: 8 popular made-up stocks, 8 made-up bonds, and the counts for Products & Tools. */
-export async function stocksExplore(db: Db, today: string) {
-  const [q, ipos] = await Promise.all([quotes(db), db.query<{ n: number }>("SELECT count(*)::int AS n FROM ipos WHERE status = 'open'")]);
+/** Stocks -> Explore: the 8 made-up stocks and 8 made-up bonds, in name order. No counts or countdowns. */
+export async function stocksExplore(db: Db) {
+  const q = await quotes(db);
   const trading = loadTrading(loadMarket());
   return {
-    popular: [...q.values()]
+    stocks: [...q.values()]
       .filter((s) => s.kind === 'stock')
+      .sort((a, b) => a.name.localeCompare(b.name))
       .map((s) => ({ symbol: s.symbol, name: s.name, initials: initials(s.name), price: price(s.now), change: dayChange(s.now, s.prev) })),
-    bonds: trading.bonds.map((b) => {
-      const months = monthsBetween(today, `${b.maturity}-01`);
-      return {
+    bonds: [...trading.bonds]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((b) => ({
         name: b.name,
         maturity: `Matures ${monthYear(`${b.maturity}-01`)}`,
         yield: `${b.yield_pct.toFixed(2)}%`,
-        months: `${months} months`,
         rating: b.rating,
         level: ratingLevel(b.rating),
-      };
-    }),
-    openIpos: ipos.rows[0].n,
-    openBonds: trading.bonds.length,
+      })),
   };
 }
 

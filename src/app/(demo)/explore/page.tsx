@@ -1,4 +1,4 @@
-// Mutual Funds -> Explore, laid out after the reference in two columns. Left: Popular funds, Collections and
+// Mutual Funds -> Explore, laid out after the reference in two columns. Left: Funds A–Z (demo), Collections and
 // the new fund offers. Right: Your investments, the demo control and Products and tools. One column below
 // 1024px, the right column under the left. Every fund, return and offer is made up.
 import Link from 'next/link';
@@ -23,7 +23,7 @@ export default async function Explore() {
   const db = getDb();
   const [funds, investments] = await Promise.all([exploreFunds(db, visitor.id), investmentsView(db, visitor.id)]);
   const tools: { label: string; href: string; icon: IconName; pill?: string }[] = [
-    { label: 'NFO live', href: '/soon/nfo', icon: 'nfo', pill: `${funds.nfos.length} open` },
+    { label: 'NFO live', href: '/soon/nfo', icon: 'nfo' },
     { label: 'SIP calculator', href: '/calculators/sip', icon: 'calculator' },
     { label: 'Goal planner', href: '/calculators/goal', icon: 'calculator' },
     { label: 'SWP calculator', href: '/calculators/swp', icon: 'calculator' },
@@ -38,9 +38,9 @@ export default async function Explore() {
       {/* A container: the card rows follow this column's width, so 1024px (a narrow left column) wraps them. */}
       <div className="@container space-y-8">
         <section>
-          <SectionTitle title="Popular funds" link={{ label: 'All mutual funds', href: '/funds' }} />
+          <SectionTitle title="Funds A–Z (demo)" link={{ label: 'All mutual funds', href: '/funds' }} />
           <ul className="grid grid-cols-2 gap-4 @2xl:grid-cols-4">
-            {funds.popular.map((fund) => (
+            {funds.az.map((fund) => (
               <li key={fund.id}>
                 <Link href={`/fund/${fund.id}`} className={`${LINK_CARD} h-full`}>
                   <Initials text={fund.initials} />
@@ -82,7 +82,7 @@ export default async function Explore() {
                   <p className="text-sm text-muted">
                     {nfo.category} · {nfo.minAmount}
                   </p>
-                  <p className="mt-1 text-sm font-medium text-accent-ink">{nfo.closes}</p>
+                  <p className="mt-1 text-sm font-medium text-accent-ink">Demo offer · can&apos;t be bought here</p>
                 </div>
               </li>
             ))}
