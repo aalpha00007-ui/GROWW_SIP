@@ -7,6 +7,7 @@ import { Initials, Stars } from '@/components/fund-rows';
 import { NavChart } from '@/components/nav-chart';
 import { OrderCard } from '@/components/order-card';
 import { ReturnCalculator } from '@/components/return-calculator';
+import { WatchButton } from '@/components/watch-button';
 import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
 import { idParam } from '@/server/api';
@@ -27,7 +28,10 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
         <div className="min-w-0 space-y-6">
           <section>
-            <Initials text={fund.initials} size="lg" />
+            <div className="flex items-start justify-between gap-3">
+              <Initials text={fund.initials} size="lg" />
+              <WatchButton fundId={fund.id} watched={fund.watched} />
+            </div>
             <h1 className="mt-3 text-2xl font-bold">{fund.name}</h1>
             <ul className="mt-2 flex flex-wrap gap-2">
               {fund.chips.map((chip) => (

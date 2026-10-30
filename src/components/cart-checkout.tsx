@@ -1,7 +1,7 @@
 'use client';
 // Start one cart item. A SIP saved with a goal starts at once; one without opens the same goal step as
 // the fund page (brief phase 4). A one-time item is invested from the demo balance, with the goal it was saved
-// with. Either way the item leaves the cart.
+// with, then the Dashboard opens. Either way the item leaves the cart.
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { EMPTY_GOAL, goalApiBody, GoalStep, type GoalDraft, type GoalStepOptions } from './goal-step';
@@ -48,9 +48,14 @@ export function CartCheckout({ item, options }: Props) {
     setBusy(true);
     setError(null);
     const result = await postJson('/api/invest', { fundId: item.fundId, amount: item.amountValue, cartItemId: item.id, goal: item.goal?.body });
+    if (result.ok) {
+      // The Dashboard shows the money, under its goal: a clear sign it went through.
+      router.push('/dashboard');
+      router.refresh();
+      return;
+    }
     setBusy(false);
-    if (result.ok) router.refresh();
-    else setError(result.error);
+    setError(result.error);
   }
 
   return (

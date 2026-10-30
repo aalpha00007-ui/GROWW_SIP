@@ -3,7 +3,7 @@ import type { Db } from '../db/client';
 import { clonePersona } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
 import { addToCart, cartView, removeFromCart } from '../server/cart';
-import { collection, exploreFunds, fundList, fundPage, goalPreview, investOnce, startSip } from '../server/funds';
+import { collection, exploreFunds, fundList, fundPage, goalPreview, investOnce, setWatch, startSip, watchedFunds } from '../server/funds';
 import { homeView } from '../server/home';
 import { investmentsView, xirr } from '../server/investments';
 import { loadSip, sipList, sipView } from '../server/sip';
@@ -170,6 +170,28 @@ describe('One-time investments and the cart', () => {
     expect(await removeFromCart(db, riya, cart.items[0].id)).toMatchObject({ status: 404 });
     expect(await removeFromCart(db, visitor, cart.items[0].id)).toMatchObject({ status: 200 });
     expect((await cartView(db, visitor)).items).toHaveLength(1);
+  });
+});
+
+describe('Watchlist', () => {
+  it('adds funds from the fund page, lists the latest first, and takes them off', async () => {
+    const visitor = await clonePersona(db, 'kabir');
+    expect(await watchedFunds(db, visitor)).toEqual([]);
+    expect((await fundPage(db, visitor, 2, TODAY))?.watched).toBe(false);
+    expect(await setWatch(db, visitor, { fundId: 2, watch: true })).toEqual({ status: 200, watched: true });
+    expect(await setWatch(db, visitor, { fundId: 5, watch: true })).toEqual({ status: 200, watched: true });
+    // Adding twice keeps one row.
+    expect(await setWatch(db, visitor, { fundId: 2, watch: true })).toEqual({ status: 200, watched: true });
+    expect((await watchedFunds(db, visitor)).map((f) => f.name)).toEqual(expect.arrayContaining(['Kestrel Nifty 50 Index Fund', 'Harbor Liquid Fund']));
+    expect(await watchedFunds(db, visitor)).toHaveLength(2);
+    expect((await fundPage(db, visitor, 2, TODAY))?.watched).toBe(true);
+    // Another investor's list is their own.
+    expect(await watchedFunds(db, riya)).toEqual([]);
+
+    expect(await setWatch(db, visitor, { fundId: 2, watch: false })).toEqual({ status: 200, watched: false });
+    expect((await watchedFunds(db, visitor)).map((f) => f.name)).toEqual(['Harbor Liquid Fund']);
+    expect((await setWatch(db, visitor, { fundId: 999, watch: true })).status).toBe(404);
+    expect((await setWatch(db, visitor, { fundId: 2 })).status).toBe(400);
   });
 });
 

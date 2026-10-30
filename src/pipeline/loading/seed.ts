@@ -10,7 +10,7 @@ const SCHEMA_FILE = path.join(process.cwd(), 'src', 'db', 'schema.sql');
 
 /** Every table in schema.sql, dependents first. */
 export const TABLES = [
-  'app_events', 'signup_attempts', 'sessions', 'accounts', 'eval_results', 'eval_runs', 'ai_checks', 'watchlist', 'demo_orders', 'ipo_applications', 'ipos',
+  'app_events', 'signup_attempts', 'sessions', 'accounts', 'eval_results', 'eval_runs', 'ai_checks', 'watchlist', 'fund_watchlist', 'demo_orders', 'ipo_applications', 'ipos',
   'asset_prices', 'assets', 'mandates', 'cart_items', 'lumpsums', 'instalments', 'sip_events', 'sips',
   'goals', 'demo_nav_history', 'investors', 'nav_history', 'funds',
 ];

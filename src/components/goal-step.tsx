@@ -18,6 +18,8 @@ export interface GoalStepOptions {
   targetMax: number;
   /** The investor's goals a one-time investment can be added to. */
   existing?: { id: number; label: string }[];
+  /** 'YYYY-MM': the first month a new one-time goal can aim for (next month). */
+  firstMonth?: string;
 }
 
 export interface GoalDraft {
@@ -128,7 +130,10 @@ export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, option
   }, [open, dated, once, fundId, amount, day, goal.month, goal.year]);
 
   if (!open) return null;
-  const valid = picked || (named && dated && targetOk && (once || (count !== null && 'instalments' in count)));
+  // A one-time goal has no instalment count to check its month, so the month is checked here.
+  const tooSoon = once && dated && options.firstMonth !== undefined && `${goal.year}-${goal.month}` < options.firstMonth;
+  const firstMonthText = options.firstMonth ? `${MONTHS[Number(options.firstMonth.slice(5)) - 1]} ${options.firstMonth.slice(0, 4)}` : '';
+  const valid = picked || (named && dated && targetOk && !tooSoon && (once || (count !== null && 'instalments' in count)));
   const what = goal.kind === 'custom' ? goal.name.trim() || 'your goal' : options.kinds.find((k) => k.kind === goal.kind)?.label;
 
   // On <body>: the order card sits in a sticky column, which would keep the panel under the page header.
@@ -253,7 +258,9 @@ export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, option
           )}
 
           <div aria-live="polite" className="rounded-lg bg-primary-soft px-4 py-3 text-sm">
-            {once ? (
+            {once && tooSoon && !picked ? (
+              <p className="text-loss-strong">Pick a month from {firstMonthText} on.</p>
+            ) : once ? (
               <p className="tabular font-semibold text-primary">
                 {picked
                   ? `₹${INR.format(amount)} one-time, ${goalLabel(goal, options).replace('For: ', 'for ')}`

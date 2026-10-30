@@ -1,6 +1,6 @@
 // The landing page's hero: our own isometric "goal map". A road winds left to right through a small town: a
 // kiosk with "Set a goal", a valley with a red ▼ board and "See the dip in context", a fork with a bench and
-// "Check in before you stop", and a hill with a house and the dark green "Your goal" flag. A small car drives
+// "Check-in before you stop", and a hill with a house and the dark green "Your goal" flag. A small car drives
 // the road and loops; it stays parked at the start when the visitor prefers reduced motion.
 // Drawn on an isometric grid: world (u, v, z) -> screen (u - v, (u + v) / 2 - z). No logo, nothing traced.
 
@@ -16,7 +16,7 @@ const at = ([u, v, z]: Pt): [number, number] => [OX + u - v, OY + (u + v) / 2 - 
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const pts = (...ps: Pt[]) => ps.map((p) => at(p).map(r1).join(',')).join(' ');
 
-const STEPS = ['Set a goal', 'See the dip in context', 'Check in before you stop', 'Your goal'];
+const STEPS = ['Set a goal', 'See the dip in context', 'Check-in before you stop', 'Your goal'];
 
 /** A box seen from above: its top, its front-left face (v = v1) and its front-right face (u = u1). */
 function Box({ u: [u0, u1], v: [v0, v1], z: [z0, z1], top, left, right }: { u: [number, number]; v: [number, number]; z: [number, number]; top: string; left: string; right: string }) {
@@ -173,7 +173,7 @@ export function HeroGoalMap() {
       <svg
         viewBox="20 46 1062 420"
         role="img"
-        aria-label="Map of a SIP journey: set a goal, see the dip in context, check in before you stop, reach your goal"
+        aria-label="Map of a SIP journey: set a goal, see the dip in context, check-in before you stop, reach your goal"
         className="h-auto w-full stroke-logo-navy [&_*]:[vector-effect:non-scaling-stroke]"
         strokeWidth="1.25"
         strokeLinejoin="round"
@@ -221,13 +221,13 @@ export function HeroGoalMap() {
         ))}
         <Sign u={118} v={58} lines={['Set a goal']} dx={66} />
 
-        {/* 3. The fork: a bench and "Check in before you stop"; the side road runs off the edge. */}
+        {/* 3. The fork: a bench and "Check-in before you stop"; the side road runs off the edge. */}
         <g className="fill-surface">
           <polygon points={pts([290, -146, 9], [320, -146, 9], [320, -146, 19], [290, -146, 19])} />
           <polygon points={pts([290, -146, 9], [320, -146, 9], [320, -136, 9], [290, -136, 9])} />
           <path d={`M${at([292, -137, 9]).join(' ')}V${at([292, -137, 0])[1]}M${at([318, -137, 9]).join(' ')}V${at([318, -137, 0])[1]}`} />
         </g>
-        <Sign u={340} v={-112} lines={['Check in', 'before you stop']} post={66} />
+        <Sign u={340} v={-112} lines={['Check-in', 'before you stop']} post={66} />
 
         {/* 2. The valley: the red ▼ board and "See the dip in context". */}
         <path d={`M${dipBoard[0] - 14} ${dipBoard[1]}v-34M${dipBoard[0] + 14} ${dipBoard[1]}v-34`} strokeWidth="2" />

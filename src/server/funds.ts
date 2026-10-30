@@ -185,7 +185,7 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
   if (!Number.isInteger(fundId)) return null;
   const fund = (await funds(db, investorId)).find((f) => f.id === fundId);
   if (!fund) return null;
-  const [history, balance, tipDone, choices] = await Promise.all([
+  const [history, balance, tipDone, choices, watching] = await Promise.all([
     db.query<{ d: string; nav: string }>('SELECT nav_date::text AS d, nav::text FROM visible_nav_history($1) WHERE fund_id = $2 ORDER BY nav_date', [
       investorId,
       fundId,
@@ -193,6 +193,7 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
     demoBalance(db, investorId),
     tooltipDismissed(db, investorId),
     goalChoices(db, investorId),
+    db.query('SELECT 1 FROM fund_watchlist WHERE investor_id = $1 AND fund_id = $2', [investorId, fundId]),
   ]);
   const rate = return3y(fund);
   return {
@@ -221,6 +222,8 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
     /** The demo 3Y return a year at a time, for the return calculator: 0.142 is 14.2%. */
     rate3y: rate === null ? null : Math.round(rate * 10_000) / 10_000,
     rate3yText: rate === null ? null : percent(rate * 100, true),
+    /** In Mutual Funds -> Watchlist. */
+    watched: watching.rows.length > 0,
     box: {
       minAmount: fund.min_sip,
       maxAmount: MAX_AMOUNT,
@@ -238,6 +241,30 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
   };
 }
 
+/** Mutual Funds -> Watchlist: the funds the investor added from a fund page, the latest first. */
+export async function watchedFunds(db: Db, investorId: string): Promise<FundCard[]> {
+  const [all, watched] = await Promise.all([
+    funds(db, investorId),
+    db.query<{ fund_id: number }>('SELECT fund_id FROM fund_watchlist WHERE investor_id = $1 ORDER BY created_at DESC, fund_id', [investorId]),
+  ]);
+  return watched.rows.flatMap((w) => all.filter((f) => f.id === w.fund_id).map(card));
+}
+
+/** POST /api/watchlist {fundId, watch}: adds the fund to the watchlist (watch: true) or takes it off. */
+export async function setWatch(
+  db: Db,
+  investorId: string,
+  input: unknown,
+): Promise<{ status: 200; watched: boolean } | { status: 400 | 404; error: string }> {
+  const body = (input ?? {}) as { fundId?: unknown; watch?: unknown };
+  if (typeof body.watch !== 'boolean') return { status: 400, error: 'Say whether to add the fund or take it off.' };
+  const [fund] = (await db.query<{ id: number }>('SELECT id FROM funds WHERE id = $1', [Number.isInteger(body.fundId) ? body.fundId : 0])).rows;
+  if (!fund) return { status: 404, error: 'We could not find that fund.' };
+  if (body.watch) await db.query('INSERT INTO fund_watchlist (investor_id, fund_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [investorId, fund.id]);
+  else await db.query('DELETE FROM fund_watchlist WHERE investor_id = $1 AND fund_id = $2', [investorId, fund.id]);
+  return { status: 200, watched: body.watch };
+}
+
 /**
  * What the goal step offers: the 8 chips, the name limit, the years for "By when?", the target amount range, and
  * for a one-time investment the investor's own goals to add the money to.
@@ -251,6 +278,7 @@ export function goalStepOptions(today: string, existing: { id: number; label: st
     targetMin: TARGET_MIN,
     targetMax: TARGET_MAX,
     existing,
+    firstMonth: addMonths(`${today.slice(0, 7)}-01`, 1).slice(0, 7),
   };
 }
 

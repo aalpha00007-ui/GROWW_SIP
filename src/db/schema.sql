@@ -165,6 +165,14 @@ CREATE TABLE IF NOT EXISTS watchlist (
   PRIMARY KEY (investor_id, asset_id)
 );
 
+-- Mutual Funds -> Watchlist: the funds an investor added from a fund page.
+CREATE TABLE IF NOT EXISTS fund_watchlist (
+  investor_id uuid NOT NULL REFERENCES investors(id) ON DELETE CASCADE,
+  fund_id     int NOT NULL REFERENCES funds(id),
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (investor_id, fund_id)
+);
+
 CREATE TABLE IF NOT EXISTS ai_checks (
   id             serial PRIMARY KEY,
   investor_id    uuid NOT NULL REFERENCES investors(id) ON DELETE CASCADE,

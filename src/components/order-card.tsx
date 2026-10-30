@@ -29,6 +29,8 @@ export interface OrderCardProps {
 
 type Mode = 'sip' | 'once';
 
+const WHOLE = new Intl.NumberFormat('en-IN');
+
 export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAmount, quickAdd, days, defaultDay, mandate, balance, goalStep, showGoalTip }: OrderCardProps) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('sip');
@@ -44,6 +46,9 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean; cart?: boolean } | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
+  // After a one-time investment: what was done, in place of the order buttons until "Invest again".
+  const [done, setDone] = useState<{ amount: string; text: string } | null>(null);
+  const doneTitle = useRef<HTMLHeadingElement>(null);
 
   const value = Number(amount);
   const amountOk = Number.isInteger(value) && value >= minAmount && value <= maxAmount;
@@ -105,7 +110,8 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
     if (result.ok) {
       setStep(null);
       setGoal(null);
-      setMessage({ text: result.data.message ?? 'Invested.', error: false });
+      setDone({ amount: `₹${WHOLE.format(value)}`, text: result.data.message ?? 'Invested. Demo order, no real money.' });
+      requestAnimationFrame(() => doneTitle.current?.focus());
       router.refresh();
       return;
     }
@@ -157,6 +163,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
             onClick={() => {
               setMode(m);
               setMessage(null);
+              setDone(null);
               // One of the investor's own goals is only for a one-time investment; a new goal suits both.
               if (m === 'sip' && goal?.goalId !== undefined) setGoal(null);
             }}
@@ -172,7 +179,8 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
         <label htmlFor="order-amount" className="block text-sm font-medium text-muted">
           {mode === 'sip' ? 'SIP amount' : 'Amount'}
         </label>
-        <div className="mt-1 flex items-center border-b-2 border-line pb-1 focus-within:border-primary">
+        {/* No box, no underline and no up/down arrows, even while typing: just the big amount, in the same colour. */}
+        <div className="mt-1 flex items-center pb-1">
           <span className="text-3xl font-bold text-strong">₹</span>
           <input
             id="order-amount"
@@ -183,7 +191,8 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
             step={1}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="tabular w-full bg-transparent pl-1 text-3xl font-bold text-strong outline-none"
+            style={{ outline: 'none' }}
+            className="tabular w-full bg-transparent pl-1 text-3xl font-bold text-strong [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -221,110 +230,137 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
         {mode === 'sip' ? mandate : balance}
       </p>
 
-      <div>
-        {!goal &&
-          (tip ? (
-            <div id="goal-tip" role="note" aria-label="Why add a goal" className="relative mb-3 rounded-lg bg-strong p-3 pr-12 text-sm text-white shadow-lg">
-              <p>
-                <span className="font-bold">New:</span>{' '}
-                {mode === 'sip'
-                  ? 'tell us what this SIP is for. When the market falls, we’ll show you this goal next to your SIP.'
-                  : 'tell us what this money is for. When the market falls, we’ll show you this goal next to it.'}
-              </p>
-              <button ref={tipButton} type="button" onClick={minimiseTip} className="mt-2 min-h-9 rounded-md bg-white px-3 text-sm font-semibold text-strong hover:bg-primary-soft">
-                Got it
+      {done ? (
+        <div role="status" className="rounded-xl border border-primary bg-primary-soft p-4 text-center">
+          <span aria-hidden="true" className="mx-auto grid size-10 place-items-center rounded-full bg-surface text-xl font-bold text-primary">
+            ✓
+          </span>
+          {/* Focused when it appears, so a screen reader hears it; the panel itself shows it, not a focus ring. */}
+          <h3 ref={doneTitle} tabIndex={-1} style={{ outline: 'none' }} className="mt-2 text-lg font-bold text-strong">
+            {done.amount} invested
+          </h3>
+          <p className="mt-1 text-sm text-ink">{done.text}</p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <Link href="/dashboard" className="flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg bg-primary px-2 text-sm font-semibold text-white hover:bg-primary-hover">
+              View in Dashboard
+            </Link>
+            <button
+              type="button"
+              onClick={() => setDone(null)}
+              className="flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg border border-primary bg-surface px-2 text-sm font-semibold text-primary hover:bg-primary-soft"
+            >
+              Invest again
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+        <div>
+          {!goal &&
+            (tip ? (
+              <div id="goal-tip" role="note" aria-label="Why add a goal" className="relative mb-3 rounded-lg bg-strong p-3 pr-12 text-sm text-white shadow-lg">
+                <p>
+                  <span className="font-bold">New:</span>{' '}
+                  {mode === 'sip'
+                    ? 'tell us what this SIP is for. When the market falls, we’ll show you this goal next to your SIP.'
+                    : 'tell us what this money is for. When the market falls, we’ll show you this goal next to it.'}
+                </p>
+                <button ref={tipButton} type="button" onClick={minimiseTip} className="mt-2 min-h-9 rounded-md bg-white px-3 text-sm font-semibold text-strong hover:bg-primary-soft">
+                  Got it
+                </button>
+                <button
+                  type="button"
+                  onClick={minimiseTip}
+                  aria-label="Minimise tip"
+                  className="absolute right-1 top-1 grid size-10 place-items-center rounded-full text-xl leading-none text-white/80 hover:bg-white/10 hover:text-white"
+                >
+                  −
+                </button>
+                <span aria-hidden="true" className="absolute -bottom-1.5 left-8 size-3 rotate-45 bg-strong" />
+              </div>
+            ) : (
+              <button
+                ref={whyButton}
+                type="button"
+                onClick={openTip}
+                aria-expanded={false}
+                aria-controls="goal-tip"
+                className="mb-1 flex min-h-9 items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+              >
+                <Icon name="help" size={16} />
+                Why add a goal?
               </button>
+            ))}
+          {goal ? (
+            <div className="flex min-h-12 items-center justify-between gap-2 rounded-lg border border-primary bg-primary-soft px-3">
+              <span className="text-sm font-semibold text-primary">{goalLabel(goal, goalStep)}</span>
               <button
                 type="button"
-                onClick={minimiseTip}
-                aria-label="Minimise tip"
-                className="absolute right-1 top-1 grid size-10 place-items-center rounded-full text-xl leading-none text-white/80 hover:bg-white/10 hover:text-white"
+                onClick={() => setStep('edit')}
+                aria-label="Edit goal"
+                className="grid size-10 shrink-0 place-items-center rounded-full text-primary hover:bg-surface"
               >
-                −
+                <Icon name="edit" size={18} />
               </button>
-              <span aria-hidden="true" className="absolute -bottom-1.5 left-8 size-3 rotate-45 bg-strong" />
             </div>
           ) : (
             <button
-              ref={whyButton}
               type="button"
-              onClick={openTip}
-              aria-expanded={false}
-              aria-controls="goal-tip"
-              className="mb-1 flex min-h-9 items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+              onClick={() => {
+                if (tip) closeTip();
+                setStep('edit');
+              }}
+              className="flex min-h-12 w-full items-center gap-2 rounded-lg border border-dashed border-primary px-3 text-left text-sm hover:bg-primary-soft"
             >
-              <Icon name="help" size={16} />
-              Why add a goal?
+              <span className="rounded bg-accent-tint px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-accent-ink">New</span>
+              <span className="flex-1 font-medium text-strong">{mode === 'sip' ? 'What’s this SIP for?' : 'What’s this investment for?'}</span>
+              <span className="flex items-center font-semibold text-primary">
+                Add a goal
+                <Icon name="chevron" size={16} />
+              </span>
             </button>
-          ))}
-        {goal ? (
-          <div className="flex min-h-12 items-center justify-between gap-2 rounded-lg border border-primary bg-primary-soft px-3">
-            <span className="text-sm font-semibold text-primary">{goalLabel(goal, goalStep)}</span>
-            <button
-              type="button"
-              onClick={() => setStep('edit')}
-              aria-label="Edit goal"
-              className="grid size-10 shrink-0 place-items-center rounded-full text-primary hover:bg-surface"
-            >
-              <Icon name="edit" size={18} />
-            </button>
-          </div>
-        ) : (
+          )}
+        </div>
+
+        {message && (
+          <p role={message.error ? 'alert' : 'status'} className={`rounded-lg px-3 py-2 text-sm ${message.error ? 'bg-loss-soft text-loss-strong' : 'bg-primary-soft text-primary'}`}>
+            {message.text}{' '}
+            {message.cart && (
+              <Link href="/cart" className="font-semibold underline">
+                View cart
+              </Link>
+            )}
+            {!message.error && !message.cart && (
+              <Link href="/dashboard" className="font-semibold underline">
+                View in Dashboard
+              </Link>
+            )}
+          </p>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={() => {
-              if (tip) closeTip();
-              setStep('edit');
-            }}
-            className="flex min-h-12 w-full items-center gap-2 rounded-lg border border-dashed border-primary px-3 text-left text-sm hover:bg-primary-soft"
+            onClick={addToCart}
+            disabled={busy}
+            className="flex min-h-12 items-center justify-center rounded-lg bg-primary-soft px-3 font-semibold text-primary hover:bg-primary/15 disabled:opacity-60"
           >
-            <span className="rounded bg-accent-tint px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-accent-ink">New</span>
-            <span className="flex-1 font-medium text-strong">{mode === 'sip' ? 'What’s this SIP for?' : 'What’s this investment for?'}</span>
-            <span className="flex items-center font-semibold text-primary">
-              Add a goal
-              <Icon name="chevron" size={16} />
-            </span>
+            Add to cart
           </button>
-        )}
-      </div>
-
-      {message && (
-        <p role={message.error ? 'alert' : 'status'} className={`rounded-lg px-3 py-2 text-sm ${message.error ? 'bg-loss-soft text-loss-strong' : 'bg-primary-soft text-primary'}`}>
-          {message.text}{' '}
-          {message.cart && (
-            <Link href="/cart" className="font-semibold underline">
-              View cart
-            </Link>
-          )}
-          {!message.error && !message.cart && (
-            <Link href="/dashboard" className="font-semibold underline">
-              View in Dashboard
-            </Link>
-          )}
+          <button
+            type="button"
+            onClick={start}
+            disabled={busy}
+            className="flex min-h-12 items-center justify-center rounded-lg bg-primary px-3 font-bold text-white hover:bg-primary-hover disabled:opacity-60"
+          >
+            {busy && !step ? 'Please wait…' : mode === 'sip' ? 'Start SIP' : 'Invest now'}
+          </button>
+        </div>
+        <p className="-mt-2 text-center text-xs text-muted">
+          {mode === 'sip' ? 'Demo order, no real money. The first instalment is paid from your demo balance.' : 'Demo order, no real money. Paid from your demo balance.'}
         </p>
+        </>
       )}
-
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={addToCart}
-          disabled={busy}
-          className="flex min-h-12 items-center justify-center rounded-lg bg-primary-soft px-3 font-semibold text-primary hover:bg-primary/15 disabled:opacity-60"
-        >
-          Add to cart
-        </button>
-        <button
-          type="button"
-          onClick={start}
-          disabled={busy}
-          className="flex min-h-12 items-center justify-center rounded-lg bg-primary px-3 font-bold text-white hover:bg-primary-hover disabled:opacity-60"
-        >
-          {busy && !step ? 'Please wait…' : mode === 'sip' ? 'Start SIP' : 'Invest now'}
-        </button>
-      </div>
-      <p className="-mt-2 text-center text-xs text-muted">
-        {mode === 'sip' ? 'Demo order, no real money. The first instalment is paid from your demo balance.' : 'Demo order, no real money. Paid from your demo balance.'}
-      </p>
 
       <GoalStep
         open={step !== null}
