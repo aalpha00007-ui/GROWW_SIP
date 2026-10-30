@@ -304,7 +304,7 @@ export async function investOnce(
   return { status: 200, message: `${inr(amount)} invested in ${fund.name}${forGoal} at ${nav(fund.nav)} a unit. Demo order, no real money.` };
 }
 
-export type GoalPreview = { status: 200; instalments: number; putInTotal: string; line: string } | { status: 400 | 404; error: string };
+export type GoalPreview = { status: 200; instalments: number; plannedPutIn: number; putInTotal: string; line: string } | { status: 400 | 404; error: string };
 
 /**
  * GET /api/goal-preview: "60 x ₹2,000 = ₹1,20,000 put in by Oct 2031. That is what you put in,
@@ -323,6 +323,8 @@ export async function goalPreview(db: Db, q: { fundId: number; amount: number; d
   return {
     status: 200,
     instalments,
+    /** What will be put in by the target month (instalments x amount): never what it will be worth. */
+    plannedPutIn: instalments * q.amount,
     putInTotal,
     line: `${instalments} x ${inr(q.amount)} = ${putInTotal} put in by ${monthYear(target)}. That is what you put in, not what it will be worth.`,
   };

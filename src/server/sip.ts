@@ -223,14 +223,15 @@ export async function sipList(db: Db, investorId: string, today: string) {
 function goalHeader(facts: SipFacts, today: string): string {
   if (!facts.goal) return 'No goal yet';
   const parts = [`This SIP is for ${facts.goal.name}`];
-  if (!facts.goal.target_month) return [...parts, 'no target date'].join(' · ');
+  const target = facts.goal.target_amount ? [`target ${inr(facts.goal.target_amount)}`] : [];
+  if (!facts.goal.target_month) return [...parts, 'no target date', ...target].join(' · ');
   parts.push(`by ${monthYear(facts.goal.target_month)}`);
   if (monthsBetween(today, facts.goal.target_month) < 0) parts.push('goal date reached');
   else if (facts.instalments_planned !== null && facts.next_due_date) {
     const toGo = Math.max(0, facts.instalments_planned - facts.instalments_paid - facts.instalments_skipped);
     parts.push(`${toGo} ${toGo === 1 ? 'instalment' : 'instalments'} to go`);
   }
-  return parts.join(' · ');
+  return [...parts, ...target].join(' · ');
 }
 
 /** 'a', 'a and b', 'a, b and c'. */

@@ -83,7 +83,7 @@ const chip = (on: boolean) =>
 
 export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, options, initial, where, busy = false, error = null, onSave, onSkip, onClose }: Props) {
   const [goal, setGoal] = useState<GoalDraft>(initial);
-  const [count, setCount] = useState<{ instalments: number } | { error: string } | null>(null);
+  const [count, setCount] = useState<{ instalments: number; plannedPutIn: number } | { error: string } | null>(null);
   const [pressed, setPressed] = useState<'save' | 'skip' | null>(null);
   const panel = useRef<HTMLDivElement>(null);
 
@@ -119,8 +119,8 @@ export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, option
     const timer = setTimeout(async () => {
       const query = new URLSearchParams({ fundId: String(fundId), amount: String(amount), day: String(day), targetMonth: `${goal.year}-${goal.month}` });
       const response = await fetch(`/api/goal-preview?${query}`, { signal: controller.signal }).catch(() => null);
-      const body = (await response?.json().catch(() => null)) as { instalments?: number; error?: string } | null;
-      if (body?.instalments !== undefined) setCount({ instalments: body.instalments });
+      const body = (await response?.json().catch(() => null)) as { instalments?: number; plannedPutIn?: number; error?: string } | null;
+      if (body?.instalments !== undefined) setCount({ instalments: body.instalments, plannedPutIn: body.plannedPutIn ?? body.instalments * amount });
       else if (body?.error) setCount({ error: body.error });
     }, 200);
     return () => {
@@ -134,6 +134,16 @@ export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, option
   const tooSoon = once && dated && options.firstMonth !== undefined && `${goal.year}-${goal.month}` < options.firstMonth;
   const firstMonthText = options.firstMonth ? `${MONTHS[Number(options.firstMonth.slice(5)) - 1]} ${options.firstMonth.slice(0, 4)}` : '';
   const valid = picked || (named && dated && targetOk && !tooSoon && (once || (count !== null && 'instalments' in count)));
+  // The plan next to the target: what will be put in, never what it will be worth. Saving is allowed either way.
+  const putIn = once ? amount : count && 'instalments' in count ? count.plannedPutIn : null;
+  const byWhen = dated ? `${MONTHS[Number(goal.month) - 1]} ${goal.year}` : '';
+  const showGap = !picked && named && dated && !tooSoon && target !== null && targetOk && putIn !== null;
+  // Whole years to the goal for the Goal planner (1-40), counted from this month.
+  const plannerYears = (() => {
+    if (!dated || !options.firstMonth) return 10;
+    const months = (Number(goal.year) - Number(options.firstMonth.slice(0, 4))) * 12 + (Number(goal.month) - Number(options.firstMonth.slice(5))) + 1;
+    return Math.min(40, Math.max(1, Math.round(months / 12)));
+  })();
   const what = goal.kind === 'custom' ? goal.name.trim() || 'your goal' : options.kinds.find((k) => k.kind === goal.kind)?.label;
 
   // On <body>: the order card sits in a sticky column, which would keep the panel under the page header.
@@ -276,6 +286,24 @@ export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, option
               <p className="text-loss-strong">{count.error}</p>
             ) : (
               <p className="text-primary">Pick a goal and a month to see how many instalments that is.</p>
+            )}
+            {showGap && (
+              <div className="mt-2 space-y-1 border-t border-primary/20 pt-2">
+                <p className="tabular text-ink">
+                  {putIn >= target
+                    ? `You’ll put in ₹${INR.format(putIn)} ${once ? 'now' : `by ${byWhen}`}, which covers your ₹${INR.format(target)} target before any returns.`
+                    : `You’ll put in ₹${INR.format(putIn)} ${once ? 'now' : `by ${byWhen}`}. Your target is ₹${INR.format(target)}.`}
+                </p>
+                <p className="text-xs text-muted">Returns can add to this or take away from it. They aren’t guaranteed.</p>
+                <a
+                  href={`/calculators/goal?target=${target}&years=${plannerYears}`}
+                  target="_blank"
+                  rel="noopener"
+                  className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary-hover"
+                >
+                  Try amounts in the Goal planner
+                </a>
+              </div>
             )}
           </div>
           <p className="text-sm text-muted">

@@ -79,9 +79,9 @@ export function SipCalculator({ signedIn }: { signedIn: boolean }) {
   );
 }
 
-export function GoalPlanner({ signedIn }: { signedIn: boolean }) {
-  const [goal, setGoal] = useState(10_00_000);
-  const [years, setYears] = useState(10);
+export function GoalPlanner({ signedIn, initialGoal = 10_00_000, initialYears = 10 }: { signedIn: boolean; initialGoal?: number; initialYears?: number }) {
+  const [goal, setGoal] = useState(initialGoal);
+  const [years, setYears] = useState(initialYears);
   const [rate, setRate] = useState(12);
   const [inflation, setInflation] = useState(false);
   const plan = goalPlan(goal, years, rate, inflation);

@@ -25,7 +25,8 @@ export interface SipFacts {
   worst_fall_since_start_pct: number | null;
   /** Null once the SIP is stopped. */
   next_due_date: string | null;
-  goal: { name: string; target_month: string | null } | null;
+  /** target_amount: whole rupees the investor aims for; null or absent when none was given. */
+  goal: { name: string; target_month: string | null; target_amount?: number | null } | null;
   /** Instalments due from the start to the goal's target month; null without a target month. */
   instalments_planned: number | null;
 }
@@ -63,6 +64,13 @@ export function factsProblem(facts: SipFacts): string | null {
   return `change vs put in is ${change.toFixed(2)}% but the worst fall since start is ${worst === null ? 'missing' : `${worst}%`}`;
 }
 
+/** Put in so far plus the instalments still to come by the goal date; null without a plan. Never a value. */
+export function plannedPutIn(facts: SipFacts): number | null {
+  if (facts.instalments_planned === null) return null;
+  const toGo = facts.next_due_date ? Math.max(0, facts.instalments_planned - facts.instalments_paid - facts.instalments_skipped) : 0;
+  return facts.invested + toGo * facts.amount;
+}
+
 export function buildFactsUnit(facts: SipFacts): FactsUnit {
   const lines: FactLine[] = [
     { label: 'Fund', value: `${facts.fund_name} (${facts.fund_category})` },
@@ -98,16 +106,23 @@ function goalLines(facts: SipFacts): FactLine[] {
   const { goal } = facts;
   // Never invent a goal: say plainly when there is none.
   if (!goal) return [{ label: 'Goal', value: 'No goal is set for this SIP' }];
-  if (!goal.target_month) return [{ label: 'Goal', value: `${goal.name} (no target month)` }];
+  // The target the investor gave, so the AI can set it next to what is planned. Never a forecast of value.
+  const target: FactLine[] = goal.target_amount ? [{ label: 'Target amount', value: rupees(goal.target_amount) }] : [];
+  if (!goal.target_month) return [{ label: 'Goal', value: `${goal.name} (no target month)` }, ...target];
 
   const lines: FactLine[] = [{ label: 'Goal', value: `${goal.name}, by ${monthYear(goal.target_month)}` }];
   const left = monthsBetween(facts.today, goal.target_month);
-  if (left < 0) return [...lines, { label: 'Time to go', value: 'Goal date reached' }];
+  if (left < 0) return [...lines, { label: 'Time to go', value: 'Goal date reached' }, ...target];
 
   lines.push({ label: 'Time to go', value: left === 0 ? 'this month' : duration(left) });
   if (facts.instalments_planned !== null) {
     const toGo = Math.max(0, facts.instalments_planned - facts.instalments_paid - facts.instalments_skipped);
     lines.push({ label: 'Instalments planned', value: `${facts.instalments_planned} (${toGo} to go)` });
+    lines.push(...target);
+    // What will have been put in by the goal date if the SIP carries on (a stopped SIP adds nothing more).
+    lines.push({ label: 'Planned put in by goal date', value: rupees(plannedPutIn(facts)!) });
+  } else {
+    lines.push(...target);
   }
   return lines;
 }

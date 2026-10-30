@@ -16,10 +16,10 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
   const [sip] = (
     await db.query<{
       fund_id: number; fund_name: string; category: string; amount: number; day_of_month: number;
-      started_on: string; goal_name: string | null; target_month: string | null; stopped: boolean;
+      started_on: string; goal_name: string | null; target_month: string | null; target_amount: string | null; stopped: boolean;
     }>(
       `SELECT s.fund_id, f.name AS fund_name, f.category, s.amount, s.day_of_month, s.started_on::text,
-         g.name AS goal_name, g.target_month::text,
+         g.name AS goal_name, g.target_month::text, g.target_amount::text,
          EXISTS (SELECT 1 FROM sip_events e WHERE e.sip_id = s.id AND e.kind = 'cancelled') AS stopped
        FROM sips s JOIN funds f ON f.id = s.fund_id LEFT JOIN goals g ON g.id = s.goal_id
        WHERE s.id = $1 AND s.investor_id = $2`,
@@ -100,7 +100,7 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
     current_value: Number(paid.units) * Number(latest.nav),
     worst_fall_since_start_pct: worstFall,
     next_due_date: nextDue,
-    goal: sip.goal_name ? { name: sip.goal_name, target_month: sip.target_month } : null,
+    goal: sip.goal_name ? { name: sip.goal_name, target_month: sip.target_month, target_amount: sip.target_amount === null ? null : Number(sip.target_amount) } : null,
     instalments_planned: planned,
   };
   return { status: sip.stopped ? 'stopped' : 'ok', facts, unit: buildFactsUnit(facts), goalLine: goalLine(facts) };

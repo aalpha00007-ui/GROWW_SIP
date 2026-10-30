@@ -31,6 +31,8 @@ export interface GoalCard {
   putIn: string;
   /** What will have been put in by the target month if the SIPs carry on, one-time money included: '₹1,20,000'. Never a value forecast. */
   planned: string | null;
+  /** The target the investor gave: '₹5,00,000'; null when none. */
+  target: string | null;
   value: string;
   /** Null before the first instalment is paid. */
   change: Change | null;
@@ -60,6 +62,7 @@ interface SipRow {
   goal_id: number | null;
   goal_name: string | null;
   target_month: string | null;
+  target_amount: number | null;
 }
 
 /** A one-time investment made for a goal, valued at the latest NAV this visitor sees (demo falls included). */
@@ -67,6 +70,7 @@ interface OneTimeRow {
   goal_id: number;
   goal_name: string;
   target_month: string | null;
+  target_amount: number | null;
   fund: string;
   amount: number;
   value: number;
@@ -74,7 +78,7 @@ interface OneTimeRow {
 
 export async function homeView(db: Db, investorId: string, today: string): Promise<HomeView> {
   const { rows } = await db.query<SipRow>(
-    `SELECT s.id, s.goal_id, g.name AS goal_name, g.target_month::text
+    `SELECT s.id, s.goal_id, g.name AS goal_name, g.target_month::text, g.target_amount::float8 AS target_amount
      FROM sips s LEFT JOIN goals g ON g.id = s.goal_id
      WHERE s.investor_id = $1 ORDER BY s.goal_id NULLS LAST, s.id`,
     [investorId],
@@ -91,7 +95,7 @@ export async function homeView(db: Db, investorId: string, today: string): Promi
   ).rows;
   const oneTime = (
     await db.query<OneTimeRow>(
-      `SELECT l.goal_id, g.name AS goal_name, g.target_month::text, f.name AS fund, l.amount,
+      `SELECT l.goal_id, g.name AS goal_name, g.target_month::text, g.target_amount::float8 AS target_amount, f.name AS fund, l.amount,
          (l.units * (SELECT v.nav FROM visible_nav_history($1) v WHERE v.fund_id = l.fund_id ORDER BY v.nav_date DESC LIMIT 1))::float8 AS value
        FROM lumpsums l JOIN goals g ON g.id = l.goal_id JOIN funds f ON f.id = l.fund_id
        WHERE l.investor_id = $1 ORDER BY l.id`,
@@ -138,7 +142,7 @@ interface GoalSip {
 }
 
 function goalCard(id: number, group: GoalSip[], oneTime: OneTimeRow[], today: string): GoalCard {
-  const { goal_name, target_month } = group[0]?.row ?? oneTime[0];
+  const { goal_name, target_month, target_amount } = group[0]?.row ?? oneTime[0];
   const all = group.map((g) => g.facts);
   const paid = sum(all, (f) => f.instalments_paid);
   const oneTimeIn = sum(oneTime, (o) => o.amount);
@@ -169,6 +173,7 @@ function goalCard(id: number, group: GoalSip[], oneTime: OneTimeRow[], today: st
     barPct: planned ? Math.min(100, Math.round((paid / planned) * 1000) / 10) : null,
     putIn: inr(putIn),
     planned: plannedPutIn !== null ? inr(plannedPutIn) : null,
+    target: target_amount ? inr(target_amount) : null,
     value: inr(value),
     change,
     sips: group.map(({ facts: f, stopped }) => ({ id: f.sip_id, label: `${f.fund_name} · ${stopped ? 'stopped' : `${inr(f.amount)} a month`}` })),

@@ -67,13 +67,13 @@ Everything loaded is made up. No real person, fund, NAV or market feed enters th
 | Advice-phrase list | English, Hindi and Hinglish phrases for the no-advice check | Repo | Build |
 | Eval fixtures | 20 Evidence Log posts with hand labels; 16 safety and routing cases (s01–s16) | Repo | CI |
 
-**Data rules (PRD Appendix B).** A goal stores only its type, name and target month (the month can be empty). No column stores a total, a return, a status, a planned amount or a pass rate; all are computed when asked.
+**Data rules (PRD Appendix B).** A goal stores only its type, name, target month (can be empty) and the optional target amount the investor typed. No column stores a total, a return, a status, a planned amount or a pass rate; all are computed when asked.
 
 ## 4. Phase 2 — Chunking
 
 **Decision: no text splitting.**
 
-- **Facts are not text.** They are computed fields for one SIP: months invested, instalments paid, skipped and planned, invested, current value, returns, worst fall since start, fund and category, goal and target month, time to go, and next due date. Each is formatted once (for example Rs 12,340 · 4.2% · 5 months), and the bundle for one SIP is the unit passed on.
+- **Facts are not text.** They are computed fields for one SIP: months invested, instalments paid, skipped and planned, invested, current value, returns, worst fall since start, fund and category, goal and target month, time to go, the target amount (when given), what will have been put in by the goal date (instalments still to come x amount, never a value), and next due date. Each is formatted once (for example Rs 12,340 · 4.2% · 5 months), and the bundle for one SIP is the unit passed on.
 - **Each explainer is one unit**, keyed by mechanic: `stop`, `skip`, `pause`, `lower_amount`. They are short, fixed texts we write, so splitting could only cut a rule in half.
 
 ## 5. Phase 3 — Embedding

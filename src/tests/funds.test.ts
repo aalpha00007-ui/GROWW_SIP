@@ -235,11 +235,24 @@ describe('The goal line (spec §2A)', () => {
     expect(await goalPreview(db, { fundId: 1, amount: 2000, day: 2, targetMonth: '2031-10' }, TODAY)).toEqual({
       status: 200,
       instalments: 60,
+      plannedPutIn: 120000,
       putInTotal: '₹1,20,000',
       line: '60 x ₹2,000 = ₹1,20,000 put in by Oct 2031. That is what you put in, not what it will be worth.',
     });
     // A date still to come this month makes the first instalment this month: one more.
     expect(await goalPreview(db, { fundId: 1, amount: 2000, day: 28, targetMonth: '2031-10' }, TODAY)).toMatchObject({ instalments: 61 });
+  });
+
+  it('shows the target next to what is planned on the Dashboard card and the SIP page', async () => {
+    const visitor = await clonePersona(db, 'kabir');
+    const started = await startSip(db, visitor, { fundId: 1, amount: 1000, frequency: 'monthly', day: 2, goal: { kind: 'retirement', targetMonth: '2030-03', targetAmount: 500000 } }, TODAY);
+    if (started.status !== 200) throw new Error(started.error);
+    // 41 instalments from Nov 2026 to Mar 2030: ₹41,000 planned, well short of ₹5,00,000. Plain facts, no forecast.
+    expect(await goalPreview(db, { fundId: 1, amount: 1000, day: 2, targetMonth: '2030-03' }, TODAY)).toMatchObject({ instalments: 41, plannedPutIn: 41000 });
+    const card = (await homeView(db, visitor, TODAY)).goals.find((g) => g.name === 'Retirement');
+    expect(card).toMatchObject({ planned: '₹41,000', target: '₹5,00,000' });
+    const sip = sipView((await loadSip(db, visitor, started.id, TODAY))!, TODAY);
+    expect(sip.goalHeader).toBe('This SIP is for Retirement · by Mar 2030 · 40 instalments to go · target ₹5,00,000');
   });
 
   it('refuses a low amount, a bad date, a past target and an unknown fund', async () => {

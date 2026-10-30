@@ -28,7 +28,9 @@ export function GoalCard({ goal }: { goal: Card }) {
         <div>
           <dt className="text-sm text-muted">Put in</dt>
           <dd className="tabular text-base font-medium text-strong">{goal.putIn}</dd>
-          {goal.planned && <dd className="tabular text-sm text-muted">of {goal.planned} planned</dd>}
+          {(goal.planned || goal.target) && (
+            <dd className="tabular text-sm text-muted">{[goal.planned && `${goal.planned} planned`, goal.target && `target ${goal.target}`].filter(Boolean).join(' · ')}</dd>
+          )}
         </div>
         <div>
           <dt className="text-sm text-muted">Value today</dt>

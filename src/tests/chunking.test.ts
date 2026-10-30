@@ -103,12 +103,30 @@ describe('SIP facts unit', () => {
         '- Goal: Home down payment, by Mar 2031',
         '- Time to go: 4 years 5 months',
         '- Instalments planned: 60 (53 to go)',
+        '- Planned put in by goal date: Rs 1,20,000',
       ].join('\n'),
     );
     expect(unit.as_of).toBe('27 Oct 2026');
     expect(unit.numbers).toEqual([
       '27', '2026', 'Rs 2,000', '7 months', '7', '0', 'Rs 14,000', 'Rs 12,086', '-Rs 1,914', '-13.7%', '-14.2%',
-      '2', '2031', '4 years', '5 months', '60', '53',
+      '2', '2031', '4 years', '5 months', '60', '53', 'Rs 1,20,000',
+    ]);
+  });
+
+  it('adds the target and what will be put in by the goal date, so the gap uses numbers that pass the check', () => {
+    const unit = buildFactsUnit({ ...riya, goal: { name: 'Home down payment', target_month: '2031-03-01', target_amount: 500000 } });
+    expect(unit.lines.slice(-3)).toEqual([
+      { label: 'Instalments planned', value: '60 (53 to go)' },
+      { label: 'Target amount', value: 'Rs 5,00,000' },
+      { label: 'Planned put in by goal date', value: 'Rs 1,20,000' },
+    ]);
+    expect(unit.numbers).toEqual(expect.arrayContaining(['Rs 5,00,000', 'Rs 1,20,000']));
+    // A stopped SIP adds nothing more: what is planned is what was put in.
+    expect(buildFactsUnit({ ...riya, next_due_date: null }).lines.at(-1)).toEqual({ label: 'Planned put in by goal date', value: 'Rs 14,000' });
+    // No target month: the target alone, and no plan.
+    expect(buildFactsUnit({ ...riya, goal: { name: 'Bike', target_month: null, target_amount: 80000 }, instalments_planned: null }).lines.slice(-2)).toEqual([
+      { label: 'Goal', value: 'Bike (no target month)' },
+      { label: 'Target amount', value: 'Rs 80,000' },
     ]);
   });
 
