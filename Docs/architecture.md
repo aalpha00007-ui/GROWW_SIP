@@ -142,6 +142,8 @@ sequenceDiagram
     - With 0 instalments paid, facts say "First instalment due on <date>" and show no returns.
     - With no goal, facts say none is set; the system never invents one.
     - With a target month in the past, facts say "Goal date reached".
+    - The worst fall since start is measured from the price the first instalment was really bought at (its NAV, or amount ÷ units), not just from NAVs dated on or after the payment. A new SIP's first instalment is dated today but bought at the last NAV before today, so a demo fall added for today still counts.
+    - **Sanity check before any AI call:** if the SIP is worth less than was put in, its worst fall must be at least that deep. If not, the facts are wrong: the error is logged and the investor gets the Fallback card, with no model call.
 4. **Understand (call 1: Groq `gpt-oss-120b`, or Mistral when Groq fails).** Returns the primary theme and up to 3 themes (the 13 Evidence Log themes), behaviour (one of 6), `asks_for_advice`, `misreads_cancel`, language, confidence and a 20-word summary.
 5. **Decide the route (code, no LLM).**
 

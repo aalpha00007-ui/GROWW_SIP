@@ -48,6 +48,21 @@ export interface FactsUnit {
   numbers: string[];
 }
 
+/**
+ * A check on the facts before the AI sees them. A SIP worth less than was put in has fallen at least that far
+ * from its start, so its worst fall can't be smaller. If it is, the facts are wrong (as on the day of a demo fall,
+ * before this was fixed): the check-in shows the safe fallback instead of an AI answer. Null when they agree.
+ */
+export function factsProblem(facts: SipFacts): string | null {
+  if (facts.instalments_paid === 0 || facts.invested === 0) return null;
+  const change = ((facts.current_value - facts.invested) / facts.invested) * 100;
+  if (change >= -0.05) return null;
+  const worst = facts.worst_fall_since_start_pct;
+  // The worst fall is rounded to one decimal, so allow that much.
+  if (worst !== null && worst <= change + 0.05) return null;
+  return `change vs put in is ${change.toFixed(2)}% but the worst fall since start is ${worst === null ? 'missing' : `${worst}%`}`;
+}
+
 export function buildFactsUnit(facts: SipFacts): FactsUnit {
   const lines: FactLine[] = [
     { label: 'Fund', value: `${facts.fund_name} (${facts.fund_category})` },

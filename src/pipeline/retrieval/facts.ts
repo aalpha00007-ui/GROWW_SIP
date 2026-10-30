@@ -29,9 +29,12 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
   if (!sip) return { status: 'not_found' };
 
   const [paid] = (
-    await db.query<{ count: number; invested: number; units: string; first_paid: string | null; due_dates: string[] | null }>(
+    await db.query<{ count: number; invested: number; units: string; first_paid: string | null; first_nav: string | null; due_dates: string[] | null }>(
       `SELECT count(*)::int AS count, coalesce(sum(amount), 0)::int AS invested, coalesce(sum(units), 0)::text AS units,
-         min(paid_on)::text AS first_paid, array_agg(due_on::text) AS due_dates
+         min(paid_on)::text AS first_paid, array_agg(due_on::text) AS due_dates,
+         -- The price the first instalment was really bought at: its stored NAV, or amount / units.
+         (SELECT coalesce(i.nav, i.amount / nullif(i.units, 0))::text FROM instalments i
+          WHERE i.sip_id = $1 AND i.paid_on IS NOT NULL ORDER BY i.paid_on, i.due_on LIMIT 1) AS first_nav
        FROM instalments WHERE sip_id = $1 AND paid_on IS NOT NULL`,
       [sipId],
     )
@@ -54,15 +57,17 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
   if (!latest) throw new Error(`No NAV history for fund ${sip.fund_id}. Run npm run db:setup.`);
 
   let worstFall: number | null = null;
-  // From the first payment: a new SIP pays its first instalment at once, before its first due date.
+  // From the first payment: a new SIP pays its first instalment at once, before its first due date. The peak
+  // starts at the price that instalment was bought at: it is dated today but bought at the last NAV before
+  // today, so a market fall added for today is measured from what was paid, not from itself.
   if (paid.count > 0 && paid.first_paid) {
     const [row] = (
       await db.query<{ worst: string | null }>(
-        `SELECT round(min(nav / peak - 1) * 100, 1)::text AS worst FROM (
+        `SELECT round(min(nav / greatest(peak, coalesce($4::numeric, peak)) - 1) * 100, 1)::text AS worst FROM (
            SELECT nav, max(nav) OVER (ORDER BY nav_date) AS peak FROM visible_nav_history($1)
            WHERE fund_id = $2 AND nav_date >= $3
          ) t`,
-        [investorId, sip.fund_id, paid.first_paid],
+        [investorId, sip.fund_id, paid.first_paid, paid.first_nav],
       )
     ).rows;
     worstFall = row.worst === null ? null : Number(row.worst);

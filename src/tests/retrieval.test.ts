@@ -11,6 +11,10 @@ import { runChecks } from '../pipeline/retrieval/checks';
 import { decideRoute } from '../pipeline/retrieval/decide';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
 import { findPii, PII_MESSAGE } from '../pipeline/retrieval/pii';
+import { factsProblem } from '../pipeline/chunking/facts';
+import { PERSONA_KEYS } from '../pipeline/loading/raw';
+import { startSip } from '../server/funds';
+import { investmentsView } from '../server/investments';
 import { pgliteDb } from './pglite-db';
 
 const TODAY = '2026-10-27';
@@ -58,6 +62,65 @@ beforeAll(async () => {
   arjun = await clonePersona(db, 'arjun');
   riyaSips = (await db.query<{ id: number }>('SELECT id FROM sips WHERE investor_id = $1 ORDER BY id', [riya])).rows.map((r) => r.id);
 }, 120_000);
+
+describe('The day of a demo market fall', () => {
+  it('measures a fall on the day a new SIP started from the price it was bought at', async () => {
+    // The seed's last NAV is TODAY; a SIP started the next day buys at that NAV, and the demo fall is added for that day.
+    const tomorrow = addDays(TODAY, 1);
+    const visitor = await clonePersona(db, 'kabir');
+    const started = await startSip(db, visitor, { fundId: 1, amount: 1000, day: 4 }, tomorrow);
+    if (started.status !== 200) throw new Error(started.error);
+    await applyMarketFall(db, visitor);
+    const lookup = await retrieveFacts(db, visitor, started.id, tomorrow);
+    if (lookup.status !== 'ok') throw new Error(lookup.status);
+    expect(lookup.facts.worst_fall_since_start_pct).toBe(-6);
+    expect(lookup.unit.lines).toContainEqual({ label: 'Worst fall since start', value: '-6.0%' });
+    expect(lookup.unit.lines).toContainEqual({ label: 'Change vs put in', value: '-Rs 60 (-6.0%)' });
+    expect(factsProblem(lookup.facts)).toBeNull();
+    const view = await investmentsView(db, visitor);
+    expect(view?.rows.find((r) => r.label === '1D returns')?.value).toBe('-₹60 (-6.0%)');
+    expect(view?.rows.find((r) => r.label === 'Total returns')?.value).toBe('-₹60 (-6.0%)');
+  });
+
+  it("leaves every seed persona's worst fall as it was, and their facts pass the sanity check", async () => {
+    for (const key of PERSONA_KEYS) {
+      const investor = await clonePersona(db, key);
+      const sips = (await db.query<{ id: number; fund_id: number }>('SELECT id, fund_id FROM sips WHERE investor_id = $1', [investor])).rows;
+      for (const sip of sips) {
+        const lookup = await retrieveFacts(db, investor, sip.id, TODAY);
+        if (lookup.status === 'not_found') throw new Error('missing SIP');
+        expect(factsProblem(lookup.facts)).toBeNull();
+        // The worst fall the way it was worked out before: from the first payment date, peak from the NAVs only.
+        const [before] = (
+          await db.query<{ worst: string | null }>(
+            `SELECT round(min(nav / peak - 1) * 100, 1)::text AS worst FROM (
+               SELECT nav, max(nav) OVER (ORDER BY nav_date) AS peak FROM visible_nav_history($1)
+               WHERE fund_id = $2 AND nav_date >= (SELECT min(paid_on) FROM instalments WHERE sip_id = $3 AND paid_on IS NOT NULL)
+             ) t`,
+            [investor, sip.fund_id, sip.id],
+          )
+        ).rows;
+        expect(lookup.facts.worst_fall_since_start_pct).toBe(before.worst === null ? null : Number(before.worst));
+      }
+    }
+  });
+
+  it("doesn't let facts that don't add up reach the AI: the fallback card, and no model call", async () => {
+    const later = addDays(TODAY, 5);
+    const visitor = await clonePersona(db, 'kabir');
+    const started = await startSip(db, visitor, { fundId: 1, amount: 1000, day: 4 }, later);
+    if (started.status !== 200) throw new Error(started.error);
+    // Worth less than was put in, with no NAV after the payment to show a fall: the facts contradict each other.
+    await db.query('UPDATE instalments SET units = units * 0.9 WHERE sip_id = $1', [started.id]);
+    const lookup = await retrieveFacts(db, visitor, started.id, later);
+    if (lookup.status !== 'ok') throw new Error(lookup.status);
+    expect(factsProblem(lookup.facts)).toMatch(/worst fall since start is missing/);
+    const llm = fakeLlm();
+    const result = ok(await runCheckIn({ db, llm, today: later, log: () => {} }, { investorId: visitor, sipId: started.id, moment: 'is_this_normal' }));
+    expect(result.outcome).toBe('fallback');
+    expect(llm.calls).toHaveLength(0);
+  });
+});
 
 describe('facts retrieval (step 3)', () => {
   it("reads Riya's Banyan SIP: 7 of 60 paid, Rs 14,000 in, 4 years 5 months to go", async () => {

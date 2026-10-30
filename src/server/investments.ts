@@ -14,6 +14,8 @@ interface Flow {
   stopped: boolean;
   amount: number;
   units: string;
+  /** The NAV the units were bought at. */
+  nav: string;
   on_date: string;
 }
 
@@ -45,12 +47,14 @@ export interface InvestmentsView {
 export async function investmentsView(db: Db, investorId: string): Promise<InvestmentsView | null> {
   const flows = (
     await db.query<Flow>(
-      `SELECT s.id AS sip_id, s.fund_id, f.name AS fund, g.name AS goal, g.target_month::text, i.amount, i.units::text, i.paid_on::text AS on_date,
+      `SELECT s.id AS sip_id, s.fund_id, f.name AS fund, g.name AS goal, g.target_month::text, i.amount, i.units::text,
+         coalesce(i.nav, i.amount / nullif(i.units, 0))::text AS nav, i.paid_on::text AS on_date,
          EXISTS (SELECT 1 FROM sip_events e WHERE e.sip_id = s.id AND e.kind = 'cancelled') AS stopped
        FROM instalments i JOIN sips s ON s.id = i.sip_id JOIN funds f ON f.id = s.fund_id LEFT JOIN goals g ON g.id = s.goal_id
        WHERE s.investor_id = $1 AND i.paid_on IS NOT NULL
        UNION ALL
-       SELECT NULL, l.fund_id, f.name, g.name, g.target_month::text, l.amount, l.units::text, (l.created_at AT TIME ZONE 'Asia/Kolkata')::date::text, false
+       SELECT NULL, l.fund_id, f.name, g.name, g.target_month::text, l.amount, l.units::text, l.nav::text,
+         (l.created_at AT TIME ZONE 'Asia/Kolkata')::date::text, false
        FROM lumpsums l JOIN funds f ON f.id = l.fund_id LEFT JOIN goals g ON g.id = l.goal_id
        WHERE l.investor_id = $1
        ORDER BY on_date`,
@@ -77,10 +81,13 @@ export async function investmentsView(db: Db, investorId: string): Promise<Inves
   const value = (f: Flow) => Number(f.units) * latest.get(f.fund_id)!;
   const current = sum(flows, value);
   const invested = sum(flows, (f) => f.amount);
-  // Units bought at the latest NAV have not moved yet, so only units bought before that day count.
-  const oneDay = sum(flows, (f) =>
-    f.on_date < latestDate.get(f.fund_id)! ? Number(f.units) * (latest.get(f.fund_id)! - (previous.get(f.fund_id) ?? latest.get(f.fund_id)!)) : 0,
-  );
+  // Units held before the latest NAV day move from the previous NAV. Units bought on that day (a new SIP's first
+  // instalment is bought at the last NAV before a demo fall added for today) move from the price they were bought at.
+  const oneDay = sum(flows, (f) => {
+    const now = latest.get(f.fund_id)!;
+    const before = f.on_date < latestDate.get(f.fund_id)! ? (previous.get(f.fund_id) ?? now) : Number(f.nav);
+    return Number(f.units) * (now - before);
+  });
   const rate = xirr([...flows.map((f) => ({ date: f.on_date, amount: -f.amount })), { date: asOf, amount: current }]);
 
   const goals = [

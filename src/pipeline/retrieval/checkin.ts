@@ -1,7 +1,7 @@
 import type { Db } from '../../db/client';
 import { LlmError, type Llm } from '../../llm/chat';
 import { loadExplainerChunks, type ExplainerChunk } from '../chunking/explainers';
-import type { FactsUnit } from '../chunking/facts';
+import { factsProblem, type FactsUnit } from '../chunking/facts';
 import { numberTokens } from '../chunking/format';
 import { todayInIndia } from '../loading/dates';
 import { loadAdvicePatterns, type AdvicePattern, type Outcome, type Route } from '../loading/fixtures';
@@ -103,6 +103,9 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
   }
 
   const { unit } = lookup;
+  // Wrong facts never reach the AI: the investor gets the safe fallback with the facts table.
+  const problem = factsProblem(lookup.facts);
+  if (problem) console.error(`Facts for SIP ${input.sipId} don't add up (${problem}); showing the fallback card.`);
   let understood: Understanding | null = null;
   let route: Route | null = null;
   let explainers: ExplainerChunk[] = [];
@@ -111,7 +114,9 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
   let outcome: Outcome = 'fallback';
   const modelsUsed: string[] = [];
   try {
-    if (input.moment === 'is_this_normal') {
+    if (problem) {
+      // Straight to the fallback below: no model call.
+    } else if (input.moment === 'is_this_normal') {
       route = 'doubt'; // The dip explainer skips understanding: there is no reason to read.
     } else {
       const read = await readReason({ reader: deps.reader, backup: deps.llm }, unit, reason, log); // Step 4
