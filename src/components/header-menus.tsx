@@ -47,7 +47,7 @@ export function SearchBox({ suggestions }: { suggestions: ShellData['suggestions
 
   return (
     <div ref={box} className="relative hidden lg:block">
-      <label className="flex min-h-11 w-72 items-center gap-2 rounded-full border border-line px-4 text-sm text-muted focus-within:border-primary">
+      <label className="flex min-h-11 w-72 items-center gap-2 rounded-full border border-line px-4 text-sm text-muted">
         <Icon name="search" size={18} />
         <span className="sr-only">Search funds and stocks</span>
         <input
@@ -63,7 +63,7 @@ export function SearchBox({ suggestions }: { suggestions: ShellData['suggestions
             if (e.key === 'Escape') setOpen(false);
           }}
           placeholder="Search mutual funds"
-          className="min-w-0 flex-1 bg-transparent text-ink placeholder:text-muted focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent text-ink placeholder:text-muted"
         />
         <kbd className="rounded border border-line px-1.5 text-[11px] text-muted">Ctrl K</kbd>
       </label>

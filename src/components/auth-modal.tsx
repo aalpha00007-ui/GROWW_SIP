@@ -221,9 +221,7 @@ function AccountSteps() {
             autoCapitalize="none"
             spellCheck={false}
             aria-describedby="auth-username-help"
-            // The underline turns green on focus; it replaces the global focus ring here.
-            style={{ outline: 'none' }}
-            className="min-h-12 w-full border-0 border-b-2 border-line bg-transparent px-0 text-lg text-strong focus:border-primary"
+            className="min-h-12 w-full border-0 border-b-2 border-line bg-transparent px-0 text-lg text-strong"
           />
           <p id="auth-username-help" className="mt-2 text-xs text-muted">
             3 to 20 letters, numbers, - or _.
@@ -325,8 +323,7 @@ function PinBoxes({
         onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 4))}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        // The green box shows focus; it replaces the global focus ring here.
-        style={{ outline: 'none' }}
+        // The highlighted box shows which digit comes next.
         className="absolute inset-0 size-full cursor-text text-base opacity-0"
       />
     </div>

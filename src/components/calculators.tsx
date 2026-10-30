@@ -217,7 +217,7 @@ function Field({ spec, value, onChange }: { spec: Spec; value: number; onChange:
         <label htmlFor={id} className="text-[15px] font-medium text-strong">
           {spec.label}
         </label>
-        <div className="flex min-h-11 w-36 shrink-0 items-center gap-1 rounded-lg border border-line bg-primary-soft px-3 focus-within:border-primary sm:w-40">
+        <div className="flex min-h-11 w-36 shrink-0 items-center gap-1 rounded-lg border border-line bg-primary-soft px-3 sm:w-40">
           {spec.unit === 'rupees' && <span className="text-muted">₹</span>}
           <input
             id={id}
@@ -236,8 +236,6 @@ function Field({ spec, value, onChange }: { spec: Spec; value: number; onChange:
             }}
             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
             aria-describedby={`${id}-range`}
-            // The green border shows focus; it replaces the global focus ring here.
-            style={{ outline: 'none' }}
             className="tabular w-full min-w-0 bg-transparent text-right font-semibold text-strong"
           />
           {spec.unit === 'years' && <span className="text-muted">yr</span>}

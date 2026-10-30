@@ -81,6 +81,13 @@
   outline-offset: 2px;
 }
 
+/* Text boxes show the typing cursor when focused, not a green box: their own grey border or underline stays as
+   it is. Buttons, links, chips, sliders and dropdowns keep the ring above for the keyboard. */
+input:not([type='checkbox'], [type='radio'], [type='range']):focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
 /* Numbers line up in columns and never jump width as they change. */
 .tabular {
   font-variant-numeric: tabular-nums;

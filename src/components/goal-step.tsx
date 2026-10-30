@@ -237,7 +237,7 @@ export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, option
                 <label htmlFor="goal-step-target" className="font-semibold text-strong">
                   Target amount <span className="font-normal text-muted">(optional)</span>
                 </label>
-                <div className="mt-2 flex min-h-11 items-center rounded-lg border border-line px-3 focus-within:border-primary">
+                <div className="mt-2 flex min-h-11 items-center rounded-lg border border-line px-3">
                   <span className="text-muted">₹</span>
                   <input
                     id="goal-step-target"
@@ -245,7 +245,7 @@ export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, option
                     value={goal.targetAmount ? INR.format(Number(goal.targetAmount)) : ''}
                     onChange={(e) => setGoal({ ...goal, targetAmount: e.target.value.replace(/\D/g, '').slice(0, 9) })}
                     placeholder="10,00,000"
-                    className="tabular w-full bg-transparent pl-1 outline-none"
+                    className="tabular w-full bg-transparent pl-1"
                   />
                 </div>
                 {!targetOk && (

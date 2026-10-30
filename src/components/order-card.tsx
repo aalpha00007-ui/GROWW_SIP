@@ -191,7 +191,6 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
             step={1}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            style={{ outline: 'none' }}
             className="tabular w-full bg-transparent pl-1 text-3xl font-bold text-strong [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
         </div>

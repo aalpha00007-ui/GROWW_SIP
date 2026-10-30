@@ -29,7 +29,7 @@ export function ReturnCalculator({ rate, rateText, defaultAmount, minAmount }: {
           <label htmlFor="calc-amount" className="block text-sm font-medium">
             Monthly amount
           </label>
-          <div className="mt-1 flex min-h-11 items-center rounded-lg border border-line px-3 focus-within:border-primary">
+          <div className="mt-1 flex min-h-11 items-center rounded-lg border border-line px-3">
             <span className="text-muted">₹</span>
             <input
               id="calc-amount"
@@ -40,7 +40,7 @@ export function ReturnCalculator({ rate, rateText, defaultAmount, minAmount }: {
               step={1}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="tabular w-full bg-transparent pl-1 outline-none"
+              className="tabular w-full bg-transparent pl-1"
             />
           </div>
         </div>
