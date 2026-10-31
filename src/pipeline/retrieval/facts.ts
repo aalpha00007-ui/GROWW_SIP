@@ -67,13 +67,15 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
   ).rows;
 
   let worstFall: number | null = null;
+  let peakNav: number | null = null;
   // From the first payment: a new SIP pays its first instalment at once, before its first due date. The peak
   // starts at the price that instalment was bought at: it is dated today but bought at the last NAV before
   // today, so a market fall added for today is measured from what was paid, not from itself.
   if (paid.count > 0 && paid.first_paid) {
     const [row] = (
-      await db.query<{ worst: string | null }>(
-        `SELECT round(min(nav / greatest(peak, coalesce($4::numeric, peak)) - 1) * 100, 1)::text AS worst FROM (
+      await db.query<{ worst: string | null; peak: string | null }>(
+        `SELECT round(min(nav / greatest(peak, coalesce($4::numeric, peak)) - 1) * 100, 1)::text AS worst,
+           max(greatest(peak, coalesce($4::numeric, peak)))::text AS peak FROM (
            SELECT nav, max(nav) OVER (ORDER BY nav_date) AS peak FROM visible_nav_history($1)
            WHERE fund_id = $2 AND nav_date >= $3
          ) t`,
@@ -81,6 +83,7 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
       )
     ).rows;
     worstFall = row.worst === null ? null : Number(row.worst);
+    peakNav = row.peak === null ? null : Number(row.peak);
   }
 
   // Schedule facts come from the SIP's start and day; nothing about them is stored.
@@ -111,6 +114,8 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
     invested: paid.invested,
     current_value: Number(paid.units) * Number(latest.nav),
     worst_fall_since_start_pct: worstFall,
+    latest_nav: Number(latest.nav),
+    peak_nav_since_start: peakNav,
     next_due_date: nextDue,
     goal: sip.goal_name ? { name: sip.goal_name, target_month: sip.target_month, target_amount: sip.target_amount === null ? null : Number(sip.target_amount) } : null,
     instalments_planned: planned,

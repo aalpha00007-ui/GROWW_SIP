@@ -9,11 +9,11 @@ import { LogEvent } from '@/components/log-event';
 import { idParam } from '@/server/api';
 import { toRupeeSign } from '@/server/money';
 import { loadSip, sipView } from '@/server/sip';
-import { currentVisitor } from '@/server/visitor';
+import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 export default async function StopPage({ params }: { params: Promise<{ id: string }> }) {
   const visitor = await currentVisitor();
-  if (!visitor) redirect('/');
+  if (!visitor) redirect(NO_DEMO);
   const today = todayInIndia();
   const state = await loadSip(getDb(), visitor.id, await idParam(params), today);
   if (!state) notFound();

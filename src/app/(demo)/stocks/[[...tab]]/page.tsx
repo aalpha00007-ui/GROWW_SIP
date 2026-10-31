@@ -13,7 +13,7 @@ import { DataTable, DEMO_ONLY, DemoTrade, NoRows, Rating } from '@/components/tr
 import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
 import { showsSampleRows, stocksExplore, stockTables } from '@/server/trading';
-import { currentVisitor } from '@/server/visitor';
+import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 const CARD = 'rounded-xl border border-line bg-surface p-5';
 const SAMPLE = 'Sample rows to show the layout: made-up stocks, not yours. Stocks are display only in this prototype.';
@@ -28,7 +28,7 @@ const EMPTY: Record<string, string> = {
 
 export default async function Stocks({ params }: { params: Promise<{ tab?: string[] }> }) {
   const visitor = await currentVisitor();
-  if (!visitor) redirect('/');
+  if (!visitor) redirect(NO_DEMO);
   const { tab } = await params;
   const section = tab?.[0];
   if (tab && (tab.length > 1 || !TITLES[section!])) notFound();

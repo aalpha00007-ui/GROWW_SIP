@@ -18,6 +18,12 @@ export interface Visitor {
 }
 
 /** The signed-in visitor, or null. Cached per request, so the layout and the page share one lookup. */
+/**
+ * Where an app page sends a browser with no demo open (no cookie, or its demo was deleted): the landing page,
+ * which says so and offers the demos, instead of a silent bounce. A link copied from someone else's demo lands here too.
+ */
+export const NO_DEMO = '/?demo=none';
+
 export const currentVisitor = cache(async (): Promise<Visitor | null> => {
   const db = getDb();
   const id = await sessionInvestor(db, (await cookies()).get(SESSION_COOKIE)?.value);

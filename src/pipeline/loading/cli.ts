@@ -1,10 +1,11 @@
 // Phase 1 commands: `npm run data:check`, `npm run db:setup`, `npm run db:verify`, `npm run db:reset`,
-// and `npm run db:migrate` (the schema only, no seed: safe on every deploy, keeps every visitor's data).
+// and `npm run db:migrate` (safe on every deploy: the schema, and the seed only when the database is empty, so
+// every visitor's data is kept).
 import { connectNeon } from '../../db/client';
 import { loadEnvFiles } from '../../env';
 import { loadAdvicePatterns, loadClaimPatterns, loadEvalCases, loadExplainers, loadGoldenSet } from './fixtures';
 import { loadMarket, loadPersonas, loadTrading } from './raw';
-import { applySchema, setupDatabase, wipeDatabase } from './seed';
+import { migrateDatabase, setupDatabase, wipeDatabase } from './seed';
 import { verifyDatabase } from './verify';
 
 async function main(command: string | undefined): Promise<void> {
@@ -23,8 +24,12 @@ async function main(command: string | undefined): Promise<void> {
   const db = connectNeon(url);
   try {
     if (command === 'migrate') {
-      await applySchema(db);
-      console.log('Schema applied (new tables and columns added; no data changed).');
+      const seeded = await migrateDatabase(db);
+      console.log(
+        seeded
+          ? `Schema applied. The database was empty, so the demo data was seeded as of ${seeded.today}: ${seeded.funds} funds, ${seeded.personas.length} personas.`
+          : 'Schema applied (new tables and columns added; no data changed).',
+      );
     } else if (command === 'setup') {
       checkData();
       const s = await setupDatabase(db);

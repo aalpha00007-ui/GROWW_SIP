@@ -6,7 +6,7 @@ import { clonePersona } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
 import { runCheckIn } from '../pipeline/retrieval/checkin';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
-import { checkInCard, fallbackWhy } from '../server/checkin-card';
+import { checkInCard, gateLine } from '../server/checkin-card';
 import { homeView } from '../server/home';
 import { goalYearChoices, loadSip, sipView } from '../server/sip';
 import { changeAmount, pauseSip, setGoal, skipNext, stopSip } from '../server/sip-actions';
@@ -261,14 +261,20 @@ describe('AI cards (PRD F8-F10)', () => {
   it('shows the dip explainer with its quality strip and no facts table', async () => {
     const r = await riya();
     const c = await card(fakeLlm({ text: answer }), 'is_this_normal', r.id, r.banyan);
-    expect(c).toMatchObject({ outcome: 'answer', understood: null, text: answer, confidence: null, facts: null, links: null, asOf: 'Numbers as of 27 Oct 2026' });
+    expect(c).toMatchObject({ outcome: 'answer', understood: null, text: answer, gate: null, lang: 'en', facts: null, links: null, asOf: 'Numbers as of 27 Oct 2026' });
     expect(c.strip).toEqual([
       { label: 'No investment advice', ok: true },
       { label: 'Numbers match your SIP', ok: true },
       { label: 'Disclaimer shown', ok: true },
       { label: 'No unsupported claims', ok: true },
+      { label: 'In your language', ok: true },
     ]);
-    expect(c.why).toBeNull();
+    // No reason to read: the confidence says how much of a goal the answer could connect the dip to.
+    expect(c.confidence).toBe('Confidence: High');
+    await db.query('UPDATE goals SET target_month = NULL WHERE id = (SELECT goal_id FROM sips WHERE id = $1)', [r.banyan]);
+    expect((await card(fakeLlm({ text: answer }), 'is_this_normal', r.id, r.banyan)).confidence).toBe('Confidence: Medium · no goal date');
+    await db.query('UPDATE sips SET goal_id = NULL WHERE id = $1', [r.banyan]);
+    expect((await card(fakeLlm({ text: answer }), 'is_this_normal', r.id, r.banyan)).confidence).toBe('Confidence: Low · no goal set');
   });
 
   it('shows what it understood and the confidence on a Before you stop answer', async () => {
@@ -277,28 +283,48 @@ describe('AI cards (PRD F8-F10)', () => {
     expect(c).toMatchObject({ outcome: 'answer', understood: 'Worried because the SIP is red', confidence: 'Confidence: High' });
   });
 
-  it('shows the facts and the official links on the declined and fallback cards, with no strip', async () => {
+  it('shows the facts, the official links and the quality check that stopped the AI on the declined and fallback cards', async () => {
     const r = await riya();
     const declined = await card(fakeLlm(understood({ asks_for_advice: true, summary: 'Asks which fund to switch to' })), 'before_stop', r.id, r.banyan);
-    expect(declined).toMatchObject({ outcome: 'declined', understood: 'Asks which fund to switch to', strip: null });
+    expect(declined).toMatchObject({
+      outcome: 'declined', understood: 'Asks which fund to switch to', strip: null,
+      gate: 'Quality check: advice question detected → showing facts only', confidence: 'Confidence: High',
+    });
     expect(declined.facts?.find((l) => l.label === 'Put in so far')?.value).toBe(rupees(14000));
     expect(declined.links?.map((l) => l.label)).toEqual(['SEBI Investor Website', 'AMFI']);
 
     const fallback = await card(fakeLlm(understood({ confidence: 0.3 })), 'before_stop', r.id, r.banyan);
-    expect(fallback).toMatchObject({ outcome: 'fallback', understood: null, strip: null, text: "I couldn't give a reliable answer here." });
+    expect(fallback).toMatchObject({
+      outcome: 'fallback', understood: null, strip: null, text: "I couldn't give a reliable answer here.",
+      gate: 'Quality check: not sure what you meant → showing facts only', confidence: 'Confidence: Low',
+    });
     expect(fallback.facts?.length).toBeGreaterThan(0);
     expect(fallback.links?.map((l) => l.label)).toEqual(['SEBI Investor Website', 'AMFI']);
-    expect(declined.why).toBeNull();
+
+    const prediction = await card(fakeLlm(understood({ asks_for_prediction: true })), 'before_stop', r.id, r.banyan);
+    expect(prediction).toMatchObject({ outcome: 'declined', gate: 'Quality check: market prediction question detected → showing facts only' });
+    expect(prediction.text.startsWith("This app can't predict whether markets will rise or fall.")).toBe(true);
   });
 
-  it('says in plain words which step stopped the answer on the fallback card', async () => {
+  it('says in plain words which quality check stopped the answer, on both AI features', async () => {
     const r = await riya();
-    expect((await card(fakeLlm(understood({ confidence: 0.3 })), 'before_stop', r.id, r.banyan)).why).toBe("The AI wasn't sure enough what you meant.");
     const claim = await card(fakeLlm(understood(), { text: 'This dip is temporary. This is not investment advice.' }), 'before_stop', r.id, r.banyan);
-    expect(claim).toMatchObject({ outcome: 'fallback', why: "The answer didn't pass a check: No unsupported claims." });
-    expect((await card(fakeLlm(new LlmError('Groq did not answer within 12 s')), 'before_stop', r.id, r.banyan)).why).toBe('The AI took too long to answer.');
-    expect((await card(fakeLlm(new LlmError('Mistral returned HTTP 500')), 'before_stop', r.id, r.banyan)).why).toBe('The AI service returned an error.');
-    expect(fallbackWhy({ kind: 'facts' })).toBe("This SIP's numbers didn't add up, so the AI wasn't asked.");
-    expect(fallbackWhy({ kind: 'checks', failed: ['Numbers match your SIP', 'Disclaimer shown'] })).toBe("The answer didn't pass a check: Numbers match your SIP, Disclaimer shown.");
+    expect(claim).toMatchObject({ outcome: 'fallback', gate: 'Quality check: the answer made an unsupported claim → showing facts only', confidence: 'Confidence: High' });
+    const number = await card(fakeLlm({ text: 'You have put in Rs 99,999. This is not investment advice.' }), 'is_this_normal', r.id, r.banyan);
+    expect(number).toMatchObject({ outcome: 'fallback', gate: "Quality check: a number didn't match your SIP → showing facts only", strip: null });
+    expect(number.facts?.length).toBeGreaterThan(0);
+    // A timeout, an error or no key: the AI is unavailable, and the card still shows the facts.
+    for (const down of [new LlmError('Groq did not answer within 10 s'), new LlmError('Mistral returned HTTP 500')]) {
+      const c = await card(fakeLlm(down), 'before_stop', r.id, r.banyan);
+      expect(c).toMatchObject({ outcome: 'fallback', gate: 'Quality check: AI unavailable → showing facts only', confidence: null });
+      expect(c.facts?.length).toBeGreaterThan(0);
+    }
+    const noKey = await runCheckIn({ db, llm: null, today: TODAY, log: () => {} }, { investorId: r.id, sipId: r.banyan, moment: 'is_this_normal' });
+    if (noKey.status !== 200) throw new Error(noKey.error);
+    expect(checkInCard(noKey)).toMatchObject({ outcome: 'fallback', gate: 'Quality check: AI unavailable → showing facts only' });
+    expect(gateLine({ outcome: 'fallback', declineKind: null, fallbackReason: { kind: 'facts' } })).toBe("Quality check: your SIP's numbers didn't add up → showing facts only");
+    expect(gateLine({ outcome: 'fallback', declineKind: null, fallbackReason: { kind: 'checks', failed: ['grounded', 'disclaimer'] } })).toBe(
+      "Quality check: a number didn't match your SIP; the disclaimer was missing → showing facts only",
+    );
   });
 });

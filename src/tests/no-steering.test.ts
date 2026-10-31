@@ -52,7 +52,8 @@ describe('No steering or urgency in anything a visitor sees', () => {
       for (const text of jsonStrings(JSON.parse(fs.readFileSync(file, 'utf-8')))) if (BANNED.test(text)) hits.push(`${path.relative(ROOT, file)} "${text}"`);
     }
     expect(hits).toEqual([]);
-  });
+    // It parses every source file: slower than the default limit when the whole suite runs at once.
+  }, 30_000);
 
   it('catches the words it is meant to catch', () => {
     for (const text of ['Popular funds', 'Highest 3Y return', 'Best fund', 'Top traded', 'Trending now', 'Closes in 3 days', 'Closes tomorrow', 'Hurry!', 'Last chance', "Don't miss it", 'Limited offer']) {

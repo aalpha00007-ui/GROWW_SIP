@@ -104,25 +104,30 @@ describe('SIP facts unit', () => {
         '- Time to go: 4 years 5 months',
         '- Instalments planned: 60 (53 to go)',
         '- Planned put in by goal date: Rs 1,20,000',
+        '- Share of the planned amount put in so far: Rs 14,000 of Rs 1,20,000 (12%)',
       ].join('\n'),
     );
     expect(unit.as_of).toBe('27 Oct 2026');
     expect(unit.numbers).toEqual([
       '27', '2026', 'Rs 2,000', '7 months', '7', '0', 'Rs 14,000', 'Rs 12,086', '-Rs 1,914', '-13.7%', '-14.2%',
-      '2', '2031', '4 years', '5 months', '60', '53', 'Rs 1,20,000',
+      '2', '2031', '4 years', '5 months', '60', '53', 'Rs 1,20,000', '12%',
     ]);
   });
 
   it('adds the target and what will be put in by the goal date, so the gap uses numbers that pass the check', () => {
     const unit = buildFactsUnit({ ...riya, goal: { name: 'Home down payment', target_month: '2031-03-01', target_amount: 500000 } });
-    expect(unit.lines.slice(-3)).toEqual([
+    expect(unit.lines.slice(-4)).toEqual([
       { label: 'Instalments planned', value: '60 (53 to go)' },
       { label: 'Target amount', value: 'Rs 5,00,000' },
       { label: 'Planned put in by goal date', value: 'Rs 1,20,000' },
+      { label: 'Share of the planned amount put in so far', value: 'Rs 14,000 of Rs 1,20,000 (12%)' },
     ]);
-    expect(unit.numbers).toEqual(expect.arrayContaining(['Rs 5,00,000', 'Rs 1,20,000']));
+    expect(unit.numbers).toEqual(expect.arrayContaining(['Rs 5,00,000', 'Rs 1,20,000', '12%']));
     // A stopped SIP adds nothing more: what is planned is what was put in.
-    expect(buildFactsUnit({ ...riya, next_due_date: null }).lines.at(-1)).toEqual({ label: 'Planned put in by goal date', value: 'Rs 14,000' });
+    expect(buildFactsUnit({ ...riya, next_due_date: null }).lines.slice(-2)).toEqual([
+      { label: 'Planned put in by goal date', value: 'Rs 14,000' },
+      { label: 'Share of the planned amount put in so far', value: 'Rs 14,000 of Rs 14,000 (100%)' },
+    ]);
     // No target month: the target alone, and no plan.
     expect(buildFactsUnit({ ...riya, goal: { name: 'Bike', target_month: null, target_amount: 80000 }, instalments_planned: null }).lines.slice(-2)).toEqual([
       { label: 'Goal', value: 'Bike (no target month)' },
@@ -138,6 +143,18 @@ describe('SIP facts unit', () => {
     // Before the first instalment, the history is still there, with no returns.
     const fresh = buildFactsUnit({ ...riya, instalments_paid: 0, invested: 0, current_value: 0, worst_fall_since_start_pct: null, fund_biggest_fall: { pct: -18.43, date: '2025-03-14' } });
     expect(fresh.lines.map((l) => l.label).slice(2, 4)).toEqual(['First instalment', "Biggest fall from a high in this fund's demo history"]);
+  });
+
+  it('says what one instalment buys at the latest NAV, next to the peak NAV since the SIP started', () => {
+    const unit = buildFactsUnit({ ...riya, latest_nav: 45.21, peak_nav_since_start: 48.1 });
+    const at = unit.lines.findIndex((l) => l.label === 'Next instalment');
+    expect(unit.lines[at - 1]).toEqual({ label: 'One instalment at the latest NAV buys', value: '44.2 units (41.6 units at the peak NAV since this SIP started)' });
+    expect(unit.numbers).toEqual(expect.arrayContaining(['44.2', '41.6']));
+    // At the high, there is nothing to set it next to.
+    expect(buildFactsUnit({ ...riya, latest_nav: 48.1, peak_nav_since_start: 48.1 }).lines).toContainEqual({ label: 'One instalment at the latest NAV buys', value: '41.6 units' });
+    // A stopped SIP buys nothing more, and a SIP before its first instalment has no high yet.
+    expect(buildFactsUnit({ ...riya, latest_nav: 45.21, peak_nav_since_start: 48.1, next_due_date: null }).text).not.toContain('latest NAV buys');
+    expect(buildFactsUnit({ ...riya, latest_nav: 45.21, instalments_paid: 0, invested: 0, current_value: 0 }).text).not.toContain('latest NAV buys');
   });
 
   it('shows no returns before the first instalment', () => {

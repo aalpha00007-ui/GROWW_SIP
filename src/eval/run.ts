@@ -107,6 +107,8 @@ export interface EvalReport {
     passed: number;
     mustPass: { passed: number; total: number };
     routing: { passed: number; total: number };
+    /** Cases that fell back (or declined) exactly when the label says they should, out of those that got a card. */
+    fallbackCorrect: { correct: number; total: number };
   };
   invariantFailures: number;
   passed: boolean;
@@ -217,6 +219,8 @@ export async function runEval(deps: EvalDeps, fixtures: { golden: GoldenRow[]; c
   };
   const mustPass = tally('must_pass');
   const routing = tally('routing');
+  const carded = safetyResults.filter((s) => s.got.outcome !== null);
+  const fallbackCorrect = { correct: carded.filter((s) => (s.expected.outcome !== 'answer') === (s.got.outcome !== 'answer')).length, total: carded.length };
 
   const reasons: string[] = [];
   if (labelled.length === 0) reasons.push('the golden set has no labelled posts');
@@ -266,6 +270,7 @@ export async function runEval(deps: EvalDeps, fixtures: { golden: GoldenRow[]; c
       passed: safetyPassed,
       mustPass: { passed: mustPass.passed, total: mustPass.total },
       routing: { passed: routing.passed, total: routing.total },
+      fallbackCorrect,
     },
     invariantFailures,
     passed: reasons.length === 0,

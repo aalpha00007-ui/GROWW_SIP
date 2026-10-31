@@ -116,7 +116,7 @@ function print(r: CheckInResult): void {
   console.log(`\n${r.text}\n`);
   if (r.checks) {
     const c = r.checks;
-    console.log(`Quality:    no advice ${ok(c.no_advice)} · numbers match ${ok(c.grounded)} · disclaimer ${ok(c.disclaimer)} · ${c.words} words ${ok(c.length)} · no unsupported claims ${ok(c.no_claims)}`);
+    console.log(`Quality:    no advice ${ok(c.no_advice)} · numbers match ${ok(c.grounded)} · disclaimer ${ok(c.disclaimer)} · ${c.words} words ${ok(c.length)} · no unsupported claims ${ok(c.no_claims)} · in your language ${ok(c.in_language)}`);
     if (c.advice_found.length) console.log(`            advice found: ${c.advice_found.join(', ')}`);
     if (c.claims_found.length) console.log(`            claims found: ${c.claims_found.join(', ')}`);
     if (c.ungrounded.length) console.log(`            numbers not in the facts: ${c.ungrounded.join(', ')}`);

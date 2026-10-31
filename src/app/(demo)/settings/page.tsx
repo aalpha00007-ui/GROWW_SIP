@@ -3,11 +3,11 @@
 import { redirect } from 'next/navigation';
 import { DeleteAccount, DisplayNameForm, LogOutButton } from '@/components/account-actions';
 import { Avatar } from '@/components/avatar';
-import { currentVisitor } from '@/server/visitor';
+import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 export default async function Settings() {
   const visitor = await currentVisitor();
-  if (!visitor) redirect('/');
+  if (!visitor) redirect(NO_DEMO);
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <h1 className="text-2xl font-bold">Settings</h1>

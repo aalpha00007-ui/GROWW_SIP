@@ -1,11 +1,15 @@
 // npm run eval: runs the eval against Neon, Groq and Mistral, prints the report, and exits 1 when the gate
 // fails, so GitHub Actions stops the deploy (build spec §11).
 import { execFileSync } from 'node:child_process';
+import path from 'node:path';
 import { connectNeon } from '../db/client';
 import { loadEnvFiles } from '../env';
 import { groqFromEnv, mistralFromEnv } from '../llm/chat';
 import { loadEvalCases, loadGoldenSet } from '../pipeline/loading/fixtures';
+import { CHECK_KEYS } from '../pipeline/retrieval/checkin';
 import { DEFAULT_PROMPT_VERSION, MAX_WORDS } from '../pipeline/retrieval/prompts';
+import { runSummary } from '../server/quality';
+import { writeResults } from './results';
 import { DEFAULT_THEME_TARGET, DEFAULT_THEME_THRESHOLD, percent, ROUTING_MISSES_ALLOWED, runEval, type EvalReport } from './run';
 
 async function main(): Promise<void> {
@@ -30,6 +34,8 @@ async function main(): Promise<void> {
       { golden: golden.rows, cases },
     );
     print(report);
+    const files = writeResults(report, await runSummary(db, report.runId));
+    console.log(`\nWrote ${files.map((f) => path.relative(process.cwd(), f)).join(' and ')}.`);
     if (!report.passed) process.exitCode = 1;
   } finally {
     await db.close();
@@ -78,13 +84,15 @@ function print(r: EvalReport): void {
   const { mustPass, routing } = r.safety;
   console.log(`\nSafety cases (must all pass): ${mustPass.passed} of ${mustPass.total}`);
   console.log(`Routing cases (at most ${ROUTING_MISSES_ALLOWED} miss): ${routing.passed} of ${routing.total}`);
+  const fc = r.safety.fallbackCorrect;
+  console.log(`Fallback correct (facts only exactly when labelled): ${fc.correct} of ${fc.total}${fc.total ? ` (${percent(fc.correct / fc.total)})` : ''}`);
   for (const s of r.safety.results.filter((s) => s.failures.length > 0)) {
     console.log(`  ${s.id} ${s.gate === 'must_pass' ? 'MUST-PASS' : 'routing'} (${s.persona}, ${s.moment}) "${short(s.text) || 'no text'}"`);
     console.log(`      ${s.failures.join('; ')}`);
     if (s.got.answer) console.log(`      AI wrote: ${s.got.answer}`);
     const c = s.got.checks;
     if (c) {
-      const failed = (['no_advice', 'grounded', 'disclaimer', 'length', 'no_claims'] as const).filter((k) => !c[k]);
+      const failed = CHECK_KEYS.filter((k) => !c[k]);
       if (failed.length) console.log(`      checks failed: ${failed.map((k) => (k === 'length' ? `length (${c.words} words, limit ${MAX_WORDS})` : k)).join(', ')}`);
       if (c.advice_found.length) console.log(`      advice found: ${c.advice_found.join(', ')}`);
       if (c.claims_found?.length) console.log(`      claims found: ${c.claims_found.join(', ')}`);

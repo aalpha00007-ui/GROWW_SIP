@@ -11,7 +11,7 @@ import { todayInIndia } from '@/pipeline/loading/dates';
 import { LogEvent } from '@/components/log-event';
 import { idParam } from '@/server/api';
 import { loadSip, sipView } from '@/server/sip';
-import { currentVisitor } from '@/server/visitor';
+import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 // What the investor just did, shown once after Before you stop or the goal page sends them here.
 const DONE: Record<string, string> = {
@@ -32,7 +32,7 @@ export default async function SipPage({
   searchParams: Promise<{ explain?: string; change?: string; did?: string }>;
 }) {
   const visitor = await currentVisitor();
-  if (!visitor) redirect('/');
+  if (!visitor) redirect(NO_DEMO);
   const today = todayInIndia();
   const state = await loadSip(getDb(), visitor.id, await idParam(params), today);
   if (!state) notFound();

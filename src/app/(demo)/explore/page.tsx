@@ -3,7 +3,7 @@
 // 1024px, the right column under the left. Every fund, return and offer is made up.
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Initials } from '@/components/fund-rows';
+import { fundLinkLabel, Initials } from '@/components/fund-rows';
 import { Icon, type IconName } from '@/components/icons';
 import { InvestmentsCard } from '@/components/investments-card';
 import { MarketFallButton } from '@/components/market-fall-button';
@@ -12,14 +12,14 @@ import { Signed } from '@/components/signed';
 import { getDb } from '@/db/pool';
 import { exploreFunds } from '@/server/funds';
 import { investmentsView } from '@/server/investments';
-import { currentVisitor } from '@/server/visitor';
+import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 const CARD = 'rounded-xl border border-line bg-surface p-5';
 const LINK_CARD = `${CARD} block transition-shadow hover:shadow-[0_2px_12px_rgba(0,0,0,0.06)]`;
 
 export default async function Explore() {
   const visitor = await currentVisitor();
-  if (!visitor) redirect('/');
+  if (!visitor) redirect(NO_DEMO);
   const db = getDb();
   const [funds, investments] = await Promise.all([exploreFunds(db, visitor.id), investmentsView(db, visitor.id)]);
   const tools: { label: string; href: string; icon: IconName; pill?: string }[] = [
@@ -42,7 +42,7 @@ export default async function Explore() {
           <ul className="grid grid-cols-2 gap-4 @2xl:grid-cols-4">
             {funds.az.map((fund) => (
               <li key={fund.id}>
-                <Link href={`/fund/${fund.id}`} className={`${LINK_CARD} h-full`}>
+                <Link href={`/fund/${fund.id}`} aria-label={fundLinkLabel(fund.name, fund.return3y)} className={`${LINK_CARD} h-full`}>
                   <Initials text={fund.initials} />
                   <span className="mt-3 line-clamp-2 block min-h-12 text-[15px] text-ink">{fund.name}</span>
                   <span className="mt-2 flex items-baseline gap-1.5 text-base">

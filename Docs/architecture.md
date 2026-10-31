@@ -145,11 +145,12 @@ sequenceDiagram
     - The worst fall since start is measured from the price the first instalment was really bought at (its NAV, or amount ÷ units), not just from NAVs dated on or after the payment. A new SIP's first instalment is dated today but bought at the last NAV before today, so a demo fall added for today still counts.
     - The fund's biggest fall from a high in all the demo NAVs this visitor sees, with the month it bottomed, is a fact line: history for context, never a prediction.
     - **Sanity check before any AI call:** if the SIP is worth less than was put in, its worst fall must be at least that deep. If not, the facts are wrong: the error is logged and the investor gets the Fallback card, with no model call.
-4. **Understand (call 1: Groq `gpt-oss-120b`, or Mistral when Groq fails).** Returns the primary theme and up to 3 themes (the 13 Evidence Log themes), behaviour (one of 6), `asks_for_advice`, `misreads_cancel`, language, confidence and a 20-word summary.
+4. **Understand (call 1: Groq `gpt-oss-120b`, or Mistral when Groq fails).** Returns the primary theme and up to 3 themes (the 13 Evidence Log themes), behaviour (one of 6), `asks_for_advice`, `asks_for_prediction` (whether markets or prices will rise or fall), `misreads_cancel`, language, confidence and a 20-word summary in the investor's own language and script. Code double-checks the language from the investor's words: two or more common Hindi words in Latin letters make it Hinglish, whatever the model said.
 5. **Decide the route (code, no LLM).**
 
     | Condition | Outcome |
     | --- | --- |
+    | `asks_for_prediction` | Declined card that says first the app can't predict markets |
     | `asks_for_advice` | Declined card |
     | Confidence below 0.6 | Fallback card |
     | Misread or Confusion | `explain` |
@@ -167,20 +168,23 @@ sequenceDiagram
     - End with "This is not investment advice."
 
     The explainers for the route are added: `explain` gets `stop`; `cash` gets `skip`, `pause`, `lower_amount` and `stop` (decision D2). The cash route also says that stopping gives no money back, and that getting money out is a separate redemption, which may have an exit load (the fund's exit load is a fact line).
-7. **Answer (call 2).** At most 90 words, in the investor's language. Mistral writes English; Groq `gpt-oss-120b` writes Hindi and Hinglish, with Mistral as its backup.
-8. **Quality check (code).** Five checks:
+7. **Answer (call 2).** At most 90 words, in the investor's language. Mistral writes English; Groq `gpt-oss-120b` writes Hindi and Hinglish, with Mistral as its backup. A Hindi or Hinglish answer ends with the disclaimer in that language, then in English (code adds the local one if the model left it out). The dip explainer has its own guidance: three short sentences that set the worst fall next to the fund's biggest demo-history fall, give the share of the planned amount put in so far with the instalments to come and the time to go, and say what one instalment buys at the latest NAV against the peak NAV since the SIP started; then the options and the disclaimer. Its facts gain two lines for this: "Share of the planned amount put in so far" and "One instalment at the latest NAV buys".
+8. **Quality check (code).** Six checks:
     - no advice phrases (English, Hindi and Hinglish list);
-    - every number in it exists in the facts;
-    - the disclaimer is present;
+    - every number in it exists in the facts or explainers: rupee amounts, percentages and durations as written; a counted number as a fact of that kind ("53 instalments" must be an instalment count, "44.2 units" a number of units, "2 Nov" a date the facts state); any other number as a number the facts state; number words, lakh and crore, and digits in another script fail because they can't be checked;
+    - the disclaimer is present (in Hindi or Hinglish, in that language too);
     - at most 90 words;
-    - no unsupported claims (`data/raw/guardrails/claim_patterns.json`, English, Hindi and Hinglish): it never calls a fall normal, small or temporary, says it will recover or bounce back, or tells them not to worry.
+    - no unsupported claims (`data/raw/guardrails/claim_patterns.json`, English, Hindi and Hinglish): it never calls a fall normal, small or temporary, says it will recover or bounce back, or tells them not to worry;
+    - written in the investor's language (Hindi in Devanagari, Hinglish in Latin letters with Hindi words, English for every other language), not counting the disclaimers (`language.ts`).
 
-    Any failure shows the Fallback card, which names the failed check.
+    Any failure shows the Fallback card.
 9. **Show and log.** The answer card shows the quality strip and "Numbers as of <latest NAV date>". Every call is written to `ai_checks`. Requests stopped at steps 1-2 (invalid input, someone else's SIP, a stopped SIP, personal details) make no AI call and are not written there; a PII rejection goes to the server log as a redacted copy.
 
-**Failure handling.** If Groq fails call 1 (timeout, error, out of free requests), Mistral reads the reason instead and the server log says so; the same holds when Groq fails to write a Hindi or Hinglish answer. `ai_checks.model` records which model read and which wrote. If Mistral then times out (12 s), errors, or returns 429 twice, the investor gets the Fallback card. The error is logged, and no AI text is shown.
+**Failure handling.** If Groq fails call 1 (timeout, error, out of free requests), Mistral reads the reason instead and the server log says so; the same holds when Groq fails to write a Hindi or Hinglish answer. `ai_checks.model` records which model read and which wrote. If Mistral then times out (10 s), errors, returns 429 twice, or has no `MISTRAL_API_KEY`, the investor gets the Fallback card. The error is logged, and no AI text is shown.
 
-**The Fallback card says why**, in plain words: a named check failed, the AI wasn't sure enough, it took too long, the AI service returned an error, or the SIP's numbers didn't add up. It keeps the facts and the SEBI and AMFI links.
+**Every declined and fallback card shows the quality check** where an answer's ticks would be, right under its text: "Quality check: <what happened> → showing facts only", for example "advice question detected", "market prediction question detected", "a number didn't match your SIP", "not sure what you meant", "your SIP's numbers didn't add up" or "AI unavailable" (a timeout, an error or no key). It keeps the facts and the SEBI and AMFI links. The fixed card texts come in Hindi and Hinglish when the investor wrote in them (read by the AI, or by code when the AI couldn't).
+
+**Confidence on both AI features.** Before you stop shows how sure call 1 is about the reason (High at 0.8 or more, Medium at 0.6 or more, Low below). The dip explainer reads no reason, so its label says how much of a goal it could connect the dip to: High with a goal date and plan, Medium with a goal but no date, Low with no goal.
 
 ## 8. Phase 6 — Retrieval testing
 

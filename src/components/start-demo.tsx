@@ -2,12 +2,23 @@
 // The landing page's three demo cards (PRD F1): one tap starts a fresh private copy of that persona. Also
 // "or try a demo ↓", which glides down to them (a jump when the visitor prefers reduced motion), and startDemo,
 // which the header's More menu and the calculators' sign-up modal use too.
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import type { Demo } from '@/server/demos';
 
+/** Starting a demo gives up after this long, so the button never stays on "Starting…". */
+const START_TIMEOUT_MS = 8_000;
+export const START_FAILED = "Couldn't start the demo, try again.";
+
+/**
+ * Opens a page after the session cookie changed (a demo started, a log-in, a log-out): a full page load, so
+ * every part of the page reads the new cookie. A client push followed by a refresh could cancel the push and
+ * leave the visitor on the old page.
+ */
+export function loadWithSession(href: string): void {
+  window.location.assign(href);
+}
+
 export function StartDemo({ demos }: { demos: readonly Demo[] }) {
-  const router = useRouter();
   const [starting, setStarting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,11 +26,8 @@ export function StartDemo({ demos }: { demos: readonly Demo[] }) {
     setStarting(persona);
     setError(null);
     const failed = await startDemo(persona);
-    if (!failed) {
-      router.push('/dashboard');
-      router.refresh();
-      return;
-    }
+    // The button stays on "Starting…" while the dashboard loads.
+    if (!failed) return loadWithSession('/dashboard');
     setError(failed);
     setStarting(null);
   }
@@ -57,10 +65,11 @@ export async function startDemo(persona: string): Promise<string | null> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ persona }),
+    signal: AbortSignal.timeout(START_TIMEOUT_MS),
   }).catch(() => null);
   if (response?.ok) return null;
   const body = (await response?.json().catch(() => null)) as { error?: string } | null;
-  return body?.error ?? 'The demo could not start. Check your connection and try again.';
+  return body?.error ?? START_FAILED;
 }
 
 export function TryDemoLink() {

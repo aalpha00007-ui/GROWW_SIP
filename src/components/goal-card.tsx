@@ -49,7 +49,7 @@ export function GoalCard({ goal }: { goal: Card }) {
       <ul className="mt-4 space-y-1 text-sm">
         {goal.sips.map((sip) => (
           <li key={sip.id}>
-            <Link href={`/sips/${sip.id}`} className="text-primary underline underline-offset-2 hover:text-primary-hover">
+            <Link href={`/sips/${sip.id}`} className="inline-flex min-h-11 items-center text-primary underline underline-offset-2 hover:text-primary-hover">
               {sip.label}
             </Link>
           </li>

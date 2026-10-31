@@ -131,7 +131,7 @@ The AI may use only the investor's own facts, four fixed explainers and two offi
 | Grounded numbers | Every number in an answer must exist in the investor's facts, or the answer falls back |
 | Clarity | At most 90 words; every card shows "What I understood", the quality strip and "Numbers as of &lt;date&gt;" |
 | No dark patterns | The goal is optional; Stop anyway is one tap on every card and is never delayed |
-| Reliability | If Groq fails, Mistral reads the reason; a Mistral timeout (12 s) or error shows the fallback card; p95 time from submit to card under 8 s |
+| Reliability | If Groq fails, Mistral reads the reason; a Mistral timeout (10 s), error or missing key shows the fallback card ("AI unavailable → showing facts only"); p95 time from submit to card under 8 s |
 | Brand | Own name (GROWW_SIP), logo and colours; "Case-study prototype · Not affiliated with Groww" on every page |
 | Keys | The Groq and Mistral keys stay on the server, never in the browser, Git or chat |
 

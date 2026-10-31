@@ -22,7 +22,9 @@ npm run e2e            # browser tests (Playwright, installed Chrome) against a 
 - **Watchlist:** "Add to watchlist" on a fund page puts the fund in Mutual Funds -> Watchlist (table `fund_watchlist`; `npm run db:migrate` adds it to an existing database).
 - **Sign-in:** an httpOnly cookie `groww_sip_session` holds a random token for 7 days; only its SHA-256 is stored. The cookie is secure whenever the page is on HTTPS (always on Render).
 - **On a phone:** with `npm start` running, open `http://<this computer's Wi-Fi address>:3000` (shown as "Network" when the server starts) on a phone on the same Wi-Fi. `localhost` on a phone means the phone itself.
-- **Public pages, no login:** the header's More menu opens the calculators (`/calculators/sip`, `/goal`, `/swp`), `/about/ai`, `/about` and `/learn/sip-basics`. Everything else sits in the `(demo)` route group, whose layout sends a signed-out visitor to `/`.
+- **Public pages, no login:** the header's More menu opens the calculators (`/calculators/sip`, `/goal`, `/swp`), `/about/ai`, `/about` and `/learn/sip-basics`. Everything else sits in the `(demo)` route group. A page opened there with no demo in the browser goes to `/?demo=none`, which says why and offers the demos; a SIP id from someone else's demo shows "This SIP isn't in your demo".
+- **Starting a demo** (or logging in or out) loads the next page in full, so the new session cookie is always read. A start that takes more than 8 s gives up with "Couldn't start the demo, try again". On the landing page, a demo already open in the browser shows as "Continue demo", with no persona's name.
+- **Every page's footer** links to `/quality` ("How we check the AI") and the SEBI and AMFI sites.
 
 ## Deploy on Render
 
@@ -30,7 +32,7 @@ npm run e2e            # browser tests (Playwright, installed Chrome) against a 
 
 - One free web service in **Ohio**, next to the Neon database (us-east-2).
 - Build: `npm ci --include=dev && npm run build`. The build needs the dev tools (Tailwind, TypeScript), and the start command's `db:migrate` runs with `tsx`.
-- Start: `npm run db:migrate && npm start`. `db:migrate` only adds new tables and columns.
+- Start: `npm run db:migrate && npm start`. `db:migrate` adds new tables and columns, and seeds the demo data only when the database is empty (a fresh deploy), so visitors' data is kept.
 - Deploys only after GitHub's CI passes (checks and the AI eval).
 - Type in the secrets when Render asks: `DATABASE_URL`, `MISTRAL_API_KEY`, `GROQ_API_KEY`. Render generates `AUTH_SALT`.
 - A free service sleeps after 15 idle minutes; the first visit after that takes about a minute. Open the link a minute before a demo.
@@ -68,13 +70,22 @@ Not used (architecture decision D3). Two plain stores hold everything: Neon Post
 
 ## Phase 5 · retrieval logic (backend)
 
-`src/pipeline/retrieval/` runs the check-in in architecture Phase 5: validate, PII guard, SQL facts, call 1 (understand), route in code, context with the route's explainers, call 2 (answer), five quality checks, and an `ai_checks` row. A fallback card says in plain words which step stopped the answer: a named check, an unsure reading, a timeout or an error.
+`src/pipeline/retrieval/` runs the check-in in architecture Phase 5: validate, PII guard, SQL facts, call 1 (understand), route in code, context with the route's explainers, call 2 (answer), six quality checks (`checks.ts`), and an `ai_checks` row.
+
+- **Numbers match your SIP** checks every number: amounts, percentages and durations as the facts write them; a counted number must be a fact of that kind ("53 instalments" an instalment count, "44.2 units" a number of units, "2 Nov" a date the facts state); numbers written as words, lakh and crore, and Devanagari digits fail, since they can't be matched. `src/tests/numbers-check.test.ts` lists what passes and what is stopped.
+- **In your language** checks the reply is in the investor's language (Hindi in Devanagari, Hinglish in Latin letters with Hindi words, English for everything else), not counting the disclaimers. `src/pipeline/retrieval/language.ts` detects the language from the investor's own words; `src/tests/language.test.ts` runs check-ins in each language with scripted AI replies.
+- Unit tests never call Groq or Mistral: `src/tests/no-live-ai.ts` (set up in `vitest.config.ts`) stops any such request.
+
+- **The dip explainer** gets facts worked out by code: the share of the planned amount put in so far, the instalments to come, the time to go, the worst fall next to the fund's biggest demo-history fall, and the units one instalment buys at the latest NAV and at the peak NAV since the SIP started. It answers in three short sentences tied to the goal, then the options and the disclaimer.
+- **Every card shows the quality check.** An answer has its ticks. A declined or fallback card has one line in their place, such as "Quality check: advice question detected → showing facts only", "a number didn't match your SIP" or "AI unavailable". Both AI features show a confidence label: Before you stop, how sure the AI is what the reason means; the dip explainer, how much of a goal it can connect the dip to (High with a goal date, Medium without one, Low with no goal).
+- **Market predictions** are their own intent (`asks_for_prediction`): the card first says the app can't predict whether markets will rise or fall, then shows the facts.
+- **Language:** "What I understood" and the answer come in the investor's language and script. Code double-checks Hinglish from the investor's own words. A Hindi or Hinglish answer ends with the disclaimer in that language, then in English, and the checks run on that text. The fixed card texts are in Hindi and Hinglish too. Other languages get English, since the advice and claim lists cover English, Hindi and Hinglish only.
 
 Two free models share the work (architecture decision D4):
 - **Call 1, understanding the reason:** Groq `openai/gpt-oss-120b`. If Groq fails or runs out of free requests, Mistral reads the reason instead.
-- **Call 2, writing the answer:** Mistral `ministral-8b-latest` in English. Hindi and Hinglish answers are written by Groq `openai/gpt-oss-120b`, with Mistral as its backup (prompt v7; kept because the eval gate still passed).
+- **Call 2, writing the answer:** Mistral `ministral-8b-latest` in English. Hindi and Hinglish answers are written by Groq `openai/gpt-oss-120b`, with Mistral as its backup (since prompt v7; kept because the eval gate still passed). Prompt v8 is the current one.
 
-`src/llm/chat.ts` calls both from the server only (JSON mode, 12 s timeout, one retry on 429). Without `GROQ_API_KEY`, Mistral does both calls. Without `MISTRAL_API_KEY`, every check-in ends safely in the fallback card.
+`src/llm/chat.ts` calls both from the server only (JSON mode, 10 s timeout, one retry on 429). Without `GROQ_API_KEY`, Mistral does both calls. Without `MISTRAL_API_KEY`, every check-in ends safely in the facts-only card ("AI unavailable").
 
 Keys live in `.env` (and `.env.local`, which wins if a key is in both); both files are gitignored. Variables already set by CI or Render win over both.
 
@@ -91,7 +102,7 @@ npm run retrieve -- fresh riya            # start over with a clean copy
 
 ## Phase 6 · retrieval testing (the eval)
 
-`npm run eval` runs AI call 1 on the 20 hand-labelled golden posts and the 18 safety and routing cases through the full check-in. It stores every result in `eval_runs` and `eval_results`, prints a report, and exits 1 when the gate (PRD §7) fails:
+`npm run eval` (`src/eval/run.ts`) runs AI call 1 on the 20 hand-labelled golden posts (`data/eval/golden_set/golden_set.csv`, read as it is) and the 18 safety and routing cases (`data/eval/cases/cases.json`) through the full check-in, with the app's own prompts and checks. It stores every result in `eval_runs` and `eval_results`, writes `eval/results.json` and `eval/results.md`, prints a report, and exits 1 when the gate (PRD §7) fails. The results give the golden-set agreement, "fallback correct" (facts only exactly when a case's label says so), any check failures, and a table of every case where the AI disagreed with its label. `/quality` ("How we check the AI" in every footer) shows the same for the live version; CI keeps the two files as the run's `eval-results` artifact.
 
 - **Must pass every run:**
     - the 10 must-pass cases: advice requests declined, refund misreads caught, nonsense to the fallback card, and someone who needs the money gets the cash route (s17 English, s18 Hinglish)

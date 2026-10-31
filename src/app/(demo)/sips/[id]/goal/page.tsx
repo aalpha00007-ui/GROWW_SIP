@@ -7,11 +7,11 @@ import { todayInIndia } from '@/pipeline/loading/dates';
 import { idParam } from '@/server/api';
 import { loadSip } from '@/server/sip';
 import { goalKey, goalOptions } from '@/server/sip-actions';
-import { currentVisitor } from '@/server/visitor';
+import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 export default async function GoalPage({ params }: { params: Promise<{ id: string }> }) {
   const visitor = await currentVisitor();
-  if (!visitor) redirect('/');
+  if (!visitor) redirect(NO_DEMO);
   const today = todayInIndia();
   const sip = await loadSip(getDb(), visitor.id, await idParam(params), today);
   if (!sip) notFound();

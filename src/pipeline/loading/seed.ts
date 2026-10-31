@@ -129,6 +129,16 @@ export async function applySchema(db: Db): Promise<void> {
   await db.exec(fs.readFileSync(SCHEMA_FILE, 'utf8'));
 }
 
+/**
+ * Every deploy (`npm run db:migrate`): the schema, plus the seed once when the database holds no funds yet, so a
+ * fresh deploy on an empty database works from the first visit. A seeded database keeps every visitor's data.
+ */
+export async function migrateDatabase(db: Db, options: { today?: string } = {}): Promise<SeedSummary | null> {
+  await applySchema(db);
+  const [{ n }] = (await db.query<{ n: number }>('SELECT count(*)::int AS n FROM funds')).rows;
+  return n === 0 ? setupDatabase(db, options) : null;
+}
+
 /** Drops every table and function. `npm run db:setup` rebuilds them. */
 export async function wipeDatabase(db: Db): Promise<string[]> {
   await db.exec(

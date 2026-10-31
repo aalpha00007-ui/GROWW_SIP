@@ -4,6 +4,7 @@ import type { ExplainerChunk } from '../chunking/explainers';
 import type { FactsUnit } from '../chunking/facts';
 import { BEHAVIOURS, THEMES, type Route } from '../loading/fixtures';
 import { answerMessages, understandMessages, type Language, type Moment } from './prompts';
+import { scriptLanguage } from './language';
 
 export type Theme = (typeof THEMES)[number];
 
@@ -12,6 +13,8 @@ export interface Understanding {
   themes: Theme[];
   behaviour: (typeof BEHAVIOURS)[number];
   asks_for_advice: boolean;
+  /** Asks whether markets or prices will rise or fall: the card says the app can't predict markets. */
+  asks_for_prediction: boolean;
   misreads_cancel: boolean;
   language: Language;
   confidence: number;
@@ -55,11 +58,6 @@ export async function readReason(
   return { understanding: await understand(models.backup, facts, reason), model: models.backup?.model ?? 'none' };
 }
 
-/** The script settles Hindi against Hinglish: the model sometimes calls Hinglish in Latin letters "hi". */
-export function scriptLanguage(reason: string, detected: Language): Language {
-  return detected === 'hi' && !/[ऀ-ॿ]/.test(reason) ? 'hinglish' : detected;
-}
-
 /** Step 7: temperature 0.2, at most 90 words in the investor's language. */
 export async function writeAnswer(
   llm: Llm | null,
@@ -87,6 +85,9 @@ export function parseUnderstanding(raw: string): Understanding {
   const u = readJson(raw) as Record<string, unknown>;
   const isTheme = (t: unknown): t is Theme => (THEMES as readonly unknown[]).includes(t);
   const themes = Array.isArray(u.themes) ? u.themes : [];
+  // Mistral writes the confidence as text ("0.95") since it was asked for digits: read it as the number it is.
+  // A word or anything outside 0 to 1 still breaks the form.
+  const confidence = typeof u.confidence === 'string' && /^\s*\d*\.?\d+\s*$/.test(u.confidence) ? Number(u.confidence) : u.confidence;
   const valid =
     isTheme(u.primary_theme) &&
     themes.length >= 1 && themes.length <= 3 && themes.every(isTheme) &&
@@ -94,7 +95,7 @@ export function parseUnderstanding(raw: string): Understanding {
     typeof u.asks_for_advice === 'boolean' &&
     typeof u.misreads_cancel === 'boolean' &&
     ['en', 'hi', 'hinglish', 'other'].includes(u.language as string) &&
-    typeof u.confidence === 'number' && u.confidence >= 0 && u.confidence <= 1 &&
+    typeof confidence === 'number' && confidence >= 0 && confidence <= 1 &&
     typeof u.summary === 'string';
   if (!valid) throw new MalformedReply('Mistral returned an understanding that does not match the schema');
   return {
@@ -102,9 +103,11 @@ export function parseUnderstanding(raw: string): Understanding {
     themes: themes as Theme[],
     behaviour: u.behaviour as Understanding['behaviour'],
     asks_for_advice: u.asks_for_advice as boolean,
+    // Newer than the other keys: a reply without it reads as no prediction request, and its answer is checked as usual.
+    asks_for_prediction: u.asks_for_prediction === true,
     misreads_cancel: u.misreads_cancel as boolean,
     language: u.language as Language,
-    confidence: u.confidence as number,
+    confidence: confidence as number,
     summary: (u.summary as string).trim().split(/\s+/).slice(0, 20).join(' '),
   };
 }

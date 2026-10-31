@@ -9,11 +9,11 @@ import { todayInIndia } from '@/pipeline/loading/dates';
 import { idParam } from '@/server/api';
 import { inr } from '@/server/money';
 import { loadSip } from '@/server/sip';
-import { currentVisitor } from '@/server/visitor';
+import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 export default async function StartedPage({ params }: { params: Promise<{ id: string }> }) {
   const visitor = await currentVisitor();
-  if (!visitor) redirect('/');
+  if (!visitor) redirect(NO_DEMO);
   const today = todayInIndia();
   const db = getDb();
   const state = await loadSip(db, visitor.id, await idParam(params), today);

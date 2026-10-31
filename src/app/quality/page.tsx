@@ -2,7 +2,9 @@
 // counts of answers, fallbacks and declines with what investors chose after each.
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
+import { SiteFooter } from '@/components/site-footer';
 import { getDb } from '@/db/pool';
+import { toRupeeSign } from '@/server/money';
 import { qualityView } from '@/server/quality';
 
 export const dynamic = 'force-dynamic';
@@ -26,7 +28,7 @@ export default async function Quality() {
       </header>
       <main className="mx-auto max-w-4xl space-y-5 px-4 py-6">
         <div>
-          <h1 className="text-2xl font-bold">Quality</h1>
+          <h1 className="text-2xl font-bold">How we check the AI</h1>
           <p className="text-muted">How the AI check-in is tested before each release, and what it has done since.</p>
         </div>
 
@@ -75,18 +77,50 @@ export default async function Quality() {
                 </table>
               </div>
 
-              {run.failed.length > 0 && (
-                <details className="mt-4">
-                  <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-primary">Cases that missed ({run.failed.length})</summary>
+              {run.checkFailures.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="font-semibold">Check failures</h3>
                   <ul className="mt-1 space-y-1 text-sm">
-                    {run.failed.map((f) => (
+                    {run.checkFailures.map((f) => (
                       <li key={f.id}>
-                        <span className="font-semibold">{f.id}</span> <span className="text-muted">{f.what}</span>
+                        <span className="font-semibold">{f.id}</span> <span className="text-muted">failed {f.failed.join(', ')}, so it showed facts only</span>
                       </li>
                     ))}
                   </ul>
-                </details>
+                </div>
               )}
+
+              <h3 className="mt-5 font-semibold">Where the AI disagreed with the labels ({run.disagreements.length})</h3>
+              {run.disagreements.length > 0 ? (
+                <div className="relative mt-2 overflow-x-auto">
+                  <table className="w-full min-w-[40rem] text-left text-sm">
+                    <thead className="text-muted">
+                      <tr className="border-b border-line">
+                        <th className="py-2 pr-3 font-medium">Case</th>
+                        <th className="py-2 pr-3 font-medium">Label</th>
+                        <th className="py-2 pr-3 font-medium">AI output</th>
+                        <th className="py-2 font-medium">Why it failed</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line align-top">
+                      {run.disagreements.map((d) => (
+                        <tr key={d.id}>
+                          <td className="py-2 pr-3">
+                            <span className="font-semibold">{d.id}</span>
+                            {d.input && <span className="block text-xs text-muted">{d.input}</span>}
+                          </td>
+                          <td className="py-2 pr-3">{d.label}</td>
+                          <td className="py-2 pr-3">{toRupeeSign(d.ai)}</td>
+                          <td className="py-2 text-muted">{d.why}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="mt-1 text-sm text-muted">None: every case matched its label.</p>
+              )}
+              <p className="mt-3 text-xs text-muted">Golden-set posts are real public posts, so they are listed by id only.</p>
             </>
           ) : (
             <p className="text-muted">No eval has run yet.</p>
@@ -141,6 +175,7 @@ export default async function Quality() {
           invariant.
         </p>
       </main>
+      <SiteFooter />
     </>
   );
 }

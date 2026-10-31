@@ -26,7 +26,7 @@ export function MarketStrip({ strip }: { strip: Strip }) {
       <div className="relative mx-auto flex max-w-7xl items-center gap-4 px-4 py-2.5 text-sm">
         <span className="shrink-0 rounded bg-accent-tint px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent-ink">Demo</span>
         <div
-          className="relative min-w-0 flex-1 overflow-hidden whitespace-nowrap motion-reduce:overflow-x-auto motion-reduce:[scrollbar-width:thin]"
+          className="marquee-window relative min-w-0 flex-1 overflow-hidden whitespace-nowrap motion-reduce:overflow-x-auto motion-reduce:[scrollbar-width:thin]"
           aria-label="Demo market indices"
         >
           <div className="marquee flex w-max gap-6 hover:[animation-play-state:paused] motion-reduce:animate-none">

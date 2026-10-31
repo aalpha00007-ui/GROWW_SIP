@@ -5,11 +5,11 @@ import { redirect } from 'next/navigation';
 import { FundRows } from '@/components/fund-rows';
 import { getDb } from '@/db/pool';
 import { watchedFunds } from '@/server/funds';
-import { currentVisitor } from '@/server/visitor';
+import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 export default async function Watchlist() {
   const visitor = await currentVisitor();
-  if (!visitor) redirect('/');
+  if (!visitor) redirect(NO_DEMO);
   const list = await watchedFunds(getDb(), visitor.id);
 
   return (

@@ -4,11 +4,11 @@ import { notFound, redirect } from 'next/navigation';
 import { FundRows } from '@/components/fund-rows';
 import { getDb } from '@/db/pool';
 import { collection } from '@/server/funds';
-import { currentVisitor } from '@/server/visitor';
+import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 export default async function Collection({ params }: { params: Promise<{ key: string }> }) {
   const visitor = await currentVisitor();
-  if (!visitor) redirect('/');
+  if (!visitor) redirect(NO_DEMO);
   const found = await collection(getDb(), visitor.id, (await params).key);
   if (!found) notFound();
 

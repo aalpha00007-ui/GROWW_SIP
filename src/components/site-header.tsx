@@ -2,6 +2,8 @@
 // The header on the landing page and the public pages (calculators and Learn): the logo, Stocks · F&O · Mutual
 // Funds, More, search and Log in / Sign up. Signed out, the tabs, search and Log in / Sign up open the sign-up /
 // log-in modal on this page; signed in, they go to Mutual Funds. More only ever opens its own menu.
+// A demo account shows its name. A demo persona copy shows a neutral "Continue demo": this is where a demo is
+// picked, so no persona's name shows before the visitor picks one (a copy started earlier is still open).
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Avatar } from './avatar';
@@ -11,9 +13,9 @@ import { MoreMenu } from './more-menu';
 
 const TABS = ['Stocks', 'F&O', 'Mutual Funds'];
 
-export function SiteHeader({ visitorName }: { visitorName: string | null }) {
+export function SiteHeader({ signedIn }: { signedIn: { accountName: string | null } | null }) {
   const path = usePathname();
-  const enter = visitorName ? '/explore' : `${path}?auth=signup`;
+  const enter = signedIn ? '/explore' : `${path}?auth=signup`;
 
   return (
     <header className="relative z-30 border-b border-line bg-surface">
@@ -40,10 +42,15 @@ export function SiteHeader({ visitorName }: { visitorName: string | null }) {
             <Icon name="search" size={18} />
             Search mutual funds
           </Link>
-          {visitorName ? (
+          {signedIn?.accountName ? (
             <Link href="/explore" className="flex min-h-11 items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-semibold text-strong hover:bg-hover-neutral">
-              <Avatar name={visitorName} />
-              {visitorName}
+              <Avatar name={signedIn.accountName} />
+              {signedIn.accountName}
+            </Link>
+          ) : signedIn ? (
+            <Link href="/dashboard" className="flex min-h-11 items-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-strong hover:border-primary">
+              <span className="rounded bg-accent-tint px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent-ink">Demo</span>
+              Continue demo
             </Link>
           ) : (
             <Link

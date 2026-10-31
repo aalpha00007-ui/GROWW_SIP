@@ -21,7 +21,8 @@ export const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 export const DEFAULT_GROQ_MODEL = 'openai/gpt-oss-120b';
 /** Writes the answer (call 2): Mistral's free plan allows 0 requests a minute on mistral-small and -medium (D4). */
 export const DEFAULT_MISTRAL_MODEL = 'ministral-8b-latest';
-const TIMEOUT_MS = 12_000;
+/** A call that takes longer is given up: the investor gets the facts-only card ("AI unavailable"). */
+const TIMEOUT_MS = 10_000;
 /** A patient client waits out rate limits this many times, for the eval; the app retries once and moves on. */
 const PATIENT_RETRIES = 8;
 /** Longer than this means a daily limit, not a per-minute one: give up rather than stall the eval for hours. */
@@ -78,7 +79,7 @@ function createChatModel(provider: string, url: string, options: ChatModelOption
           });
         } catch (err) {
           const timedOut = (err as Error).name === 'TimeoutError';
-          throw new LlmError(timedOut ? `${provider} did not answer within 12 s` : `${provider} request failed: ${(err as Error).message}`);
+          throw new LlmError(timedOut ? `${provider} did not answer within ${TIMEOUT_MS / 1000} s` : `${provider} request failed: ${(err as Error).message}`);
         }
         const retryAfterMs = Number(response.headers.get('retry-after')) * 1000;
         const dailyLimit = patient && retryAfterMs > MAX_PATIENT_WAIT_MS;

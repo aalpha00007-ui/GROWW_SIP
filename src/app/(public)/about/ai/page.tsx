@@ -4,7 +4,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { groqFromEnv, mistralFromEnv } from '@/llm/chat';
-import { DECLINED_TEXT, FALLBACK_TEXT, OFFICIAL_LINKS, OPTIONS } from '@/pipeline/retrieval/checkin';
+import { DECLINED_TEXT, FALLBACK_TEXT, OFFICIAL_LINKS, OPTIONS, PREDICTION_TEXT } from '@/pipeline/retrieval/checkin';
 import { MIN_CONFIDENCE } from '@/pipeline/retrieval/decide';
 import { DISCLAIMER, MAX_WORDS } from '@/pipeline/retrieval/prompts';
 
@@ -68,8 +68,9 @@ export default function HowTheAiWorks() {
           <li>
             <b>Your SIP&apos;s own numbers, worked out by code:</b> the fund&apos;s name, category and exit load, the instalment, months invested,
             instalments paid and skipped, what you&apos;ve put in, its value today and the change, the worst fall since it started, the biggest fall from
-            a high in the fund&apos;s demo history (history, not a prediction), the next instalment date, and the SIP&apos;s goal with its target amount,
-            the time to go and what the plan puts in by then, or that no goal is set.
+            a high in the fund&apos;s demo history (history, not a prediction), how many units one instalment buys at the latest NAV and at the peak NAV
+            since the SIP started, the next instalment date, and the SIP&apos;s goal with its target amount, the time to go, the instalments to come,
+            what the plan puts in by then and the share of that already put in, or that no goal is set.
           </li>
           <li>
             <b>At Before you stop, the reason you typed.</b> First, code checks it for an email, phone number, PAN, Aadhaar, OTP or account number.
@@ -86,21 +87,27 @@ export default function HowTheAiWorks() {
         <h2 className={H2}>How an answer is checked before you see it</h2>
         <ol className="mt-3 list-decimal space-y-2 pl-5">
           <li>
-            The first model reads your reason and fills in a fixed form: what it&apos;s about, whether you asked for advice, your language, how sure it is,
-            and a short summary. A reply that doesn&apos;t fit the form gets one retry.
+            The first model reads your reason and fills in a fixed form: what it&apos;s about, whether you asked for advice or for a market prediction,
+            your language, how sure it is, and a short summary in your language. A reply that doesn&apos;t fit the form gets one retry. Code double-checks
+            the language from your own words, so Hinglish is never answered in English.
           </li>
           <li>
-            Code, not the AI, decides what happens next. If you asked which fund to buy, sell or switch, or for a return prediction, you get a fixed
-            reply instead of an AI answer. If the model is less than {Math.round(MIN_CONFIDENCE * 100)}% sure, you get the safe fallback.
+            Code, not the AI, decides what happens next. If you asked whether markets will rise or fall, you get a fixed reply that says first that the
+            app can&apos;t predict markets. If you asked which fund to buy, sell or switch, you get a fixed reply too. Neither is an AI answer. If the
+            model is less than {Math.round(MIN_CONFIDENCE * 100)}% sure, you get the safe fallback.
           </li>
           <li>
-            The second model writes a short reply, at most {MAX_WORDS} words, in English, Hindi or Hinglish, using only the numbers it was given.
+            The second model writes a short reply, at most {MAX_WORDS} words, in English, Hindi or Hinglish, using only the numbers it was given. In Hindi
+            or Hinglish it ends with the disclaimer in that language and in English. Other languages get an English reply, because the checks below
+            only know English, Hindi and Hinglish.
           </li>
           <li>
-            Code checks the reply five ways: no advice words (such as &ldquo;recommend&rdquo; or &ldquo;you should sell&rdquo;); every rupee amount,
-            percentage and count of months or years matches the numbers it was given; it ends with &ldquo;{DISCLAIMER}&rdquo;; it is {MAX_WORDS} words
-            or fewer; and it makes no unsupported claims: it never calls a fall normal, small or temporary, says it will recover, or tells you not to
-            worry, in English, Hindi or Hinglish.
+            Code checks the reply six ways: no advice words (such as &ldquo;recommend&rdquo; or &ldquo;you should sell&rdquo;); every number in it,
+            from rupee amounts and percentages to counts and units, is one of the numbers it was given; it ends with &ldquo;{DISCLAIMER}&rdquo;; it is{' '}
+            {MAX_WORDS} words or fewer; it makes no unsupported claims: it never calls a fall normal, small or temporary, says it will recover, or
+            tells you not to worry, in English, Hindi or Hinglish; and it is written in your language. A number has to be of the right kind, too:
+            &ldquo;53 instalments&rdquo; must be a count of instalments in your facts, not just any number in them, and numbers written as words
+            can&apos;t be checked, so they fail.
           </li>
         </ol>
         <p className="mt-3">For &ldquo;What does this dip mean for my goal?&rdquo; there is no reason to read, so it starts at step 3.</p>
@@ -110,12 +117,19 @@ export default function HowTheAiWorks() {
         <h2 className={H2}>When it won&apos;t answer</h2>
         <ul className={LIST}>
           <li>
+            <b>Asked whether markets will rise or fall:</b> &ldquo;{PREDICTION_TEXT}&rdquo;
+          </li>
+          <li>
             <b>Asked for advice:</b> &ldquo;{DECLINED_TEXT}&rdquo;
           </li>
           <li>
-            <b>The safe fallback,</b> when a check fails, the model is unsure, doesn&apos;t answer in time or returns an error: &ldquo;{FALLBACK_TEXT}&rdquo;,
-            shown with your SIP&apos;s numbers and links to the {OFFICIAL_LINKS.map((l) => l.label).join(' and ')}. The card says in plain words which
-            step stopped the answer, such as the check that failed.
+            <b>The safe fallback,</b> when a check fails, the model is unsure, doesn&apos;t answer within 10 seconds or returns an error, or no AI is set up:
+            &ldquo;{FALLBACK_TEXT}&rdquo;, shown with your SIP&apos;s numbers and links to the {OFFICIAL_LINKS.map((l) => l.label).join(' and ')}.
+          </li>
+          <li>
+            Every one of these cards shows a quality-check line where an answer&apos;s ticks would be, such as &ldquo;Quality check: advice question
+            detected → showing facts only&rdquo; or &ldquo;Quality check: AI unavailable → showing facts only&rdquo;, with the confidence when the
+            reason was read. The fixed texts are in Hindi or Hinglish when you wrote in them.
           </li>
         </ul>
       </section>

@@ -13,7 +13,7 @@ export default async function PublicLayout({ children }: { children: React.React
   const visitor = await currentVisitor();
   return (
     <>
-      <SiteHeader visitorName={visitor?.firstName ?? null} />
+      <SiteHeader signedIn={visitor && { accountName: visitor.username ? visitor.firstName : null }} />
       <main className="mx-auto max-w-6xl px-4 pb-16 pt-8 sm:pt-10">{children}</main>
       <SiteFooter />
       <Suspense>

@@ -94,17 +94,27 @@ textarea:focus-visible {
 }
 
 /* The market strip drifts left at a reading pace; two copies of the row make the loop seamless. */
+/* The track starts 40px in, past the faded edge (.marquee-window), so the first item starts whole. Its two copies
+   sit 24px apart (gap-6), so one loop moves it by one copy plus 24px: half its width less (40px - 24px) / 2. */
 @keyframes marquee {
   from {
     transform: translateX(0);
   }
   to {
-    transform: translateX(calc(-50% - 12px));
+    transform: translateX(calc(-50% + 8px));
   }
 }
 
 .marquee {
+  padding-left: 40px;
   animation: marquee 60s linear infinite;
+}
+
+/* Items fade out at both edges instead of showing a cut-off piece such as "%)". */
+@media (prefers-reduced-motion: no-preference) {
+  .marquee-window {
+    mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

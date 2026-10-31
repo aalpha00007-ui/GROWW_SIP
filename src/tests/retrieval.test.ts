@@ -5,15 +5,16 @@ import { addDays } from '../pipeline/loading/dates';
 import { applyMarketFall } from '../pipeline/loading/market-fall';
 import { clonePersona } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
-import { stripMarkdown } from '../pipeline/retrieval/ai';
-import { DECLINED_TEXT, FALLBACK_TEXT, recordChoice, runCheckIn, type CheckInResult } from '../pipeline/retrieval/checkin';
+import { parseUnderstanding, stripMarkdown } from '../pipeline/retrieval/ai';
+import { detectLanguage, scriptLanguage, writtenIn } from '../pipeline/retrieval/language';
+import { cardText, DECLINED_TEXT, FALLBACK_TEXT, PREDICTION_TEXT, recordChoice, runCheckIn, withLocalDisclaimer, type CheckInResult } from '../pipeline/retrieval/checkin';
 import { loadClaimPatterns } from '../pipeline/loading/fixtures';
 import { runChecks } from '../pipeline/retrieval/checks';
 import { decideRoute } from '../pipeline/retrieval/decide';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
 import { findPii, PII_MESSAGE } from '../pipeline/retrieval/pii';
 import { factsProblem } from '../pipeline/chunking/facts';
-import { answerMessages, ROUTE_EXPLAINERS } from '../pipeline/retrieval/prompts';
+import { answerMessages, LOCAL_DISCLAIMERS, ROUTE_EXPLAINERS } from '../pipeline/retrieval/prompts';
 import { PERSONA_KEYS } from '../pipeline/loading/raw';
 import { startSip } from '../server/funds';
 import { investmentsView } from '../server/investments';
@@ -236,7 +237,10 @@ describe('validation and the PII guard (steps 1-2)', () => {
 describe('routing (step 5)', () => {
   it('declines advice, falls back below 0.6, and routes by theme', () => {
     const route = (o: Record<string, unknown>) => decideRoute(understood(o) as never);
-    expect(route({ asks_for_advice: true, confidence: 0.2 })).toEqual({ outcome: 'declined' });
+    expect(route({ asks_for_advice: true, confidence: 0.2 })).toEqual({ outcome: 'declined', kind: 'advice' });
+    // A market prediction is its own intent; a fund's future returns are both, and read as a prediction.
+    expect(route({ asks_for_prediction: true, confidence: 0.2 })).toEqual({ outcome: 'declined', kind: 'prediction' });
+    expect(route({ asks_for_prediction: true, asks_for_advice: true })).toEqual({ outcome: 'declined', kind: 'prediction' });
     expect(route({ confidence: 0.59 })).toEqual({ outcome: 'fallback' });
     expect(route({ misreads_cancel: true, primary_theme: 'Need money' })).toEqual({ outcome: 'answer', route: 'explain' });
     expect(route({ primary_theme: 'Confusion' })).toEqual({ outcome: 'answer', route: 'explain' });
@@ -251,18 +255,24 @@ describe('routing (step 5)', () => {
 describe('the full check-in (steps 4-9)', () => {
   const groundedAnswer =
     'Your SIP is for Home down payment, by Mar 2031, with 4 years 5 months to go. You have put in Rs 14,000 over 7 months. Values move with the market. You can keep it, skip next, pause or lower the amount. This is not investment advice.';
+  // The same answer as a model would write it in Hinglish and in Hindi: only the language changes.
+  const hinglishAnswer =
+    'Aapka SIP Home down payment ke liye hai, by Mar 2031, aur 4 years 5 months baaki hain. Aapne 7 months mein Rs 14,000 daale hain. Aap keep, skip, pause ya amount lower kar sakte hain. This is not investment advice.';
+  const hindiAnswer =
+    'आपका SIP Home down payment के लिए है, Mar 2031 तक, 4 years 5 months बाकी हैं। आपने 7 months में Rs 14,000 लगाए हैं। आप जारी रख सकते हैं, skip, pause या amount कम कर सकते हैं। This is not investment advice.';
 
   it('answers a market-fall doubt with the goal, and logs it', async () => {
-    const llm = fakeLlm(understood({ language: 'hinglish', confidence: 0.86 }), { text: groundedAnswer });
+    const llm = fakeLlm(understood({ language: 'hinglish', confidence: 0.86 }), { text: hinglishAnswer });
     const r = ok(await ask(llm, 'Market crash ho gaya, mera SIP red mein hai. Band kar du?'));
-    expect(r).toMatchObject({ outcome: 'answer', route: 'doubt', text: groundedAnswer });
+    // A Hinglish answer carries the Hinglish disclaimer too, just before the English one.
+    expect(r).toMatchObject({ outcome: 'answer', route: 'doubt', text: hinglishAnswer.replace('This is not', 'Yeh investment advice nahi hai. This is not') });
     expect(r.understood).toMatchObject({ language: 'hinglish', confidenceLabel: 'High' });
     expect(r.checks).toMatchObject({ no_advice: true, grounded: true, disclaimer: true, length: true });
     expect(r.options.map((o) => o.label)).toEqual(['Skip next', 'Lower amount', 'Pause', 'Keep my SIP', 'Stop anyway']);
     expect(llm.calls[1][0].content).toContain('Write in Hinglish');
     const [row] = (await db.query('SELECT moment, outcome, route, model, prompt_version, user_text FROM ai_checks WHERE id = $1', [r.aiCheckId])).rows;
     expect(row).toEqual({
-      moment: 'before_stop', outcome: 'answer', route: 'doubt', model: 'fake-model', prompt_version: 'v7',
+      moment: 'before_stop', outcome: 'answer', route: 'doubt', model: 'fake-model', prompt_version: 'v8',
       user_text: 'Market crash ho gaya, mera SIP red mein hai. Band kar du?',
     });
   });
@@ -270,14 +280,37 @@ describe('the full check-in (steps 4-9)', () => {
   it('declines a fund pick with fixed text and no second call', async () => {
     const llm = fakeLlm(understood({ asks_for_advice: true, primary_theme: 'Returns' }));
     const r = ok(await ask(llm, 'Which fund should I switch to for better returns?'));
-    expect(r).toMatchObject({ outcome: 'declined', route: null, text: DECLINED_TEXT, checks: null });
+    expect(r).toMatchObject({ outcome: 'declined', declineKind: 'advice', route: null, text: DECLINED_TEXT, checks: null });
     expect(llm.calls).toHaveLength(1);
+  });
+
+  it("says first that it can't predict markets, then shows the facts, with no second call", async () => {
+    const llm = fakeLlm(understood({ asks_for_prediction: true, primary_theme: 'Market fear' }));
+    const r = ok(await ask(llm, 'Will the market fall more next month?'));
+    expect(r).toMatchObject({ outcome: 'declined', declineKind: 'prediction', route: null, checks: null, fallbackReason: null });
+    expect(r.text).toBe(PREDICTION_TEXT);
+    expect(r.text.split('. ')[0]).toBe("This app can't predict whether markets will rise or fall");
+    expect(llm.calls).toHaveLength(1);
+    expect(llm.calls[0][0].content).toContain('"asks_for_prediction"');
+    // In the investor's language.
+    const hinglish = ok(await ask(fakeLlm(understood({ asks_for_prediction: true, language: 'hinglish' })), 'Market aur girega kya?'));
+    expect(hinglish.text).toBe(cardText('prediction', 'hinglish'));
+  });
+
+  it('shows the fixed cards in Hindi or Hinglish, by code when the AI could not read the reason', async () => {
+    const hindi = ok(await ask(fakeLlm(understood({ asks_for_advice: true, language: 'hi' })), 'कौन सा फंड सबसे अच्छा है?'));
+    expect(hindi).toMatchObject({ language: 'hi', text: cardText('advice', 'hi') });
+    // No AI at all: the investor's own words settle the language.
+    const down = ok(await ask(null, 'job chali gayi, paise chahiye'));
+    expect(down).toMatchObject({ outcome: 'fallback', language: 'hinglish', text: cardText('fallback', 'hinglish') });
+    expect(ok(await ask(null, 'I need the money'))).toMatchObject({ language: 'en', text: FALLBACK_TEXT });
   });
 
   it('explains a misread with the stop explainer in the context', async () => {
     const llm = fakeLlm(understood({ misreads_cancel: true, primary_theme: 'Confusion' }), {
-      text: 'Stopping ends future instalments. It refunds no money and sells no units; they stay invested until you redeem. Skipping or pausing keeps the SIP going. This is not investment advice.',
+      text: 'Stop karne se aage ke instalments band ho jaate hain. Koi paisa refund nahi hota aur units sell nahi hote; redeem karne tak woh invested rehte hain. Skip ya pause se SIP chalta rehta hai. This is not investment advice.',
     });
+    // Hinglish, though the model said English: the investor's own words settle it, and the answer must match.
     const r = ok(await ask(llm, 'Agar cancel karu to mera paisa wapas aa jayega na?'));
     expect(r).toMatchObject({ outcome: 'answer', route: 'explain' });
     expect(llm.calls[1][1].content).toContain('What stopping a SIP does: Stopping a SIP ends the instalments');
@@ -299,7 +332,7 @@ describe('the full check-in (steps 4-9)', () => {
     expect(ok(await ask(unsure, 'asdfgh'))).toMatchObject({ outcome: 'fallback', route: null, text: FALLBACK_TEXT, fallbackReason: { kind: 'unsure' } });
     expect(unsure.calls).toHaveLength(1);
 
-    expect(ok(await ask(fakeLlm(new LlmError('Mistral did not answer within 12 s')), 'Markets are down'))).toMatchObject({
+    expect(ok(await ask(fakeLlm(new LlmError('Mistral did not answer within 10 s')), 'Markets are down'))).toMatchObject({
       outcome: 'fallback', understood: null, fallbackReason: { kind: 'timeout' },
     });
     expect(ok(await ask(fakeLlm(understood(), new LlmError('Mistral returned HTTP 500')), 'Markets are down'))).toMatchObject({
@@ -311,20 +344,20 @@ describe('the full check-in (steps 4-9)', () => {
     expect(ok(await ask(fakeLlm(understood({ asks_for_advice: true })), 'Which fund?')).fallbackReason).toBeNull();
   });
 
-  it('falls back when an answer fails any of the five checks, and names the check', async () => {
-    const cases: [string, string, string][] = [
-      ['no_advice', 'No investment advice', 'You should continue your SIP for Home down payment. This is not investment advice.'],
-      ['grounded', 'Numbers match your SIP', 'You have put in Rs 99,999 so far for Home down payment. This is not investment advice.'],
-      ['disclaimer', 'Disclaimer shown', 'Your goal is Home down payment, by Mar 2031.'],
-      ['length', 'Short enough', `${'Your plan is long. '.repeat(30)}This is not investment advice.`],
-      ['no_claims', 'No unsupported claims', 'This fall is temporary for Home down payment, by Mar 2031. This is not investment advice.'],
+  it('falls back when an answer fails any of the checks, and names the check', async () => {
+    const cases: [string, string][] = [
+      ['no_advice', 'You should continue your SIP for Home down payment. This is not investment advice.'],
+      ['grounded', 'You have put in Rs 99,999 so far for Home down payment. This is not investment advice.'],
+      ['disclaimer', 'Your goal is Home down payment, by Mar 2031.'],
+      ['length', `${'Your plan is long. '.repeat(30)}This is not investment advice.`],
+      ['no_claims', 'This fall is temporary for Home down payment, by Mar 2031. This is not investment advice.'],
     ];
-    for (const [failing, label, text] of cases) {
+    for (const [failing, text] of cases) {
       const r = ok(await ask(fakeLlm(understood(), { text }), 'Markets are down'));
       expect(r.outcome, failing).toBe('fallback');
       expect(r.text).toBe(FALLBACK_TEXT);
       expect((r.checks as unknown as Record<string, boolean>)[failing], failing).toBe(false);
-      expect(r.fallbackReason, failing).toEqual({ kind: 'checks', failed: [label] });
+      expect(r.fallbackReason, failing).toEqual({ kind: 'checks', failed: [failing] });
     }
   });
 
@@ -365,7 +398,7 @@ describe('the full check-in (steps 4-9)', () => {
   });
 
   it('writes Hindi and Hinglish answers with the reader, and with Mistral when the reader fails', async () => {
-    const reader = { ...fakeLlm(understood({ language: 'hinglish' }), { text: groundedAnswer }), model: 'reader-model' };
+    const reader = { ...fakeLlm(understood({ language: 'hinglish' }), { text: hinglishAnswer }), model: 'reader-model' };
     const writer = fakeLlm();
     const r = ok(await runCheckIn({ db, llm: writer, reader, today: TODAY, log: () => {} }, { investorId: riya, sipId: riyaSips[0], moment: 'before_stop', text: 'Market gir gaya, band kar du?' }));
     expect(r).toMatchObject({ outcome: 'answer', route: 'doubt' });
@@ -374,7 +407,7 @@ describe('the full check-in (steps 4-9)', () => {
     expect((await db.query('SELECT model FROM ai_checks WHERE id = $1', [r.aiCheckId])).rows).toEqual([{ model: 'reader-model' }]);
 
     const failing = { ...fakeLlm(understood({ language: 'hi' }), new LlmError('Groq returned HTTP 429')), model: 'reader-model' };
-    const backup = fakeLlm({ text: groundedAnswer });
+    const backup = fakeLlm({ text: hindiAnswer });
     const lines: string[] = [];
     const hi = ok(await runCheckIn({ db, llm: backup, reader: failing, today: TODAY, log: (l) => lines.push(l) }, { investorId: riya, sipId: riyaSips[0], moment: 'before_stop', text: 'बाज़ार गिर गया, SIP बंद कर दूँ?' }));
     expect(hi).toMatchObject({ outcome: 'answer', route: 'doubt' });
@@ -426,6 +459,62 @@ describe('the full check-in (steps 4-9)', () => {
     expect(invented.checks).toMatchObject({ grounded: false, ungrounded: ['Rs 15000'] });
   });
 
+  it('checks every number: counts, units and amounts without "Rs" must be numbers the facts state', () => {
+    const facts = ['Rs 14,000', '60', '53', '44.2', '2031', '4 years', '5 months'];
+    const check = (text: string) => runChecks(`${text} This is not investment advice.`, facts, [], []).ungrounded;
+    expect(check('53 instalments are still to come, and Rs 2,000 buys 44.2 units by 2031.')).toEqual(['Rs 2,000']);
+    expect(check('You have put in 14,000 rupees; 53 of 60 instalments to go.')).toEqual([]);
+    expect(check('99 instalments are still to come.')).toEqual(['99']);
+    expect(check("About 45 units at today's NAV.")).toEqual(['45']);
+    // A duration must match as written: "4 years" is a fact, "5 years" is not.
+    expect(check('4 years 5 months to go.')).toEqual([]);
+    expect(check('5 years to go.')).toEqual(['5 years']);
+    // Digits in another script can't be checked, so they fail.
+    expect(check('५३ किस्तें बाकी हैं।')).toEqual(['५३']);
+  });
+
+  it('wants the Hindi or Hinglish disclaimer as well as the English one in those languages', () => {
+    const english = 'Your goal is Home down payment. This is not investment advice.';
+    expect(runChecks(english, [], [], [], 'hinglish').disclaimer).toBe(false);
+    expect(runChecks(withLocalDisclaimer(english, 'hinglish'), [], [], [], 'hinglish').disclaimer).toBe(true);
+    expect(withLocalDisclaimer(english, 'hi')).toBe(`Your goal is Home down payment. ${LOCAL_DISCLAIMERS.hi} This is not investment advice.`);
+    expect(withLocalDisclaimer(english, 'en')).toBe(english);
+    // Written by the model already, or no English disclaimer to put it before: left as it is.
+    const both = `Goal set. ${LOCAL_DISCLAIMERS.hinglish} This is not investment advice.`;
+    expect(withLocalDisclaimer(both, 'hinglish')).toBe(both);
+    expect(withLocalDisclaimer('No disclaimer here.', 'hi')).toBe('No disclaimer here.');
+  });
+
+  it('keeps the 90-word limit on the reply and the English disclaimer; the added local disclaimer is not counted', () => {
+    const reply = (n: number) => `${'shabd '.repeat(n)}`.trim();
+    // 85 words of reply + the English disclaimer (5) = 90: passes, with the Hinglish one on top.
+    const hinglish = `${reply(85)} ${LOCAL_DISCLAIMERS.hinglish} This is not investment advice.`;
+    expect(runChecks(hinglish, [], [], [], 'hinglish')).toMatchObject({ length: true, words: 90 });
+    // One more word of reply goes over, as before.
+    expect(runChecks(`${reply(86)} ${LOCAL_DISCLAIMERS.hinglish} This is not investment advice.`, [], [], [], 'hinglish')).toMatchObject({ length: false, words: 91 });
+    expect(runChecks(`${reply(86)} This is not investment advice.`, [], [], [], 'en')).toMatchObject({ length: false, words: 91 });
+  });
+
+  it('reads a confidence written as text ("0.95"), as Mistral writes it, but still rejects anything else', () => {
+    const reply = (confidence: unknown) => JSON.stringify({ ...understood(), confidence });
+    expect(parseUnderstanding(reply('0.95')).confidence).toBe(0.95);
+    expect(parseUnderstanding(reply(0.95)).confidence).toBe(0.95);
+    for (const bad of ['high', '1.5', '', '0. nine', null]) {
+      expect(() => parseUnderstanding(reply(bad)), String(bad)).toThrow('does not match the schema');
+    }
+  });
+
+  it("settles the language from the investor's own words when the model says English", () => {
+    expect(detectLanguage('Market crash ho gaya, mera SIP red mein hai')).toBe('hinglish');
+    expect(detectLanguage('बाज़ार गिर गया')).toBe('hi');
+    for (const english of ['I need the money', 'I want to cancel so I get my invested amount back', 'Is this the right fund?', '']) {
+      expect(detectLanguage(english), english).toBe('en');
+    }
+    expect(scriptLanguage('job chali gayi, paise chahiye', 'en')).toBe('hinglish');
+    expect(scriptLanguage('Market gir gaya, band kar du?', 'hi')).toBe('hinglish');
+    expect(scriptLanguage('I need the money', 'en')).toBe('en');
+  });
+
   it('reads "a fall of 6%" as the facts\' "-6.0%", but still catches 6.5%', () => {
     const facts = ['-6.0%', 'Rs 3,000'];
     expect(runChecks('A fall of 6% on Rs 3,000. This is not investment advice.', facts, [], []).ungrounded).toEqual([]);
@@ -436,8 +525,14 @@ describe('the full check-in (steps 4-9)', () => {
   it('runs the dip explainer on route doubt with no understanding call', async () => {
     const llm = fakeLlm({ text: groundedAnswer });
     const r = ok(await runCheckIn({ db, llm, today: TODAY, log: () => {} }, { investorId: riya, sipId: riyaSips[0], moment: 'is_this_normal' }));
-    expect(r).toMatchObject({ outcome: 'answer', route: 'doubt', understood: null });
+    expect(r).toMatchObject({ outcome: 'answer', route: 'doubt', understood: null, moment: 'is_this_normal', goalDetail: 'plan' });
     expect(llm.calls).toHaveLength(1);
+    // Its own guidance: connect the dip to the goal and timeline, with the plan's share and the units at the latest NAV.
+    const system = llm.calls[0][0].content;
+    expect(system).toContain("connect today's dip to their goal and timeline");
+    expect(system).toContain('at the latest NAV one instalment buys the number of units the facts give');
+    expect(llm.calls[0][1].content).toContain('- Share of the planned amount put in so far: Rs ');
+    expect(llm.calls[0][1].content).toContain('- One instalment at the latest NAV buys: ');
   });
 
   it('reads with the reader and writes with Mistral, and logs both models', async () => {

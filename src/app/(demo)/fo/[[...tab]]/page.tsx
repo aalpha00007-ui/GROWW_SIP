@@ -14,13 +14,13 @@ import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
 import { foExplore, foOrders, showsSampleRows } from '@/server/trading';
 import { initials } from '@/server/funds';
-import { currentVisitor } from '@/server/visitor';
+import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 const CARD = 'rounded-xl border border-line bg-surface p-5';
 
 export default async function FutureAndOptions({ params }: { params: Promise<{ tab?: string[] }> }) {
   const visitor = await currentVisitor();
-  if (!visitor) redirect('/');
+  if (!visitor) redirect(NO_DEMO);
   const { tab } = await params;
   const section = tab?.[0];
   if (tab && (tab.length > 1 || (section !== 'positions' && section !== 'orders'))) notFound();

@@ -15,13 +15,13 @@ import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
 import { homeView } from '@/server/home';
 import { investmentsView } from '@/server/investments';
-import { currentVisitor } from '@/server/visitor';
+import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 const CARD = 'rounded-xl border border-line bg-surface p-5';
 
 export default async function Dashboard() {
   const visitor = await currentVisitor();
-  if (!visitor) redirect('/');
+  if (!visitor) redirect(NO_DEMO);
   const db = getDb();
   const [home, investments] = await Promise.all([homeView(db, visitor.id, todayInIndia()), investmentsView(db, visitor.id)]);
 

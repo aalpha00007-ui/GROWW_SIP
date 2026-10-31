@@ -1,5 +1,6 @@
 // An AI card (PRD F8-F10): the answer with its quality strip, or the declined or fallback card with
-// the facts table and the official links. Every card says when its numbers are from.
+// the facts table, the official links and, in the strip's place, the quality check that stopped the AI.
+// Every card says when its numbers are from.
 import Link from 'next/link';
 import type { CheckInCard } from '@/server/checkin-card';
 import { toRupeeSign } from '@/server/money';
@@ -10,11 +11,19 @@ export function CheckInCardView({ card }: { card: CheckInCard }) {
     <section className="rounded-xl border border-line bg-surface p-4">
       {card.understood && (
         <p className="text-sm text-muted">
-          <span className="font-semibold text-ink">What I understood:</span> {card.understood}
+          <span className="font-semibold text-ink">What I understood:</span> <span lang={card.lang}>{card.understood}</span>
         </p>
       )}
-      <p className={`whitespace-pre-line ${card.understood ? 'mt-3' : ''} ${card.outcome === 'answer' ? '' : 'font-semibold'}`}>{toRupeeSign(card.text)}</p>
-      {card.why && <p className="mt-1 text-sm text-muted">Why: {card.why}</p>}
+      <p lang={card.lang} className={`whitespace-pre-line ${card.understood ? 'mt-3' : ''} ${card.outcome === 'answer' ? '' : 'font-semibold'}`}>
+        {toRupeeSign(card.text)}
+      </p>
+      {/* Where an answer's ticks would be: right under the text, so it is seen before the facts. */}
+      {card.gate && (
+        <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1 rounded-lg bg-page px-3 py-2 text-xs font-semibold" aria-label="Quality checks">
+          <li className="text-ink">{card.gate}</li>
+          {card.confidence && <li className="text-muted">{card.confidence}</li>}
+        </ul>
+      )}
 
       {card.appLink && (
         <Link href={card.appLink.href} className="mt-3 inline-flex min-h-11 items-center font-semibold text-primary underline">

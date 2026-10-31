@@ -9,11 +9,11 @@ import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
 import { cartView } from '@/server/cart';
 import { goalStepOptions, initials } from '@/server/funds';
-import { currentVisitor } from '@/server/visitor';
+import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 export default async function Cart() {
   const visitor = await currentVisitor();
-  if (!visitor) redirect('/');
+  if (!visitor) redirect(NO_DEMO);
   const cart = await cartView(getDb(), visitor.id);
   const options = goalStepOptions(todayInIndia());
 

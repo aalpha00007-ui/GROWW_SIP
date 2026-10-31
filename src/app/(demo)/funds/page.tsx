@@ -4,14 +4,14 @@ import { redirect } from 'next/navigation';
 import { FundRows } from '@/components/fund-rows';
 import { getDb } from '@/db/pool';
 import { fundList } from '@/server/funds';
-import { currentVisitor } from '@/server/visitor';
+import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 const chip = (on: boolean) =>
   `inline-flex min-h-11 shrink-0 items-center rounded-full border px-4 text-sm font-medium ${on ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-surface hover:border-primary'}`;
 
 export default async function AllFunds({ searchParams }: { searchParams: Promise<{ category?: string; risk?: string }> }) {
   const visitor = await currentVisitor();
-  if (!visitor) redirect('/');
+  if (!visitor) redirect(NO_DEMO);
   const { category, risk } = await searchParams;
   const list = await fundList(getDb(), visitor.id, { category, risk });
   const href = (next: { category?: string | null; risk?: string | null }) => {

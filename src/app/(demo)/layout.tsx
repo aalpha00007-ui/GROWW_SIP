@@ -6,18 +6,19 @@ import { redirect } from 'next/navigation';
 import { AvatarMenu, Bell, SearchBox } from '@/components/header-menus';
 import { Logo } from '@/components/logo';
 import { MarketStrip } from '@/components/market-strip';
+import { SiteFooter } from '@/components/site-footer';
 import { OnlyOnMarkets, ProductTabs, SectionTabs } from '@/components/nav';
 import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
 import { marketStrip } from '@/server/market';
 import { shellData } from '@/server/shell';
-import { currentVisitor } from '@/server/visitor';
+import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DemoLayout({ children }: { children: React.ReactNode }) {
   const visitor = await currentVisitor();
-  if (!visitor) redirect('/');
+  if (!visitor) redirect(NO_DEMO);
   const db = getDb();
   const [strip, shell] = await Promise.all([marketStrip(db, visitor.id), shellData(db, visitor.id, todayInIndia())]);
   return (
@@ -49,6 +50,7 @@ export default async function DemoLayout({ children }: { children: React.ReactNo
         <MarketStrip strip={strip} />
       </OnlyOnMarkets>
       <main className="mx-auto max-w-7xl px-4 pb-16 pt-6">{children}</main>
+      <SiteFooter />
     </>
   );
 }

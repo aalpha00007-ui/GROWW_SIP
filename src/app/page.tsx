@@ -16,18 +16,30 @@ import { currentVisitor } from '@/server/visitor';
 
 export const dynamic = 'force-dynamic';
 
-export default async function Landing() {
+export default async function Landing({ searchParams }: { searchParams: Promise<{ demo?: string }> }) {
   const visitor = await currentVisitor();
+  // From an app page opened with no demo in this browser (server/visitor.ts NO_DEMO).
+  const noDemo = !visitor && (await searchParams).demo === 'none';
   const strip = await marketStrip(getDb(), visitor?.id ?? null);
   // Signed out, Get started opens the sign-up / log-in modal; signed in, it goes to Mutual Funds.
   const enter = visitor ? '/explore' : '/?auth=signup';
 
   return (
     <>
-      <SiteHeader visitorName={visitor?.firstName ?? null} />
+      <SiteHeader signedIn={visitor && { accountName: visitor.username ? visitor.firstName : null }} />
       <MarketStrip strip={strip} />
 
       <main className="mx-auto max-w-6xl px-4 pb-16 pt-14">
+        {noDemo && (
+          <p role="status" className="mx-auto mb-8 max-w-2xl rounded-lg border border-line bg-page px-4 py-3 text-center text-sm">
+            That page is part of a demo, and no demo is open in this browser. Every demo is a private copy, so a link from someone
+            else&apos;s demo won&apos;t open here.{' '}
+            <a href="#personas" className="font-semibold text-primary underline">
+              Pick a demo below
+            </a>{' '}
+            or log in to continue.
+          </p>
+        )}
         <section className="text-center">
           <h1 className="mx-auto max-w-3xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">Every SIP needs a reason to keep going.</h1>
           <Link href={enter} scroll={false} className="mt-8 inline-flex min-h-12 items-center rounded-full bg-primary px-10 font-semibold text-white hover:bg-primary-hover">

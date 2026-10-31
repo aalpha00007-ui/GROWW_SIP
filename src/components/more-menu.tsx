@@ -5,11 +5,11 @@
 // (after 150 ms). Esc, a click outside or choosing an item closes it and puts focus back on More. Opening it
 // never changes the URL, and it never opens the sign-up modal.
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { FEATURE_TRIES } from '@/server/demos';
 import { Icon } from './icons';
-import { startDemo } from './start-demo';
+import { loadWithSession, startDemo } from './start-demo';
 
 const CALCULATORS = [
   { title: 'SIP calculator', text: 'Estimate what a monthly SIP could grow to', href: '/calculators/sip' },
@@ -28,7 +28,6 @@ const ITEM = 'block w-full rounded-lg px-3 py-3 text-left hover:bg-hover-neutral
 const canHover = () => window.matchMedia('(hover: hover) and (min-width: 768px)').matches;
 
 export function MoreMenu() {
-  const router = useRouter();
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const [starting, setStarting] = useState<string | null>(null);
@@ -90,8 +89,7 @@ export function MoreMenu() {
       setStarting(null);
       return;
     }
-    router.push(href);
-    router.refresh();
+    loadWithSession(href);
   }
 
   return (

@@ -13,7 +13,7 @@ export function FundRows({ funds }: { funds: FundCard[] }) {
       </li>
       {funds.map((f) => (
         <li key={f.id}>
-          <Link href={`/fund/${f.id}`} className="flex min-h-16 items-center gap-3 px-4 py-3 hover:bg-page">
+          <Link href={`/fund/${f.id}`} aria-label={fundLinkLabel(f.name, f.return3y)} className="flex min-h-16 items-center gap-3 px-4 py-3 hover:bg-page">
             <Initials text={f.initials} />
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium text-strong">{f.name}</span>
@@ -26,6 +26,11 @@ export function FundRows({ funds }: { funds: FundCard[] }) {
       ))}
     </ul>
   );
+}
+
+/** A fund link's name for screen readers: the fund and its 3Y return, such as "Banyan Flexi Cap Fund, 3Y return +18.2%". */
+export function fundLinkLabel(name: string, return3y: string | null): string {
+  return `${name}, 3Y return ${return3y ?? 'not yet available: new fund'}`;
 }
 
 /** The made-up fund's initials in a bordered tile: our stand-in for a fund house logo. */

@@ -4,16 +4,15 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { postJson } from './post-json';
+import { loadWithSession } from './start-demo';
 
 export function LogOutButton({ className = '' }: { className?: string }) {
-  const router = useRouter();
   return (
     <button
       type="button"
       onClick={async () => {
         await postJson('/api/auth/logout');
-        router.push('/');
-        router.refresh();
+        loadWithSession('/');
       }}
       className={className}
     >
@@ -23,7 +22,6 @@ export function LogOutButton({ className = '' }: { className?: string }) {
 }
 
 export function DeleteAccount({ isAccount }: { isAccount: boolean }) {
-  const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,11 +30,7 @@ export function DeleteAccount({ isAccount }: { isAccount: boolean }) {
   async function remove() {
     setBusy(true);
     const result = await postJson('/api/account/delete');
-    if (result.ok) {
-      router.push('/');
-      router.refresh();
-      return;
-    }
+    if (result.ok) return loadWithSession('/');
     setBusy(false);
     setError(result.error);
   }

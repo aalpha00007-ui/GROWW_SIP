@@ -12,11 +12,11 @@ import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
 import { idParam } from '@/server/api';
 import { fundPage } from '@/server/funds';
-import { currentVisitor } from '@/server/visitor';
+import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 export default async function FundPage({ params }: { params: Promise<{ id: string }> }) {
   const visitor = await currentVisitor();
-  if (!visitor) redirect('/');
+  if (!visitor) redirect(NO_DEMO);
   const fund = await fundPage(getDb(), visitor.id, await idParam(params), todayInIndia());
   if (!fund) notFound();
 

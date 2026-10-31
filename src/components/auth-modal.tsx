@@ -10,7 +10,7 @@ import { FEATURE_TRIES } from '@/server/demos';
 import { BANNER_TEXT } from './banner';
 import { Logo } from './logo';
 import { postJson } from './post-json';
-import { startDemo } from './start-demo';
+import { loadWithSession, startDemo } from './start-demo';
 
 const ADJECTIVES = ['calm', 'brave', 'steady', 'bright', 'quiet', 'swift', 'kind', 'bold', 'lucky', 'sunny'];
 const ANIMALS = ['tiger', 'heron', 'otter', 'falcon', 'panda', 'koel', 'lynx', 'robin', 'gecko', 'yak'];
@@ -102,7 +102,6 @@ export function AuthModal() {
 
 /** From a calculator: Kabir's demo instead of an account, on a fund page with the goal row. */
 function TryKabir() {
-  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const kabir = FEATURE_TRIES.find((t) => t.persona === 'kabir')!;
@@ -116,8 +115,7 @@ function TryKabir() {
       setBusy(false);
       return;
     }
-    router.push(kabir.href);
-    router.refresh();
+    loadWithSession(kabir.href);
   }
 
   return (
@@ -137,7 +135,6 @@ function TryKabir() {
 type Step = { kind: 'username' } | { kind: 'create' | 'login'; username: string };
 
 function AccountSteps() {
-  const router = useRouter();
   const [step, setStep] = useState<Step>({ kind: 'username' });
   const [username, setUsername] = useState('');
   const [pin, setPin] = useState('');
@@ -176,8 +173,7 @@ function AccountSteps() {
     setError(null);
     const result = await postJson(step.kind === 'create' ? '/api/auth/signup' : '/api/auth/login', { username: step.username, pin });
     if (result.ok) {
-      router.push('/explore');
-      router.refresh();
+      loadWithSession('/explore');
       return;
     }
     setBusy(false);

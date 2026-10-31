@@ -6,14 +6,14 @@ import { Icon } from '@/components/icons';
 import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
 import { sipList } from '@/server/sip';
-import { currentVisitor } from '@/server/visitor';
+import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 const ACTION = 'flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 text-sm font-semibold sm:flex-none';
 const STATUS = { active: 'bg-primary-soft text-primary', paused: 'bg-accent-tint text-accent-ink', stopped: 'bg-page text-muted' } as const;
 
 export default async function Sips() {
   const visitor = await currentVisitor();
-  if (!visitor) redirect('/');
+  if (!visitor) redirect(NO_DEMO);
   const sips = await sipList(getDb(), visitor.id, todayInIndia());
 
   return (
@@ -34,7 +34,7 @@ export default async function Sips() {
             <li key={sip.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <Link href={`/sips/${sip.id}`} className="font-semibold text-strong hover:text-primary">
+                  <Link href={`/sips/${sip.id}`} className="inline-flex min-h-11 items-center font-semibold text-strong hover:text-primary">
                     {sip.fund}
                   </Link>
                   <p className="tabular text-sm text-muted">
@@ -56,7 +56,7 @@ export default async function Sips() {
                     ) : sip.status === 'stopped' ? (
                       <span className="text-muted">No goal</span>
                     ) : (
-                      <Link href={`/sips/${sip.id}/goal`} className="inline-flex min-h-8 items-center gap-1.5 font-semibold text-primary hover:text-primary-hover">
+                      <Link href={`/sips/${sip.id}/goal`} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-primary hover:text-primary-hover">
                         <span className="rounded bg-accent-tint px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-accent-ink">New</span>
                         Add a goal
                         <Icon name="chevron" size={14} />

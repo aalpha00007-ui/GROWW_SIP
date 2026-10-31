@@ -7,14 +7,50 @@ import { todayInIndia } from '../loading/dates';
 import { loadAdvicePatterns, loadClaimPatterns, type AdvicePattern, type Outcome, type Route } from '../loading/fixtures';
 import { readReason, writeAnswer, type Understanding } from './ai';
 import { allPassed, runChecks, type QualityChecks } from './checks';
-import { decideRoute } from './decide';
+import { decideRoute, type DeclineKind } from './decide';
 import { retrieveFacts } from './facts';
+import { detectLanguage } from './language';
 import { findPii, PII_MESSAGE } from './pii';
-import { DEFAULT_PROMPT_VERSION, ROUTE_EXPLAINERS, type Language, type Moment } from './prompts';
+import { DEFAULT_PROMPT_VERSION, DISCLAIMER, LOCAL_DISCLAIMERS, ROUTE_EXPLAINERS, type Language, type Moment } from './prompts';
 
 export const DECLINED_TEXT =
   "I can't recommend funds or tell you to buy, sell or switch. Here are the facts about your SIP and official places to learn more.";
+export const PREDICTION_TEXT =
+  "This app can't predict whether markets will rise or fall. Here are the facts about your SIP and official places to learn more.";
 export const FALLBACK_TEXT = "I couldn't give a reliable answer here.";
+
+/** The fixed card texts in the investor's language. Fixed text, so nothing in them needs checking. */
+const CARD_TEXTS: Record<'advice' | 'prediction' | 'fallback', Record<'en' | 'hi' | 'hinglish', string>> = {
+  advice: {
+    en: DECLINED_TEXT,
+    hinglish: 'Hum funds recommend nahi kar sakte, na hi buy, sell ya switch karne ko keh sakte hain. Yeh rahe aapke SIP ke facts aur seekhne ke liye official jagah.',
+    hi: 'हम फंड नहीं सुझा सकते, न ही खरीदने, बेचने या बदलने को कह सकते हैं। ये रहे आपके SIP के तथ्य और जानकारी के आधिकारिक स्रोत।',
+  },
+  prediction: {
+    en: PREDICTION_TEXT,
+    hinglish: 'Yeh app nahi bata sakta ki market upar jayega ya neeche. Yeh rahe aapke SIP ke facts aur seekhne ke liye official jagah.',
+    hi: 'यह ऐप नहीं बता सकता कि बाज़ार ऊपर जाएगा या नीचे। ये रहे आपके SIP के तथ्य और जानकारी के आधिकारिक स्रोत।',
+  },
+  fallback: {
+    en: FALLBACK_TEXT,
+    hinglish: 'Hum yahan bharosemand jawab nahi de paaye.',
+    hi: 'हम यहाँ भरोसेमंद जवाब नहीं दे पाए।',
+  },
+};
+
+export function cardText(kind: keyof typeof CARD_TEXTS, language: Language): string {
+  return CARD_TEXTS[kind][language === 'hi' || language === 'hinglish' ? language : 'en'];
+}
+
+/** A Hindi or Hinglish answer carries the disclaimer in that language too, just before the English one. */
+export function withLocalDisclaimer(answer: string, language: Language): string {
+  if (language !== 'hi' && language !== 'hinglish') return answer;
+  const local = LOCAL_DISCLAIMERS[language];
+  const at = answer.lastIndexOf(DISCLAIMER);
+  // Without the English disclaimer the check fails anyway.
+  if (answer.includes(local) || at === -1) return answer;
+  return `${answer.slice(0, at).trimEnd()} ${local} ${answer.slice(at)}`.trim();
+}
 
 /** Shown on every card. Stop anyway is always there and always one tap (PRD §3.4). */
 export const OPTIONS = [
@@ -42,19 +78,23 @@ export interface CheckInInput {
 
 /** Why the fallback card was shown, in plain words on the card. */
 export type FallbackReason =
-  | { kind: 'checks'; failed: string[] }
+  | { kind: 'checks'; failed: CheckKey[] }
   | { kind: 'unsure' }
   | { kind: 'timeout' }
   | { kind: 'error' }
   | { kind: 'facts' };
 
-/** The quality strip's names for the checks, also used to say which one stopped an answer. */
-export const CHECK_LABELS: Record<'no_advice' | 'grounded' | 'disclaimer' | 'length' | 'no_claims', string> = {
+export const CHECK_KEYS = ['no_advice', 'grounded', 'disclaimer', 'length', 'no_claims', 'in_language'] as const;
+export type CheckKey = (typeof CHECK_KEYS)[number];
+
+/** The quality strip's names for the checks. */
+export const CHECK_LABELS: Record<CheckKey, string> = {
   no_advice: 'No investment advice',
   grounded: 'Numbers match your SIP',
   disclaimer: 'Disclaimer shown',
   length: 'Short enough',
   no_claims: 'No unsupported claims',
+  in_language: 'In your language',
 };
 
 export interface CheckInDeps {
@@ -73,6 +113,7 @@ export type CheckInResult =
   | { status: 400 | 404; error: string }
   | {
       status: 200;
+      moment: Moment;
       outcome: Outcome;
       route: Route | null;
       aiCheckId: number;
@@ -86,6 +127,12 @@ export type CheckInResult =
       checks: QualityChecks | null;
       /** Why the fallback card was shown; null for an answer or a decline. */
       fallbackReason: FallbackReason | null;
+      /** Why the reason was declined: advice, or a market prediction; null unless declined. */
+      declineKind: DeclineKind | null;
+      /** The card's language: the investor's, read by the AI or, when it could not, by code. */
+      language: Language;
+      /** How complete the SIP's goal is: the dip explainer can connect the dip to a full plan only. */
+      goalDetail: 'plan' | 'no_target_month' | 'none';
       options: typeof OPTIONS;
       links: typeof OFFICIAL_LINKS;
       latencyMs: number;
@@ -131,7 +178,10 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
   let answer: string | null = null;
   let checks: QualityChecks | null = null;
   let outcome: Outcome = 'fallback';
+  let declineKind: DeclineKind | null = null;
   let fallbackReason: FallbackReason | null = problem ? { kind: 'facts' } : null;
+  // The investor's language by code until the AI reads it: the fallback card uses it when the AI can't.
+  let language: Language = detectLanguage(reason);
   const modelsUsed: string[] = [];
   try {
     if (problem) {
@@ -141,15 +191,17 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
     } else {
       const read = await readReason({ reader: deps.reader, backup: deps.llm }, unit, reason, log); // Step 4
       understood = read.understanding;
+      language = understood.language;
       modelsUsed.push(read.model);
       const decision = decideRoute(understood); // Step 5
-      if (decision.outcome === 'declined') outcome = 'declined';
-      else if (decision.outcome === 'answer') route = decision.route;
+      if (decision.outcome === 'declined') {
+        outcome = 'declined';
+        declineKind = decision.kind;
+      } else if (decision.outcome === 'answer') route = decision.route;
       else fallbackReason = { kind: 'unsure' };
     }
     if (route) {
       explainers = ROUTE_EXPLAINERS[route].map((key) => explainerChunks()[key]); // Step 6
-      const language = understood?.language ?? 'en';
       const args = { route, facts: unit, explainers, language, moment: input.moment, reason };
       // Step 7. Hindi and Hinglish answers are written by the bigger model on Groq, with Mistral as its backup.
       const groqWrites = (language === 'hi' || language === 'hinglish') && deps.reader;
@@ -166,11 +218,18 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
         if (deps.llm) modelsUsed.push(deps.llm.model);
         answer = await writeAnswer(deps.llm, args);
       }
-      checks = runChecks(answer, [...unit.numbers, ...explainers.flatMap((e) => numberTokens(e.text))], advicePatterns(), claimPatterns()); // Step 8
+      answer = withLocalDisclaimer(answer, language);
+      // Step 8, on the answer as the investor would see it.
+      const explained = explainers.flatMap((e) => numberTokens(e.text));
+      checks = runChecks(answer, [...unit.numbers, ...explained], advicePatterns(), claimPatterns(), language, {
+        // The explainers count instalments ("the next 1 to 3 instalments").
+        instalments: [...unit.kinds.instalments, ...explained],
+        units: unit.kinds.units,
+        dates: unit.kinds.dates,
+      });
       outcome = allPassed(checks) ? 'answer' : 'fallback';
       if (outcome === 'fallback') {
-        const failed = (Object.keys(CHECK_LABELS) as (keyof typeof CHECK_LABELS)[]).filter((k) => !checks![k]).map((k) => CHECK_LABELS[k]);
-        fallbackReason = { kind: 'checks', failed };
+        fallbackReason = { kind: 'checks', failed: CHECK_KEYS.filter((k) => !checks![k]) };
       }
     }
   } catch (err) {
@@ -182,6 +241,7 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
 
   // Step 9: show and log.
   const latencyMs = Date.now() - started;
+  const { goal } = lookup.facts;
   const [logged] = (
     await deps.db.query<{ id: number }>(
       `INSERT INTO ai_checks (investor_id, sip_id, moment, user_text, model, prompt_version, understood, route, explanation, checks, outcome, latency_ms)
@@ -198,6 +258,7 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
 
   return {
     status: 200,
+    moment: input.moment,
     outcome,
     route,
     aiCheckId: logged.id,
@@ -207,11 +268,14 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
       confidence: understood.confidence,
       confidenceLabel: understood.confidence >= 0.8 ? 'High' : understood.confidence >= 0.6 ? 'Medium' : 'Low',
     },
-    text: outcome === 'answer' ? answer! : outcome === 'declined' ? DECLINED_TEXT : FALLBACK_TEXT,
+    text: outcome === 'answer' ? answer! : cardText(outcome === 'declined' ? declineKind! : 'fallback', language),
     goalLine: lookup.goalLine,
     facts: unit,
     checks,
     fallbackReason: outcome === 'fallback' ? (fallbackReason ?? { kind: 'error' }) : null,
+    declineKind: outcome === 'declined' ? declineKind : null,
+    language,
+    goalDetail: !goal ? 'none' : goal.target_month && lookup.facts.instalments_planned !== null ? 'plan' : 'no_target_month',
     options: OPTIONS,
     links: OFFICIAL_LINKS,
     latencyMs,
