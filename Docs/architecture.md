@@ -37,8 +37,8 @@ flowchart LR
 flowchart LR
     U["Tester's browser<br/>phone or desktop"] -->|HTTPS| W["Next.js app on Render<br/>pages + server API routes"]
     W -->|SQL| DB[("Neon Postgres<br/>demo data, ai_checks,<br/>eval results")]
-    W -->|"call 1: read the reason"| Q["Groq API<br/>gpt-oss-120b"]
-    W -->|"call 2: write the answer;<br/>backup reader"| M["Mistral API<br/>ministral-8b"]
+    W -->|"call 1: read the reason;<br/>call 2 in Hindi and Hinglish"| Q["Groq API<br/>gpt-oss-120b"]
+    W -->|"call 2 in English;<br/>backup reader and writer"| M["Mistral API<br/>ministral-8b"]
     G["GitHub repo"] -->|push| CI["GitHub Actions<br/>build, API tests, eval"]
     CI -->|"eval results per commit"| DB
     CI -->|"deploy only after checks pass"| W
@@ -49,8 +49,8 @@ flowchart LR
 | Web app | Next.js and Tailwind, one responsive layout | App shell (F13), goal placements (F2–F5), Before you stop (F7), quality strip (F8), cards (F9, F10), /quality (F11) |
 | Server API | Next.js server routes on Render (Node web service, Singapore) | The check-in pipeline, SIP controls, per-visitor data; holds the Groq and Mistral keys |
 | Database | Neon Postgres | Demo data, per-visitor copies, `ai_checks`, `eval_runs`, `eval_results` |
-| LLM, reader | Groq API, `openai/gpt-oss-120b` (decision D4) | Call 1: understand the reason (JSON mode, temperature 0, low reasoning effort) |
-| LLM, writer | Mistral API, `ministral-8b-latest` (decision D4) | Call 2: write the answer (temperature 0.2, at most 90 words). Also reads the reason when Groq fails |
+| LLM, reader | Groq API, `openai/gpt-oss-120b` (decision D4) | Call 1: understand the reason (JSON mode, temperature 0, low reasoning effort). Call 2 for Hindi and Hinglish answers |
+| LLM, writer | Mistral API, `ministral-8b-latest` (decision D4) | Call 2: write the answer in English (temperature 0.2, at most 90 words). Also reads the reason, and writes Hindi and Hinglish answers, when Groq fails |
 | CI/CD | GitHub Actions + Render Auto-Deploy "After CI Checks Pass" | A version that fails the eval never goes live |
 
 ## 3. Phase 1 — Data loading
@@ -125,9 +125,9 @@ sequenceDiagram
             A-->>B: Fallback card
         else route chosen
             A->>A: assemble context: facts + explainers + rules
-            A->>M: call 2: answer (temp 0.2, ≤ 90 words)
+            A->>M: call 2: answer (temp 0.2, ≤ 90 words); Groq writes Hindi and Hinglish
             M-->>A: answer text
-            A->>A: 4 quality checks
+            A->>A: 5 quality checks
             A-->>B: Answer card + quality strip, or Fallback card
         end
     end
@@ -143,6 +143,7 @@ sequenceDiagram
     - With no goal, facts say none is set; the system never invents one.
     - With a target month in the past, facts say "Goal date reached".
     - The worst fall since start is measured from the price the first instalment was really bought at (its NAV, or amount ÷ units), not just from NAVs dated on or after the payment. A new SIP's first instalment is dated today but bought at the last NAV before today, so a demo fall added for today still counts.
+    - The fund's biggest fall from a high in all the demo NAVs this visitor sees, with the month it bottomed, is a fact line: history for context, never a prediction.
     - **Sanity check before any AI call:** if the SIP is worth less than was put in, its worst fall must be at least that deep. If not, the facts are wrong: the error is logged and the investor gets the Fallback card, with no model call.
 4. **Understand (call 1: Groq `gpt-oss-120b`, or Mistral when Groq fails).** Returns the primary theme and up to 3 themes (the 13 Evidence Log themes), behaviour (one of 6), `asks_for_advice`, `misreads_cancel`, language, confidence and a 20-word summary.
 5. **Decide the route (code, no LLM).**
@@ -162,14 +163,24 @@ sequenceDiagram
     - Mention the goal and time to go, or say none is set.
     - Never say buy, sell, hold, switch, stop or continue.
     - Make no predictions.
+    - Never call a fall normal, small, big, temporary or expected, and never tell them not to worry; describe it only with the numbers in the facts.
     - End with "This is not investment advice."
 
     The explainers for the route are added: `explain` gets `stop`; `cash` gets `skip`, `pause`, `lower_amount` and `stop` (decision D2). The cash route also says that stopping gives no money back, and that getting money out is a separate redemption, which may have an exit load (the fund's exit load is a fact line).
-7. **Answer (Mistral call 2).** At most 90 words, in the investor's language.
-8. **Quality check (code).** The answer must have no advice phrases (English, Hindi and Hinglish list), and every number in it must exist in the facts. The disclaimer must be present, and the answer must be at most 90 words. Any failure shows the Fallback card.
+7. **Answer (call 2).** At most 90 words, in the investor's language. Mistral writes English; Groq `gpt-oss-120b` writes Hindi and Hinglish, with Mistral as its backup.
+8. **Quality check (code).** Five checks:
+    - no advice phrases (English, Hindi and Hinglish list);
+    - every number in it exists in the facts;
+    - the disclaimer is present;
+    - at most 90 words;
+    - no unsupported claims (`data/raw/guardrails/claim_patterns.json`, English, Hindi and Hinglish): it never calls a fall normal, small or temporary, says it will recover or bounce back, or tells them not to worry.
+
+    Any failure shows the Fallback card, which names the failed check.
 9. **Show and log.** The answer card shows the quality strip and "Numbers as of <latest NAV date>". Every call is written to `ai_checks`. Requests stopped at steps 1-2 (invalid input, someone else's SIP, a stopped SIP, personal details) make no AI call and are not written there; a PII rejection goes to the server log as a redacted copy.
 
-**Failure handling.** If Groq fails call 1 (timeout, error, out of free requests), Mistral reads the reason instead and the server log says so; `ai_checks.model` records which model read and which wrote. If Mistral then times out (12 s), errors, or returns 429 twice, the investor gets the Fallback card. The error is logged, and no AI text is shown.
+**Failure handling.** If Groq fails call 1 (timeout, error, out of free requests), Mistral reads the reason instead and the server log says so; the same holds when Groq fails to write a Hindi or Hinglish answer. `ai_checks.model` records which model read and which wrote. If Mistral then times out (12 s), errors, or returns 429 twice, the investor gets the Fallback card. The error is logged, and no AI text is shown.
+
+**The Fallback card says why**, in plain words: a named check failed, the AI wasn't sure enough, it took too long, the AI service returned an error, or the SIP's numbers didn't add up. It keeps the facts and the SEBI and AMFI links.
 
 ## 8. Phase 6 — Retrieval testing
 
@@ -185,7 +196,7 @@ sequenceDiagram
 | Mistral down | Unset key or timeout shows the Fallback card | Fallback shown, error logged | Manual |
 
 **The gate.** GitHub Actions runs the build and the API tests on every push. It runs the eval when the AI's prompts, pipeline or eval data change, because Groq's free plan caps tokens a day. Results are stored per commit in `eval_runs` and `eval_results`. Two parts of the gate (PRD §7):
-- **Must pass every run:** the 10 must-pass cases (the 8 safety cases, plus s17 and s18: needing the money gets the cash route) and the invariants.
+- **Must pass every run:** the 10 must-pass cases (the 8 safety cases, plus s17 and s18: needing the money gets the cash route) and the invariants: no advice, grounded numbers, the disclaimer, and no unsupported claims.
 - **Must not regress:** golden-set agreement at least 65% and at least 7 of 8 routing cases.
 
 Render deploys only after CI passes. /quality reads the eval run whose commit equals `RENDER_GIT_COMMIT`, or the latest run, labelled as such. It computes pass rates at read time.
@@ -201,10 +212,10 @@ Render deploys only after CI passes. /quality reads the eval run whose commit eq
 
 | # | Decision | Why |
 | --- | --- | --- |
-| D1 | Explainers, the advice-phrase list and eval fixtures live in the repo, not the database | Each commit's eval tests exactly the text that commit deploys |
+| D1 | Explainers, the advice-phrase and claim lists and eval fixtures live in the repo, not the database | Each commit's eval tests exactly the text that commit deploys |
 | D2 | Route-to-explainer map: `explain` → stop; `cash` → skip, pause, lower amount, stop; other routes use facts only | Follows the PRD's routes; the map itself is not spelled out in the PRD |
 | D3 | No chunking, embeddings or vector store | PRD §3.3, step 2a |
-| D4 | Groq `openai/gpt-oss-120b` reads the reason (call 1); Mistral `ministral-8b-latest` writes the answer (call 2) and reads when Groq fails. Departs from the PRD's single Mistral model | The project must stay free. On Mistral's free plan, `mistral-small` and `mistral-medium` get 0 requests a minute. `ministral-8b` read the golden set at 55-65% (5 prompt versions; `ministral-14b` no better). `gpt-oss-120b` read it at 65-80% in 0.7 s, free with no card. Groq's free plan caps tokens a day, so Mistral backs it up and the eval waits out rate limits |
+| D4 | Groq `openai/gpt-oss-120b` reads the reason (call 1); Mistral `ministral-8b-latest` writes the answer (call 2) and reads when Groq fails. Departs from the PRD's single Mistral model | The project must stay free. On Mistral's free plan, `mistral-small` and `mistral-medium` get 0 requests a minute. `ministral-8b` read the golden set at 55-65% (5 prompt versions; `ministral-14b` no better). `gpt-oss-120b` read it at 65-80% in 0.7 s, free with no card. Groq's free plan caps tokens a day, so Mistral backs it up and the eval waits out rate limits. Since prompt v7, Groq also writes Hindi and Hinglish answers (Mistral backs it up), kept because the eval gate still passed |
 
 ## 11. Open items (not specified in the PRD)
 

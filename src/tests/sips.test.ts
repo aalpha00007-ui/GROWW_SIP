@@ -1,12 +1,12 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { Db } from '../db/client';
-import type { ChatMessage, Llm } from '../llm/chat';
+import { LlmError, type ChatMessage, type Llm } from '../llm/chat';
 import { rupees } from '../pipeline/chunking/format';
 import { clonePersona } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
 import { runCheckIn } from '../pipeline/retrieval/checkin';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
-import { checkInCard } from '../server/checkin-card';
+import { checkInCard, fallbackWhy } from '../server/checkin-card';
 import { homeView } from '../server/home';
 import { goalYearChoices, loadSip, sipView } from '../server/sip';
 import { changeAmount, pauseSip, setGoal, skipNext, stopSip } from '../server/sip-actions';
@@ -28,7 +28,7 @@ const view = async (investorId: string, sipId: number) => {
   return sipView(state, TODAY);
 };
 
-function fakeLlm(...replies: object[]): Llm & { calls: ChatMessage[][] } {
+function fakeLlm(...replies: (object | LlmError)[]): Llm & { calls: ChatMessage[][] } {
   const calls: ChatMessage[][] = [];
   return {
     model: 'fake-model',
@@ -37,6 +37,7 @@ function fakeLlm(...replies: object[]): Llm & { calls: ChatMessage[][] } {
       calls.push(messages);
       const next = replies.shift();
       if (!next) throw new Error('unexpected extra call to the model');
+      if (next instanceof LlmError) throw next;
       return JSON.stringify(next);
     },
   };
@@ -265,7 +266,9 @@ describe('AI cards (PRD F8-F10)', () => {
       { label: 'No investment advice', ok: true },
       { label: 'Numbers match your SIP', ok: true },
       { label: 'Disclaimer shown', ok: true },
+      { label: 'No unsupported claims', ok: true },
     ]);
+    expect(c.why).toBeNull();
   });
 
   it('shows what it understood and the confidence on a Before you stop answer', async () => {
@@ -284,5 +287,18 @@ describe('AI cards (PRD F8-F10)', () => {
     const fallback = await card(fakeLlm(understood({ confidence: 0.3 })), 'before_stop', r.id, r.banyan);
     expect(fallback).toMatchObject({ outcome: 'fallback', understood: null, strip: null, text: "I couldn't give a reliable answer here." });
     expect(fallback.facts?.length).toBeGreaterThan(0);
+    expect(fallback.links?.map((l) => l.label)).toEqual(['SEBI Investor Website', 'AMFI']);
+    expect(declined.why).toBeNull();
+  });
+
+  it('says in plain words which step stopped the answer on the fallback card', async () => {
+    const r = await riya();
+    expect((await card(fakeLlm(understood({ confidence: 0.3 })), 'before_stop', r.id, r.banyan)).why).toBe("The AI wasn't sure enough what you meant.");
+    const claim = await card(fakeLlm(understood(), { text: 'This dip is temporary. This is not investment advice.' }), 'before_stop', r.id, r.banyan);
+    expect(claim).toMatchObject({ outcome: 'fallback', why: "The answer didn't pass a check: No unsupported claims." });
+    expect((await card(fakeLlm(new LlmError('Groq did not answer within 12 s')), 'before_stop', r.id, r.banyan)).why).toBe('The AI took too long to answer.');
+    expect((await card(fakeLlm(new LlmError('Mistral returned HTTP 500')), 'before_stop', r.id, r.banyan)).why).toBe('The AI service returned an error.');
+    expect(fallbackWhy({ kind: 'facts' })).toBe("This SIP's numbers didn't add up, so the AI wasn't asked.");
+    expect(fallbackWhy({ kind: 'checks', failed: ['Numbers match your SIP', 'Disclaimer shown'] })).toBe("The answer didn't pass a check: Numbers match your SIP, Disclaimer shown.");
   });
 });

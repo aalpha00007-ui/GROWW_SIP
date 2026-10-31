@@ -14,6 +14,7 @@ export function CheckInCardView({ card }: { card: CheckInCard }) {
         </p>
       )}
       <p className={`whitespace-pre-line ${card.understood ? 'mt-3' : ''} ${card.outcome === 'answer' ? '' : 'font-semibold'}`}>{toRupeeSign(card.text)}</p>
+      {card.why && <p className="mt-1 text-sm text-muted">Why: {card.why}</p>}
 
       {card.appLink && (
         <Link href={card.appLink.href} className="mt-3 inline-flex min-h-11 items-center font-semibold text-primary underline">

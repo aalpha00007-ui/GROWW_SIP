@@ -44,7 +44,16 @@ export default function HowTheAiWorks() {
               )}
             </li>
             <li>
-              <b>Writing the answer:</b> <code>{writer}</code> on Mistral.
+              <b>Writing the answer:</b> <code>{writer}</code> on Mistral
+              {reader ? (
+                <>
+                  {' '}
+                  in English. In Hindi or Hinglish, <code>{reader}</code> on Groq, the larger model, writes it; if Groq fails,{' '}
+                  <code>{writer}</code> on Mistral writes it instead.
+                </>
+              ) : (
+                '.'
+              )}
             </li>
             <li>Both are called from our server only; the keys never reach your browser. Every answer is saved with the names of the models that made it.</li>
           </ul>
@@ -57,9 +66,10 @@ export default function HowTheAiWorks() {
         <h2 className={H2}>What the AI gets</h2>
         <ul className={LIST}>
           <li>
-            <b>Your SIP&apos;s own numbers, worked out by code:</b> the fund&apos;s name and category, the instalment, months invested, instalments paid
-            and skipped, what you&apos;ve put in, its value today and the change, the worst fall since it started, the next instalment date, and the
-            SIP&apos;s goal with the time to go, or that no goal is set.
+            <b>Your SIP&apos;s own numbers, worked out by code:</b> the fund&apos;s name, category and exit load, the instalment, months invested,
+            instalments paid and skipped, what you&apos;ve put in, its value today and the change, the worst fall since it started, the biggest fall from
+            a high in the fund&apos;s demo history (history, not a prediction), the next instalment date, and the SIP&apos;s goal with its target amount,
+            the time to go and what the plan puts in by then, or that no goal is set.
           </li>
           <li>
             <b>At Before you stop, the reason you typed.</b> First, code checks it for an email, phone number, PAN, Aadhaar, OTP or account number.
@@ -87,9 +97,10 @@ export default function HowTheAiWorks() {
             The second model writes a short reply, at most {MAX_WORDS} words, in English, Hindi or Hinglish, using only the numbers it was given.
           </li>
           <li>
-            Code checks the reply four ways: no advice words (such as &ldquo;recommend&rdquo; or &ldquo;you should sell&rdquo;); every rupee amount,
-            percentage and count of months or years matches the numbers it was given; it ends with &ldquo;{DISCLAIMER}&rdquo;; and it is {MAX_WORDS} words
-            or fewer.
+            Code checks the reply five ways: no advice words (such as &ldquo;recommend&rdquo; or &ldquo;you should sell&rdquo;); every rupee amount,
+            percentage and count of months or years matches the numbers it was given; it ends with &ldquo;{DISCLAIMER}&rdquo;; it is {MAX_WORDS} words
+            or fewer; and it makes no unsupported claims: it never calls a fall normal, small or temporary, says it will recover, or tells you not to
+            worry, in English, Hindi or Hinglish.
           </li>
         </ol>
         <p className="mt-3">For &ldquo;What does this dip mean for my goal?&rdquo; there is no reason to read, so it starts at step 3.</p>
@@ -103,7 +114,8 @@ export default function HowTheAiWorks() {
           </li>
           <li>
             <b>The safe fallback,</b> when a check fails, the model is unsure, doesn&apos;t answer in time or returns an error: &ldquo;{FALLBACK_TEXT}&rdquo;,
-            shown with your SIP&apos;s numbers and links to the {OFFICIAL_LINKS.map((l) => l.label).join(' and ')}.
+            shown with your SIP&apos;s numbers and links to the {OFFICIAL_LINKS.map((l) => l.label).join(' and ')}. The card says in plain words which
+            step stopped the answer, such as the check that failed.
           </li>
         </ul>
       </section>

@@ -4,7 +4,7 @@ import { loadExplainerChunks, type ExplainerChunk } from '../chunking/explainers
 import { factsProblem, type FactsUnit } from '../chunking/facts';
 import { numberTokens } from '../chunking/format';
 import { todayInIndia } from '../loading/dates';
-import { loadAdvicePatterns, type AdvicePattern, type Outcome, type Route } from '../loading/fixtures';
+import { loadAdvicePatterns, loadClaimPatterns, type AdvicePattern, type Outcome, type Route } from '../loading/fixtures';
 import { readReason, writeAnswer, type Understanding } from './ai';
 import { allPassed, runChecks, type QualityChecks } from './checks';
 import { decideRoute } from './decide';
@@ -40,11 +40,28 @@ export interface CheckInInput {
   text?: string;
 }
 
+/** Why the fallback card was shown, in plain words on the card. */
+export type FallbackReason =
+  | { kind: 'checks'; failed: string[] }
+  | { kind: 'unsure' }
+  | { kind: 'timeout' }
+  | { kind: 'error' }
+  | { kind: 'facts' };
+
+/** The quality strip's names for the checks, also used to say which one stopped an answer. */
+export const CHECK_LABELS: Record<'no_advice' | 'grounded' | 'disclaimer' | 'length' | 'no_claims', string> = {
+  no_advice: 'No investment advice',
+  grounded: 'Numbers match your SIP',
+  disclaimer: 'Disclaimer shown',
+  length: 'Short enough',
+  no_claims: 'No unsupported claims',
+};
+
 export interface CheckInDeps {
   db: Db;
   /** Mistral: writes the answer, and reads the reason when there is no reader. Null when no MISTRAL_API_KEY is set. */
   llm: Llm | null;
-  /** Groq: reads the reason (call 1), with Mistral as its backup. Absent when no GROQ_API_KEY is set. */
+  /** Groq: reads the reason (call 1), with Mistral as its backup, and writes Hindi and Hinglish answers. Absent when no GROQ_API_KEY is set. */
   reader?: Llm | null;
   today?: string;
   promptVersion?: string;
@@ -67,6 +84,8 @@ export type CheckInResult =
       facts: FactsUnit;
       /** The quality strip; null when no answer was written. */
       checks: QualityChecks | null;
+      /** Why the fallback card was shown; null for an answer or a decline. */
+      fallbackReason: FallbackReason | null;
       options: typeof OPTIONS;
       links: typeof OFFICIAL_LINKS;
       latencyMs: number;
@@ -112,6 +131,7 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
   let answer: string | null = null;
   let checks: QualityChecks | null = null;
   let outcome: Outcome = 'fallback';
+  let fallbackReason: FallbackReason | null = problem ? { kind: 'facts' } : null;
   const modelsUsed: string[] = [];
   try {
     if (problem) {
@@ -125,19 +145,39 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
       const decision = decideRoute(understood); // Step 5
       if (decision.outcome === 'declined') outcome = 'declined';
       else if (decision.outcome === 'answer') route = decision.route;
+      else fallbackReason = { kind: 'unsure' };
     }
     if (route) {
       explainers = ROUTE_EXPLAINERS[route].map((key) => explainerChunks()[key]); // Step 6
       const language = understood?.language ?? 'en';
-      if (deps.llm) modelsUsed.push(deps.llm.model);
-      answer = await writeAnswer(deps.llm, { route, facts: unit, explainers, language, moment: input.moment, reason }); // Step 7
-      checks = runChecks(answer, [...unit.numbers, ...explainers.flatMap((e) => numberTokens(e.text))], advicePatterns()); // Step 8
+      const args = { route, facts: unit, explainers, language, moment: input.moment, reason };
+      // Step 7. Hindi and Hinglish answers are written by the bigger model on Groq, with Mistral as its backup.
+      const groqWrites = (language === 'hi' || language === 'hinglish') && deps.reader;
+      if (groqWrites) {
+        try {
+          answer = await writeAnswer(deps.reader!, args);
+          modelsUsed.push(deps.reader!.model);
+        } catch (err) {
+          if (!(err instanceof LlmError) || !deps.llm) throw err;
+          log(`Writer ${deps.reader!.model} failed (${err.message}); ${deps.llm.model} writes instead`);
+        }
+      }
+      if (answer === null) {
+        if (deps.llm) modelsUsed.push(deps.llm.model);
+        answer = await writeAnswer(deps.llm, args);
+      }
+      checks = runChecks(answer, [...unit.numbers, ...explainers.flatMap((e) => numberTokens(e.text))], advicePatterns(), claimPatterns()); // Step 8
       outcome = allPassed(checks) ? 'answer' : 'fallback';
+      if (outcome === 'fallback') {
+        const failed = (Object.keys(CHECK_LABELS) as (keyof typeof CHECK_LABELS)[]).filter((k) => !checks![k]).map((k) => CHECK_LABELS[k]);
+        fallbackReason = { kind: 'checks', failed };
+      }
     }
   } catch (err) {
     if (!(err instanceof LlmError)) throw err;
     log(`AI step failed, showing the fallback card: ${err.message}`);
     outcome = 'fallback';
+    fallbackReason = { kind: /did not answer within/.test(err.message) ? 'timeout' : 'error' };
   }
 
   // Step 9: show and log.
@@ -171,6 +211,7 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
     goalLine: lookup.goalLine,
     facts: unit,
     checks,
+    fallbackReason: outcome === 'fallback' ? (fallbackReason ?? { kind: 'error' }) : null,
     options: OPTIONS,
     links: OFFICIAL_LINKS,
     latencyMs,
@@ -189,3 +230,5 @@ let chunkCache: ReturnType<typeof loadExplainerChunks> | undefined;
 let patternCache: AdvicePattern[] | undefined;
 const explainerChunks = () => (chunkCache ??= loadExplainerChunks());
 const advicePatterns = () => (patternCache ??= loadAdvicePatterns());
+let claimCache: AdvicePattern[] | undefined;
+const claimPatterns = () => (claimCache ??= loadClaimPatterns());

@@ -130,6 +130,16 @@ describe('SIP facts unit', () => {
     ]);
   });
 
+  it("adds the fund's biggest fall from a high in its demo history, after the SIP's own worst fall", () => {
+    const unit = buildFactsUnit({ ...riya, fund_biggest_fall: { pct: -18.43, date: '2025-03-14' } });
+    const at = unit.lines.findIndex((l) => l.label === 'Worst fall since start');
+    expect(unit.lines[at + 1]).toEqual({ label: "Biggest fall from a high in this fund's demo history", value: '-18.4% (Mar 2025)' });
+    expect(unit.numbers).toEqual(expect.arrayContaining(['-18.4%', '2025']));
+    // Before the first instalment, the history is still there, with no returns.
+    const fresh = buildFactsUnit({ ...riya, instalments_paid: 0, invested: 0, current_value: 0, worst_fall_since_start_pct: null, fund_biggest_fall: { pct: -18.43, date: '2025-03-14' } });
+    expect(fresh.lines.map((l) => l.label).slice(2, 4)).toEqual(['First instalment', "Biggest fall from a high in this fund's demo history"]);
+  });
+
   it('shows no returns before the first instalment', () => {
     const unit = buildFactsUnit({
       ...riya, months_invested: 0, instalments_paid: 0, invested: 0, current_value: 0, worst_fall_since_start_pct: null,

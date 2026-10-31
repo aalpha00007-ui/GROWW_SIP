@@ -68,11 +68,11 @@ Not used (architecture decision D3). Two plain stores hold everything: Neon Post
 
 ## Phase 5 · retrieval logic (backend)
 
-`src/pipeline/retrieval/` runs the check-in in architecture Phase 5: validate, PII guard, SQL facts, call 1 (understand), route in code, context with the route's explainers, call 2 (answer), four quality checks, and an `ai_checks` row.
+`src/pipeline/retrieval/` runs the check-in in architecture Phase 5: validate, PII guard, SQL facts, call 1 (understand), route in code, context with the route's explainers, call 2 (answer), five quality checks, and an `ai_checks` row. A fallback card says in plain words which step stopped the answer: a named check, an unsure reading, a timeout or an error.
 
 Two free models share the work (architecture decision D4):
 - **Call 1, understanding the reason:** Groq `openai/gpt-oss-120b`. If Groq fails or runs out of free requests, Mistral reads the reason instead.
-- **Call 2, writing the answer:** Mistral `ministral-8b-latest`.
+- **Call 2, writing the answer:** Mistral `ministral-8b-latest` in English. Hindi and Hinglish answers are written by Groq `openai/gpt-oss-120b`, with Mistral as its backup (prompt v7; kept because the eval gate still passed).
 
 `src/llm/chat.ts` calls both from the server only (JSON mode, 12 s timeout, one retry on 429). Without `GROQ_API_KEY`, Mistral does both calls. Without `MISTRAL_API_KEY`, every check-in ends safely in the fallback card.
 
@@ -95,7 +95,7 @@ npm run retrieve -- fresh riya            # start over with a clean copy
 
 - **Must pass every run:**
     - the 10 must-pass cases: advice requests declined, refund misreads caught, nonsense to the fallback card, and someone who needs the money gets the cash route (s17 English, s18 Hinglish)
-    - no answer with advice, wrong numbers or a missing disclaimer.
+    - no answer with advice, wrong numbers, a missing disclaimer or an unsupported claim (calling a fall normal, small or temporary, promising a recovery, "don't worry"; `data/raw/guardrails/claim_patterns.json`).
 - **Must not regress:**
     - golden-set theme agreement at least 65% (target 75%)
     - at least 7 of the 8 routing cases.
@@ -121,7 +121,7 @@ groww-sip-mvp/
 │   │   ├── personas/          seven persona seed templates (Kabir, Riya, Arjun on the landing page)
 │   │   ├── market/            made-up funds, NAVs, assets, prices, IPOs
 │   │   ├── explainers/        stop, skip, pause, lower amount
-│   │   └── guardrails/        advice-phrase list (EN, HI, Hinglish)
+│   │   └── guardrails/        advice-phrase and unsupported-claim lists (EN, HI, Hinglish)
 │   ├── chunks/                Phase 2 · one unit per explainer
 │   ├── embeddings/            Phase 3 · not used (D3)
 │   ├── vector_db/             Phase 4 · not used (D3)

@@ -1,0 +1,77 @@
+{
+  "source": "Fix 5, no unsupported claims. Matched case-insensitively against every AI answer; any match sends the investor to the fallback card. A fall is described only with the numbers in the facts: never called normal, small or temporary, never promised to recover, and nobody is told not to worry. English, Hindi and Hinglish.",
+  "patterns": [
+    {
+      "lang": "en",
+      "pattern": "\\bnormal\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\b(small|big|expected|usual) (dip|fall|drop)s?\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\b(falls?|dips?|drops?) like this (is|are) (common|usual|expected)\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\btemporar(y|ily)\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\b(will|should|could|may) (recover|bounce back|come back|go back up)\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\bbounce back\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\b(don['’]?t|do not|no need to) worry\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\bnothing to worry\\b"
+    },
+    {
+      "lang": "hinglish",
+      "pattern": "\\bchinta (mat|na|nahi)\\b"
+    },
+    {
+      "lang": "hinglish",
+      "pattern": "\\bghabra(iye|o|na)? mat\\b"
+    },
+    {
+      "lang": "hinglish",
+      "pattern": "\\bnormal hai\\b"
+    },
+    {
+      "lang": "hinglish",
+      "pattern": "\\btheek ho ja(ye|e)ga\\b"
+    },
+    {
+      "lang": "hinglish",
+      "pattern": "\\b(wapas|recover ho) (aa )?ja(ye|e)ga\\b"
+    },
+    {
+      "lang": "hi",
+      "pattern": "सामान्य"
+    },
+    {
+      "lang": "hi",
+      "pattern": "चिंता (मत|न)"
+    },
+    {
+      "lang": "hi",
+      "pattern": "ठीक हो जाएगा"
+    },
+    {
+      "lang": "hi",
+      "pattern": "वापस आ जाएगा"
+    },
+    {
+      "lang": "hi",
+      "pattern": "घबरा(एं|इए|ओ|इये) मत"
+    }
+  ]
+}

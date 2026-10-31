@@ -120,7 +120,7 @@ async function evalRun(db: Db, deployedCommit: string | undefined): Promise<Qual
       rule: `At most ${ROUTING_MISSES_ALLOWED} miss`,
       ok: routingMisses <= ROUTING_MISSES_ALLOWED,
     },
-    { label: 'Invariant failures', value: String(invariantFailures), rule: 'None: no advice, numbers match, disclaimer', ok: invariantFailures === 0 },
+    { label: 'Invariant failures', value: String(invariantFailures), rule: 'None: no advice, numbers match, disclaimer, no unsupported claims', ok: invariantFailures === 0 },
   ];
 
   const short = run.commit_sha.slice(0, 7);

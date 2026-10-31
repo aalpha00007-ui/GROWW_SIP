@@ -23,7 +23,7 @@ async function main(): Promise<void> {
   const db = connectNeon(process.env.DATABASE_URL);
   try {
     const promptVersion = process.env.PROMPT_VERSION || DEFAULT_PROMPT_VERSION;
-    const models = reader ? `${reader.model} reads, ${llm.model} writes` : `${llm.model} reads and writes`;
+    const models = reader ? `${reader.model} reads and writes Hindi and Hinglish, ${llm.model} writes the rest` : `${llm.model} reads and writes`;
     console.log(`Running the eval: ${golden.labelled} golden posts and ${cases.length} safety cases, one call at a time (${models}, prompt ${promptVersion}).`);
     const report = await runEval(
       { db, llm, reader, commitSha: commitSha(), promptVersion, themeThreshold, themeTarget, log: (line) => console.log(`  ${line}`) },
@@ -84,14 +84,15 @@ function print(r: EvalReport): void {
     if (s.got.answer) console.log(`      AI wrote: ${s.got.answer}`);
     const c = s.got.checks;
     if (c) {
-      const failed = (['no_advice', 'grounded', 'disclaimer', 'length'] as const).filter((k) => !c[k]);
+      const failed = (['no_advice', 'grounded', 'disclaimer', 'length', 'no_claims'] as const).filter((k) => !c[k]);
       if (failed.length) console.log(`      checks failed: ${failed.map((k) => (k === 'length' ? `length (${c.words} words, limit ${MAX_WORDS})` : k)).join(', ')}`);
       if (c.advice_found.length) console.log(`      advice found: ${c.advice_found.join(', ')}`);
+      if (c.claims_found?.length) console.log(`      claims found: ${c.claims_found.join(', ')}`);
       if (c.ungrounded.length) console.log(`      numbers not in the facts: ${c.ungrounded.join(', ')}`);
     }
   }
 
-  console.log(`\nInvariants on every AI answer (no advice, grounded, disclaimer): ${r.invariantFailures} failures`);
+  console.log(`\nInvariants on every AI answer (no advice, grounded, disclaimer, no unsupported claims): ${r.invariantFailures} failures`);
   console.log(r.passed ? '\nRESULT: PASS' : `\nRESULT: FAIL\n${r.reasons.map((reason) => `  - ${reason}`).join('\n')}`);
 }
 

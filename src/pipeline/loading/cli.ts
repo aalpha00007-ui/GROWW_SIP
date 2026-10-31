@@ -2,7 +2,7 @@
 // and `npm run db:migrate` (the schema only, no seed: safe on every deploy, keeps every visitor's data).
 import { connectNeon } from '../../db/client';
 import { loadEnvFiles } from '../../env';
-import { loadAdvicePatterns, loadEvalCases, loadExplainers, loadGoldenSet } from './fixtures';
+import { loadAdvicePatterns, loadClaimPatterns, loadEvalCases, loadExplainers, loadGoldenSet } from './fixtures';
 import { loadMarket, loadPersonas, loadTrading } from './raw';
 import { applySchema, setupDatabase, wipeDatabase } from './seed';
 import { verifyDatabase } from './verify';
@@ -54,6 +54,7 @@ function checkData(): void {
   const trading = loadTrading(market);
   const explainers = Object.values(loadExplainers());
   const patterns = loadAdvicePatterns();
+  const claims = loadClaimPatterns();
   const cases = loadEvalCases();
   const golden = loadGoldenSet();
 
@@ -63,6 +64,7 @@ function checkData(): void {
   console.log(`  personas: ${personas.map((p) => p.key).join(', ')}`);
   console.log(`  explainers: ${explainers.map((e) => `${e.key} (${e.status})`).join(', ')}`);
   console.log(`  advice patterns: ${patterns.length}`);
+  console.log(`  claim patterns: ${claims.length}`);
   console.log(`  eval cases: ${cases.length}`);
   console.log(`  golden set: ${golden.labelled} labelled, ${golden.skipped} without a label`);
 

@@ -56,6 +56,16 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
   ).rows;
   if (!latest) throw new Error(`No NAV history for fund ${sip.fund_id}. Run npm run db:setup.`);
 
+  // The fund's biggest fall from a high in all the NAVs this visitor sees: history for context, never a prediction.
+  const [biggest] = (
+    await db.query<{ fall: string; nav_date: string }>(
+      `SELECT round((nav / peak - 1) * 100, 1)::text AS fall, nav_date::text FROM (
+         SELECT nav, nav_date, max(nav) OVER (ORDER BY nav_date) AS peak FROM visible_nav_history($1) WHERE fund_id = $2
+       ) t ORDER BY nav / peak, nav_date LIMIT 1`,
+      [investorId, sip.fund_id],
+    )
+  ).rows;
+
   let worstFall: number | null = null;
   // From the first payment: a new SIP pays its first instalment at once, before its first due date. The peak
   // starts at the price that instalment was bought at: it is dated today but bought at the last NAV before
@@ -93,6 +103,7 @@ export async function retrieveFacts(db: Db, investorId: string, sipId: number, t
     fund_name: sip.fund_name,
     fund_category: sip.category,
     exit_load: sip.exit_load_text,
+    fund_biggest_fall: biggest && Number(biggest.fall) < 0 ? { pct: Number(biggest.fall), date: biggest.nav_date } : null,
     amount: sip.amount,
     months_invested: monthsInvested,
     instalments_paid: paid.count,

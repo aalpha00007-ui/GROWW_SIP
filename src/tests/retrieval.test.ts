@@ -7,6 +7,7 @@ import { clonePersona } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
 import { stripMarkdown } from '../pipeline/retrieval/ai';
 import { DECLINED_TEXT, FALLBACK_TEXT, recordChoice, runCheckIn, type CheckInResult } from '../pipeline/retrieval/checkin';
+import { loadClaimPatterns } from '../pipeline/loading/fixtures';
 import { runChecks } from '../pipeline/retrieval/checks';
 import { decideRoute } from '../pipeline/retrieval/decide';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
@@ -249,7 +250,7 @@ describe('routing (step 5)', () => {
 
 describe('the full check-in (steps 4-9)', () => {
   const groundedAnswer =
-    'Your SIP is for Home down payment, by Mar 2031, with 4 years 5 months to go. You have put in Rs 14,000 over 7 months. Falls like this are common early in a long plan. You can keep it, skip next, pause or lower the amount. This is not investment advice.';
+    'Your SIP is for Home down payment, by Mar 2031, with 4 years 5 months to go. You have put in Rs 14,000 over 7 months. Values move with the market. You can keep it, skip next, pause or lower the amount. This is not investment advice.';
 
   it('answers a market-fall doubt with the goal, and logs it', async () => {
     const llm = fakeLlm(understood({ language: 'hinglish', confidence: 0.86 }), { text: groundedAnswer });
@@ -261,7 +262,7 @@ describe('the full check-in (steps 4-9)', () => {
     expect(llm.calls[1][0].content).toContain('Write in Hinglish');
     const [row] = (await db.query('SELECT moment, outcome, route, model, prompt_version, user_text FROM ai_checks WHERE id = $1', [r.aiCheckId])).rows;
     expect(row).toEqual({
-      moment: 'before_stop', outcome: 'answer', route: 'doubt', model: 'fake-model', prompt_version: 'v6',
+      moment: 'before_stop', outcome: 'answer', route: 'doubt', model: 'fake-model', prompt_version: 'v7',
       user_text: 'Market crash ho gaya, mera SIP red mein hai. Band kar du?',
     });
   });
@@ -293,29 +294,93 @@ describe('the full check-in (steps 4-9)', () => {
     }
   });
 
-  it('falls back when the model is unsure, fails, or is not set up', async () => {
+  it('falls back when the model is unsure, fails, or is not set up, and says which step stopped it', async () => {
     const unsure = fakeLlm(understood({ primary_theme: 'Not relevant', confidence: 0.1 }));
-    expect(ok(await ask(unsure, 'asdfgh'))).toMatchObject({ outcome: 'fallback', route: null, text: FALLBACK_TEXT });
+    expect(ok(await ask(unsure, 'asdfgh'))).toMatchObject({ outcome: 'fallback', route: null, text: FALLBACK_TEXT, fallbackReason: { kind: 'unsure' } });
     expect(unsure.calls).toHaveLength(1);
 
-    expect(ok(await ask(fakeLlm(new LlmError('Mistral did not answer within 12 s')), 'Markets are down'))).toMatchObject({ outcome: 'fallback', understood: null });
-    expect(ok(await ask(fakeLlm(understood(), new LlmError('Mistral returned HTTP 500')), 'Markets are down'))).toMatchObject({ outcome: 'fallback', route: 'doubt' });
-    expect(ok(await ask(null, 'Markets are down'))).toMatchObject({ outcome: 'fallback' });
+    expect(ok(await ask(fakeLlm(new LlmError('Mistral did not answer within 12 s')), 'Markets are down'))).toMatchObject({
+      outcome: 'fallback', understood: null, fallbackReason: { kind: 'timeout' },
+    });
+    expect(ok(await ask(fakeLlm(understood(), new LlmError('Mistral returned HTTP 500')), 'Markets are down'))).toMatchObject({
+      outcome: 'fallback', route: 'doubt', fallbackReason: { kind: 'error' },
+    });
+    expect(ok(await ask(null, 'Markets are down'))).toMatchObject({ outcome: 'fallback', fallbackReason: { kind: 'error' } });
+    // An answer or a decline has no fallback reason.
+    expect(ok(await ask(fakeLlm(understood(), { text: groundedAnswer }), 'Markets are down')).fallbackReason).toBeNull();
+    expect(ok(await ask(fakeLlm(understood({ asks_for_advice: true })), 'Which fund?')).fallbackReason).toBeNull();
   });
 
-  it('falls back when an answer fails any of the four checks', async () => {
-    const cases: [string, string][] = [
-      ['no_advice', 'You should continue your SIP for Home down payment. This is not investment advice.'],
-      ['grounded', 'You have put in Rs 99,999 so far for Home down payment. This is not investment advice.'],
-      ['disclaimer', 'Your goal is Home down payment, by Mar 2031.'],
-      ['length', `${'Your plan is long. '.repeat(30)}This is not investment advice.`],
+  it('falls back when an answer fails any of the five checks, and names the check', async () => {
+    const cases: [string, string, string][] = [
+      ['no_advice', 'No investment advice', 'You should continue your SIP for Home down payment. This is not investment advice.'],
+      ['grounded', 'Numbers match your SIP', 'You have put in Rs 99,999 so far for Home down payment. This is not investment advice.'],
+      ['disclaimer', 'Disclaimer shown', 'Your goal is Home down payment, by Mar 2031.'],
+      ['length', 'Short enough', `${'Your plan is long. '.repeat(30)}This is not investment advice.`],
+      ['no_claims', 'No unsupported claims', 'This fall is temporary for Home down payment, by Mar 2031. This is not investment advice.'],
     ];
-    for (const [failing, text] of cases) {
+    for (const [failing, label, text] of cases) {
       const r = ok(await ask(fakeLlm(understood(), { text }), 'Markets are down'));
       expect(r.outcome, failing).toBe('fallback');
       expect(r.text).toBe(FALLBACK_TEXT);
       expect((r.checks as unknown as Record<string, boolean>)[failing], failing).toBe(false);
+      expect(r.fallbackReason, failing).toEqual({ kind: 'checks', failed: [label] });
     }
+  });
+
+  it('finds unsupported claims in English, Hindi and Hinglish, and leaves plain numbers alone', () => {
+    const claims = loadClaimPatterns();
+    const found = (text: string) => runChecks(`${text} This is not investment advice.`, [], [], claims);
+    for (const text of [
+      'This is a normal dip.', "Don't worry, it will bounce back.", 'A small dip like this is temporary.', 'Falls like this are common.',
+      'The fund will recover.', 'There is nothing to worry about.',
+      'Chinta mat karo, market wapas aa jayega.', 'Yeh normal hai.', 'Sab theek ho jayega.', 'Ghabraiye mat.',
+      'यह गिरावट सामान्य है।', 'चिंता मत कीजिए।', 'सब ठीक हो जाएगा।',
+    ]) {
+      expect(found(text).no_claims, text).toBe(false);
+    }
+    expect(found('Ghabraiye mat.').claims_found).toEqual(['\\bghabra(iye|o|na)? mat\\b']);
+    for (const text of [
+      groundedAnswer.replace(' This is not investment advice.', ''),
+      'Aapka SIP Home down payment ke liye hai. Value aaj Rs 12,086 hai, worst fall -14.2% raha.',
+      'आपने अब तक Rs 14,000 लगाए हैं। आज इसकी कीमत Rs 12,086 है।',
+    ]) {
+      expect(found(text).no_claims, text).toBe(true);
+    }
+  });
+
+  it('tells the writer never to call a fall normal, and gives it the fund history as a fact', async () => {
+    const lookup = await retrieveFacts(db, riya, riyaSips[0], TODAY);
+    if (lookup.status !== 'ok') throw new Error(lookup.status);
+    const [system] = answerMessages({ route: 'doubt', facts: lookup.unit, explainers: [], language: 'en', moment: 'is_this_normal', reason: '' });
+    expect(system.content).toContain(
+      'Never call a fall normal, small, big, temporary or expected, and never tell them not to worry. Describe it only with the numbers in the facts.',
+    );
+    expect(system.content).not.toContain('Describe what is normal only in general terms.');
+    const biggest = lookup.facts.fund_biggest_fall;
+    expect(biggest?.pct).toBeLessThan(0);
+    // The fund's whole history includes the months since this SIP started, so its fall is at least as deep.
+    expect(biggest!.pct).toBeLessThanOrEqual(lookup.facts.worst_fall_since_start_pct! + 0.05);
+    expect(lookup.unit.text).toMatch(/\n- Biggest fall from a high in this fund's demo history: -\d+\.\d% \([A-Z][a-z]{2} \d{4}\)\n/);
+  });
+
+  it('writes Hindi and Hinglish answers with the reader, and with Mistral when the reader fails', async () => {
+    const reader = { ...fakeLlm(understood({ language: 'hinglish' }), { text: groundedAnswer }), model: 'reader-model' };
+    const writer = fakeLlm();
+    const r = ok(await runCheckIn({ db, llm: writer, reader, today: TODAY, log: () => {} }, { investorId: riya, sipId: riyaSips[0], moment: 'before_stop', text: 'Market gir gaya, band kar du?' }));
+    expect(r).toMatchObject({ outcome: 'answer', route: 'doubt' });
+    expect([reader.calls.length, writer.calls.length]).toEqual([2, 0]);
+    expect(reader.calls[1][0].content).toContain('Write in Hinglish');
+    expect((await db.query('SELECT model FROM ai_checks WHERE id = $1', [r.aiCheckId])).rows).toEqual([{ model: 'reader-model' }]);
+
+    const failing = { ...fakeLlm(understood({ language: 'hi' }), new LlmError('Groq returned HTTP 429')), model: 'reader-model' };
+    const backup = fakeLlm({ text: groundedAnswer });
+    const lines: string[] = [];
+    const hi = ok(await runCheckIn({ db, llm: backup, reader: failing, today: TODAY, log: (l) => lines.push(l) }, { investorId: riya, sipId: riyaSips[0], moment: 'before_stop', text: 'बाज़ार गिर गया, SIP बंद कर दूँ?' }));
+    expect(hi).toMatchObject({ outcome: 'answer', route: 'doubt' });
+    expect(backup.calls[0][0].content).toContain('Write in Hindi, in Devanagari script');
+    expect(lines).toEqual(['Writer reader-model failed (Groq returned HTTP 429); fake-model writes instead']);
+    expect((await db.query('SELECT model FROM ai_checks WHERE id = $1', [hi.aiCheckId])).rows).toEqual([{ model: 'reader-model + fake-model' }]);
   });
 
   it('strips markdown the model adds before checking and showing the answer', async () => {
@@ -363,9 +428,9 @@ describe('the full check-in (steps 4-9)', () => {
 
   it('reads "a fall of 6%" as the facts\' "-6.0%", but still catches 6.5%', () => {
     const facts = ['-6.0%', 'Rs 3,000'];
-    expect(runChecks('A fall of 6% on Rs 3,000. This is not investment advice.', facts, []).ungrounded).toEqual([]);
-    expect(runChecks('A fall of 6.5% on Rs 3,000. This is not investment advice.', facts, []).ungrounded).toEqual(['6.5%']);
-    expect(runChecks('A fall of 60% on Rs 3,000. This is not investment advice.', facts, []).ungrounded).toEqual(['60%']);
+    expect(runChecks('A fall of 6% on Rs 3,000. This is not investment advice.', facts, [], []).ungrounded).toEqual([]);
+    expect(runChecks('A fall of 6.5% on Rs 3,000. This is not investment advice.', facts, [], []).ungrounded).toEqual(['6.5%']);
+    expect(runChecks('A fall of 60% on Rs 3,000. This is not investment advice.', facts, [], []).ungrounded).toEqual(['60%']);
   });
 
   it('runs the dip explainer on route doubt with no understanding call', async () => {

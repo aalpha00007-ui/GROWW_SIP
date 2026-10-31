@@ -108,6 +108,7 @@ function print(r: CheckInResult): void {
   }
   const ok = (pass: boolean) => (pass ? 'ok' : 'FAIL');
   console.log(`Outcome:    ${r.outcome}${r.route ? ` · route ${r.route}` : ''} · ${r.latencyMs} ms · ai_checks #${r.aiCheckId}`);
+  if (r.fallbackReason) console.log(`Why:        ${r.fallbackReason.kind}${r.fallbackReason.kind === 'checks' ? `: ${r.fallbackReason.failed.join(', ')}` : ''}`);
   if (r.understood) {
     console.log(`Understood: "${r.understood.summary}" (${r.understood.language}, confidence ${r.understood.confidenceLabel} ${r.understood.confidence})`);
   }
@@ -115,8 +116,9 @@ function print(r: CheckInResult): void {
   console.log(`\n${r.text}\n`);
   if (r.checks) {
     const c = r.checks;
-    console.log(`Quality:    no advice ${ok(c.no_advice)} · numbers match ${ok(c.grounded)} · disclaimer ${ok(c.disclaimer)} · ${c.words} words ${ok(c.length)}`);
+    console.log(`Quality:    no advice ${ok(c.no_advice)} · numbers match ${ok(c.grounded)} · disclaimer ${ok(c.disclaimer)} · ${c.words} words ${ok(c.length)} · no unsupported claims ${ok(c.no_claims)}`);
     if (c.advice_found.length) console.log(`            advice found: ${c.advice_found.join(', ')}`);
+    if (c.claims_found.length) console.log(`            claims found: ${c.claims_found.join(', ')}`);
     if (c.ungrounded.length) console.log(`            numbers not in the facts: ${c.ungrounded.join(', ')}`);
   }
   if (r.outcome !== 'answer') console.log(`${r.facts.text}\n`);

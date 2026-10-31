@@ -43,7 +43,15 @@ export interface AdvicePattern {
 }
 
 export function loadAdvicePatterns(): AdvicePattern[] {
-  const file = 'raw/guardrails/advice_patterns.json';
+  return loadPatterns('raw/guardrails/advice_patterns.json');
+}
+
+/** Unsupported claims: calling a fall normal or temporary, promising a recovery, "don't worry" (Fix 5). */
+export function loadClaimPatterns(): AdvicePattern[] {
+  return loadPatterns('raw/guardrails/claim_patterns.json');
+}
+
+function loadPatterns(file: string): AdvicePattern[] {
   const patterns = JSON.parse(readDataFile(file)).patterns;
   check(Array.isArray(patterns) && patterns.length > 0, file, 'needs a non-empty "patterns" list');
   return patterns.map((p: { lang: string; pattern: string }) => {

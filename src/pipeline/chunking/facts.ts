@@ -14,6 +14,8 @@ export interface SipFacts {
   fund_category: string;
   /** The fund's exit load, as the fund page states it ('1% if redeemed within 1 year', 'Nil'). */
   exit_load?: string;
+  /** The fund's biggest fall from a high in its demo NAV history (-18.4) and the date it bottomed. History, not a prediction. */
+  fund_biggest_fall?: { pct: number; date: string } | null;
   /** Rupees per instalment. */
   amount: number;
   months_invested: number;
@@ -97,6 +99,15 @@ export function buildFactsUnit(facts: SipFacts): FactsUnit {
     if (facts.worst_fall_since_start_pct !== null) {
       lines.push({ label: 'Worst fall since start', value: percent(facts.worst_fall_since_start_pct) });
     }
+  }
+  // History for context, from the fund's demo NAVs: never a prediction (Fix 5).
+  if (facts.fund_biggest_fall) {
+    lines.push({
+      label: "Biggest fall from a high in this fund's demo history",
+      value: `${percent(facts.fund_biggest_fall.pct)} (${monthYear(facts.fund_biggest_fall.date)})`,
+    });
+  }
+  if (facts.instalments_paid > 0) {
     if (facts.next_due_date) lines.push({ label: 'Next instalment', value: dayMonthYear(facts.next_due_date) });
   }
   lines.push(...goalLines(facts));

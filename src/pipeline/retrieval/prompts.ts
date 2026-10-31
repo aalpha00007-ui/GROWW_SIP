@@ -4,7 +4,7 @@ import type { ExplainerChunk } from '../chunking/explainers';
 import type { FactsUnit } from '../chunking/facts';
 import { BEHAVIOURS, THEMES, type ExplainerKey, type Route } from '../loading/fixtures';
 
-export const DEFAULT_PROMPT_VERSION = 'v6';
+export const DEFAULT_PROMPT_VERSION = 'v7';
 export const DISCLAIMER = 'This is not investment advice.';
 export const MAX_WORDS = 90;
 /** What the answer prompt asks for: below MAX_WORDS, so Hindi and Hinglish answers that run long still pass the check. */
@@ -60,7 +60,7 @@ export function understandMessages(facts: FactsUnit, reason: string): ChatMessag
 }
 
 const ROUTE_GUIDANCE: Record<Route, string> = {
-  doubt: "Put today's numbers in the context of their goal and time to go, the months invested and the worst fall since start. Then say they can keep, skip, pause or lower the amount.",
+  doubt: "Put today's numbers in the context of their goal and time to go, the months invested, the worst fall since start and the biggest fall in this fund's demo history. Then say they can keep, skip, pause or lower the amount.",
   explain: 'Using the explainer, say what stopping does: it ends future instalments, refunds no money and sells no units; the units stay invested until they redeem. Say how skipping or pausing differs from stopping.',
   cash: 'Using the explainers, first mention skipping the next instalment, pausing, or lowering the amount; then say that stopping is still available. Say that stopping gives no money back; getting money out is a separate redemption, which may have an exit load.',
   autopay: 'Acknowledge the autopay trouble. Say they can manage autopay on the autopay page in their profile, and that skipping or pausing is possible while it is sorted out.',
@@ -88,7 +88,7 @@ Rules:
 - Write plain text: no markdown, no ** or other bold marks, no headings or bullet points.
 - Use only numbers that appear in the facts or explainers below, written exactly as they appear there. Do not calculate new numbers.
 - If a goal is set, mention the goal and the time to go. If no goal is set, say that no goal is set.
-- Describe what is normal only in general terms. Make no predictions or promises about returns, and never say a fall will recover, end or return to normal.
+- Never call a fall normal, small, big, temporary or expected, and never tell them not to worry. Describe it only with the numbers in the facts. Make no predictions or promises about returns, and never say a fall will recover, end or come back.
 - Skipping misses that instalment; it is not taken later. Never say skipping delays or postpones an instalment.
 - Count a pause in instalments, as the explainers do, never in months or weeks.
 - Never name a fund. Never tell the investor to buy, sell, hold, switch, stop or continue: the choice is theirs.
