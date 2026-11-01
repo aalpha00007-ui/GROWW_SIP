@@ -1,9 +1,8 @@
 // Steps 4 and 7: the two model calls. A reply that cannot be read is an LlmError, so it ends in the fallback card.
 import { LlmError, type Llm } from '../../llm/chat';
-import type { ExplainerChunk } from '../chunking/explainers';
 import type { FactsUnit } from '../chunking/facts';
-import { BEHAVIOURS, THEMES, type Route } from '../loading/fixtures';
-import { answerMessages, understandMessages, type Language, type Moment } from './prompts';
+import { BEHAVIOURS, THEMES } from '../loading/fixtures';
+import { answerMessages, understandMessages, type Language } from './prompts';
 import { scriptLanguage } from './language';
 
 export type Theme = (typeof THEMES)[number];
@@ -58,11 +57,11 @@ export async function readReason(
   return { understanding: await understand(models.backup, facts, reason), model: models.backup?.model ?? 'none' };
 }
 
-/** Step 7: temperature 0.2, at most 90 words in the investor's language. */
-export async function writeAnswer(
-  llm: Llm | null,
-  args: { route: Route; facts: FactsUnit; explainers: ExplainerChunk[]; language: Language; moment: Moment; reason: string },
-): Promise<string> {
+/**
+ * Step 7: temperature 0.2, at most 90 words in the investor's language. Returns the model's own text, with its
+ * placeholders still in: the check-in fills them in after checking the text has no number of its own.
+ */
+export async function writeAnswer(llm: Llm | null, args: Parameters<typeof answerMessages>[0]): Promise<string> {
   const raw = await requireLlm(llm).complete(answerMessages(args), { temperature: 0.2 });
   const parsed = readJson(raw) as { text?: unknown };
   const text = typeof parsed.text === 'string' ? stripMarkdown(parsed.text) : '';

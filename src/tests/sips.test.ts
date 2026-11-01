@@ -295,7 +295,8 @@ describe('AI cards (PRD F8-F10)', () => {
 
     const fallback = await card(fakeLlm(understood({ confidence: 0.3 })), 'before_stop', r.id, r.banyan);
     expect(fallback).toMatchObject({
-      outcome: 'fallback', understood: null, strip: null, text: "I couldn't give a reliable answer here.",
+      // The facts-only card ends with the disclaimer, as an AI answer does.
+      outcome: 'fallback', understood: null, strip: null, text: "I couldn't give a reliable answer here. This is not investment advice.",
       gate: 'Quality check: not sure what you meant → showing facts only', confidence: 'Confidence: Low',
     });
     expect(fallback.facts?.length).toBeGreaterThan(0);
@@ -322,8 +323,8 @@ describe('AI cards (PRD F8-F10)', () => {
     const noKey = await runCheckIn({ db, llm: null, today: TODAY, log: () => {} }, { investorId: r.id, sipId: r.banyan, moment: 'is_this_normal' });
     if (noKey.status !== 200) throw new Error(noKey.error);
     expect(checkInCard(noKey)).toMatchObject({ outcome: 'fallback', gate: 'Quality check: AI unavailable → showing facts only' });
-    expect(gateLine({ outcome: 'fallback', declineKind: null, fallbackReason: { kind: 'facts' } })).toBe("Quality check: your SIP's numbers didn't add up → showing facts only");
-    expect(gateLine({ outcome: 'fallback', declineKind: null, fallbackReason: { kind: 'checks', failed: ['grounded', 'disclaimer'] } })).toBe(
+    expect(gateLine({ outcome: 'fallback', declineKind: null, fallbackReason: { kind: 'facts' }, language: 'en' })).toBe("Quality check: your SIP's numbers didn't add up → showing facts only");
+    expect(gateLine({ outcome: 'fallback', declineKind: null, fallbackReason: { kind: 'checks', failed: ['grounded', 'disclaimer'] }, language: 'en' })).toBe(
       "Quality check: a number didn't match your SIP; the disclaimer was missing → showing facts only",
     );
   });

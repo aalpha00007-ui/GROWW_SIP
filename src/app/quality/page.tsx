@@ -12,7 +12,8 @@ export const dynamic = 'force-dynamic';
 const MARK = { true: { text: 'Pass', style: 'bg-primary-soft text-gain' }, false: { text: 'Fail', style: 'bg-loss-soft text-loss-strong' } } as const;
 
 export default async function Quality() {
-  const { run, live } = await qualityView(getDb(), process.env.RENDER_GIT_COMMIT);
+  const { run, holdout, live } = await qualityView(getDb(), process.env.RENDER_GIT_COMMIT);
+  const golden = run?.rows.find((r) => r.label === 'Golden set: theme agreement');
 
   return (
     <>
@@ -31,6 +32,48 @@ export default async function Quality() {
           <h1 className="text-2xl font-bold">How we check the AI</h1>
           <p className="text-muted">How the AI check-in is tested before each release, and what it has done since.</p>
         </div>
+
+        {(golden || holdout) && (
+          <section className="rounded-xl border border-line bg-surface p-4" aria-labelledby="sets">
+            <h2 id="sets" className="text-lg font-bold">
+              Theme agreement: tuned set and holdout set
+            </h2>
+            <p className="text-sm text-muted">
+              How often the AI&apos;s reading of a real post matches the theme a person gave it by hand. The prompt rules were written after seeing
+              which golden-set posts the AI missed, so that score is partly tuned to those posts. The holdout posts were never used for any rule.
+            </p>
+            <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg bg-page p-3">
+                <dt className="text-sm font-semibold">Golden set (used for tuning)</dt>
+                <dd className="tabular mt-1 text-2xl font-bold text-strong">{golden ? golden.value : 'No eval yet'}</dd>
+                {run && (
+                  <dd className="mt-1 text-xs text-muted">
+                    Run #{run.runId} · {run.date} · prompt {run.promptVersion}
+                  </dd>
+                )}
+              </div>
+              <div className="rounded-lg bg-page p-3">
+                <dt className="text-sm font-semibold">Holdout set (never used for tuning)</dt>
+                {holdout?.result ? (
+                  <>
+                    <dd className="tabular mt-1 text-2xl font-bold text-strong">{holdout.result.agreement}</dd>
+                    <dd className="mt-1 text-xs text-muted">
+                      {holdout.result.date} · prompt {holdout.result.promptVersion}
+                      {holdout.labelled < holdout.total ? ` · ${holdout.total - holdout.labelled} of ${holdout.total} posts not labelled yet` : ''}
+                    </dd>
+                  </>
+                ) : (
+                  <>
+                    <dd className="mt-1 text-2xl font-bold text-muted">Not scored yet</dd>
+                    <dd className="mt-1 text-xs text-muted">
+                      {holdout ? `${holdout.labelled} of ${holdout.total} posts have a hand label so far.` : 'No holdout set in this version.'}
+                    </dd>
+                  </>
+                )}
+              </div>
+            </dl>
+          </section>
+        )}
 
         <section className="rounded-xl border border-line bg-surface p-4">
           {run ? (
@@ -172,7 +215,7 @@ export default async function Quality() {
         <p className="text-sm text-muted">
           CI runs this eval whenever the AI&apos;s code, prompts or data change, and a version that fails the gate is not deployed. The gate: every
           must-pass safety case passes, golden-set theme agreement stays at or above the floor, at most one routing miss, and no answer breaks an
-          invariant.
+          invariant. The holdout score is reported only; it does not gate a deploy.
         </p>
       </main>
       <SiteFooter />

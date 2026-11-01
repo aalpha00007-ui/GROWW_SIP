@@ -66,7 +66,8 @@ export default function HowTheAiWorks() {
         <h2 className={H2}>What the AI gets</h2>
         <ul className={LIST}>
           <li>
-            <b>Your SIP&apos;s own numbers, worked out by code:</b> the fund&apos;s name, category and exit load, the instalment, months invested,
+            <b>Your SIP&apos;s own numbers, worked out by code.</b> The model that reads your reason sees them; the model that writes the answer only
+            sees placeholders for them, and code fills them in: the fund&apos;s name, category and exit load, the instalment, months invested,
             instalments paid and skipped, what you&apos;ve put in, its value today and the change, the worst fall since it started, the biggest fall from
             a high in the fund&apos;s demo history (history, not a prediction), how many units one instalment buys at the latest NAV and at the peak NAV
             since the SIP started, the next instalment date, and the SIP&apos;s goal with its target amount, the time to go, the instalments to come,
@@ -97,17 +98,16 @@ export default function HowTheAiWorks() {
             model is less than {Math.round(MIN_CONFIDENCE * 100)}% sure, you get the safe fallback.
           </li>
           <li>
-            The second model writes a short reply, at most {MAX_WORDS} words, in English, Hindi or Hinglish, using only the numbers it was given. In Hindi
-            or Hinglish it ends with the disclaimer in that language and in English. Other languages get an English reply, because the checks below
-            only know English, Hindi and Hinglish.
+            The second model writes a short reply, at most {MAX_WORDS} words, in English, Hindi or Hinglish. It never writes a number: where one
+            belongs, it writes a placeholder, and code puts in the number together with what it means, in your language (&ldquo;53 instalments still
+            to come&rdquo;), so a number can&apos;t end up meaning something else. In Hindi or Hinglish the reply ends with the disclaimer in that
+            language and in English. Other languages get an English reply, because the checks below only know English, Hindi and Hinglish.
           </li>
           <li>
-            Code checks the reply six ways: no advice words (such as &ldquo;recommend&rdquo; or &ldquo;you should sell&rdquo;); every number in it,
-            from rupee amounts and percentages to counts and units, is one of the numbers it was given; it ends with &ldquo;{DISCLAIMER}&rdquo;; it is{' '}
-            {MAX_WORDS} words or fewer; it makes no unsupported claims: it never calls a fall normal, small or temporary, says it will recover, or
-            tells you not to worry, in English, Hindi or Hinglish; and it is written in your language. A number has to be of the right kind, too:
-            &ldquo;53 instalments&rdquo; must be a count of instalments in your facts, not just any number in them, and numbers written as words
-            can&apos;t be checked, so they fail.
+            Code checks the reply six ways: no advice words (such as &ldquo;recommend&rdquo; or &ldquo;you should sell&rdquo;); the model wrote no
+            number of its own (no digits or number words, in any language) and every number code put in matches your facts; it ends with
+            &ldquo;{DISCLAIMER}&rdquo;; it is {MAX_WORDS} words or fewer; it makes no unsupported claims: it never calls a fall normal, small or
+            temporary, says it will recover, or tells you not to worry, in English, Hindi or Hinglish; and it is written in your language.
           </li>
         </ol>
         <p className="mt-3">For &ldquo;What does this dip mean for my goal?&rdquo; there is no reason to read, so it starts at step 3.</p>
@@ -127,9 +127,10 @@ export default function HowTheAiWorks() {
             &ldquo;{FALLBACK_TEXT}&rdquo;, shown with your SIP&apos;s numbers and links to the {OFFICIAL_LINKS.map((l) => l.label).join(' and ')}.
           </li>
           <li>
-            Every one of these cards shows a quality-check line where an answer&apos;s ticks would be, such as &ldquo;Quality check: advice question
-            detected → showing facts only&rdquo; or &ldquo;Quality check: AI unavailable → showing facts only&rdquo;, with the confidence when the
-            reason was read. The fixed texts are in Hindi or Hinglish when you wrote in them.
+            Every one of these cards ends with the disclaimer, as an answer does, and shows a quality-check line where an answer&apos;s ticks would be,
+            such as &ldquo;Quality check: advice question detected → showing facts only&rdquo; or &ldquo;Quality check: AI unavailable → showing facts
+            only&rdquo;, with the confidence when the reason was read. The fixed texts, the disclaimer and that line are in Hindi or Hinglish when you
+            wrote in them.
           </li>
         </ul>
       </section>

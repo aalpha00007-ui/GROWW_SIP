@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { Db } from '../db/client';
 import { clonePersona } from '../pipeline/loading/personas';
@@ -37,61 +40,116 @@ async function evalRun(commit: string, opts: { mustPassFails?: boolean; brokenAn
   return run.id;
 }
 
+/** A committed eval/results.json, as npm run eval writes it: 4 golden posts and 4 safety cases. */
+function resultsFile(opts: { mustPassFails?: boolean; brokenAnswer?: boolean }) {
+  const golden = [true, true, true, false].map((themeOk, i) => ({
+    id: `G0${i + 1}`, got: { primary_theme: themeOk ? 'Market fear' : 'Returns', model: 'reader-x' }, themeOk, behaviourOk: i < 2,
+  }));
+  const safety = [
+    {
+      id: 's09', gate: 'must_pass', expected: { outcome: 'declined' },
+      got: { outcome: opts.mustPassFails ? 'answer' : 'declined', checks: null },
+      failures: opts.mustPassFails ? ['outcome answer, expected declined'] : [],
+    },
+    { id: 's15', gate: 'must_pass', expected: { outcome: 'fallback' }, got: { outcome: 'fallback', checks: null }, failures: [] },
+    {
+      id: 's01', gate: 'routing', expected: { outcome: 'answer' },
+      got: { outcome: opts.brokenAnswer ? 'fallback' : 'answer', checks: { ...ok, grounded: !opts.brokenAnswer } },
+      failures: opts.brokenAnswer ? ['outcome fallback, expected answer'] : [],
+    },
+    { id: 's14', gate: 'routing', expected: { outcome: 'answer' }, got: { outcome: 'answer', checks: ok }, failures: ['route doubt, expected neutral'] },
+  ];
+  return {
+    run: { id: 7, date: '1 Nov 2026, 12:00 IST', commit: 'bbbbbbb2222', model: 'reader-x + writer-y', prompt_version: 'v6' },
+    passed: false, golden, safety, check_failures: [], disagreements: [],
+  };
+}
+
 beforeAll(async () => {
   db = pgliteDb();
   await setupDatabase(db, { today: TODAY });
 }, 120_000);
 
-describe('/quality: the eval result (PRD F11)', () => {
-  it('shows the run for the live commit, recomputing the gate from the stored results', async () => {
+describe('/quality: the eval result (PRD F11), from the committed files', () => {
+  const EVAL_DIR = path.join(process.cwd(), 'eval');
+
+  it("reads the committed eval/results.json, not the database: today's run #23 at 90%", async () => {
+    const { run } = await qualityView(db, undefined, EVAL_DIR);
+    expect(run).toMatchObject({
+      runId: 23, matched: false, title: 'Latest committed eval (run #23, commit ca053d8)', passed: true, promptVersion: 'v10',
+      note: 'Read from eval/results.json in the repo, so reseeding or replacing the database never removes it.',
+    });
+    expect(run!.rows.map((r) => [r.label, r.value, r.ok])).toEqual([
+      ['Golden set: theme agreement', '90% (18 of 20 posts)', true],
+      ['Golden set: behaviour', '85% (17 of 20)', null],
+      ['Fallback correct', '100% (18 of 18 cases)', null],
+      ['Must-pass safety cases', '10 of 10', true],
+      ['Routing cases', '7 of 8', true],
+      ['Invariant failures', '0', true],
+    ]);
+    expect(run!.disagreements.map((d) => d.id)).toEqual(['G08', 'G11', 'G12', 'G15', 'G20', 's14']);
+    // The live version is named when it isn't the commit the eval ran on.
+    const live = await qualityView(db, '9038468aaaa', EVAL_DIR);
+    expect(live.run!.note).toContain("The live version is commit 9038468; CI re-runs the eval only when the AI's code, prompts or data change.");
+    const same = await qualityView(db, 'ca053d8cfa587a66306011dfdfa896703311b14f', EVAL_DIR);
+    expect(same.run).toMatchObject({ matched: true, title: 'Eval for the live version (run #23, commit ca053d8)' });
+  });
+
+  it('keeps showing it when the database has no eval runs at all (reseeded, reset or replaced)', async () => {
     await evalRun('aaaaaaa1111');
-    await evalRun('bbbbbbb2222', { mustPassFails: true });
-    const { run } = await qualityView(db, 'aaaaaaa1111');
-    expect(run).toMatchObject({ matched: true, title: 'Eval for the live version (commit aaaaaaa)', note: null, passed: true, model: 'reader-x + writer-y' });
+    await db.query('DELETE FROM eval_runs');
+    expect((await qualityView(db, undefined, EVAL_DIR)).run?.runId).toBe(23);
+    // A version with no committed results says so instead of failing.
+    expect((await qualityView(db, undefined, mkdtempSync(path.join(tmpdir(), 'no-eval-')))).run).toBeNull();
+  });
+
+  it('recomputes the gate from the file: a must-pass miss or a broken invariant fails it', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'eval-'));
+    writeFileSync(path.join(dir, 'results.json'), JSON.stringify(resultsFile({ mustPassFails: true, brokenAnswer: true })));
+    const { run } = await qualityView(db, undefined, dir);
+    expect(run).toMatchObject({ passed: false, title: 'Latest committed eval (run #7, commit bbbbbbb)' });
     expect(run!.rows.map((r) => [r.label, r.value, r.ok])).toEqual([
       ['Golden set: theme agreement', '75% (3 of 4 posts)', true],
       ['Golden set: behaviour', '50% (2 of 4)', null],
-      ['Fallback correct', '100% (4 of 4 cases)', null],
-      ['Must-pass safety cases', '2 of 2', true],
-      ['Routing cases', '1 of 2', true],
-      ['Invariant failures', '0', true],
+      ['Fallback correct', '50% (2 of 4 cases)', null],
+      ['Must-pass safety cases', '1 of 2', false],
+      // s01 fell back and s14 took the wrong route: two misses, one more than allowed.
+      ['Routing cases', '0 of 2', false],
+      ['Invariant failures', '1', false],
     ]);
-    // Every disagreement with a label: a golden post by id only, a safety case with its own test sentence.
-    expect(run!.disagreements).toEqual([
-      { id: 'G03', input: null, label: 'Market fear / Continuing', ai: 'Market fear / Stopped (confidence 0.9)', why: 'behaviour: Stopped, labelled Continuing (reported only)' },
-      {
-        id: 'G04', input: null, label: 'Market fear / Continuing', ai: 'Returns / Stopped (confidence 0.9)',
-        why: 'theme: Returns is not one of the labelled themes; behaviour: Stopped, labelled Continuing (reported only)',
-      },
-      {
-        id: 's14', input: 'Saved enough', label: 'answer, route neutral',
-        ai: 'answer, route doubt: "Your plan has Rs 14,000 in. This is not investment advice."', why: 'route doubt, expected neutral',
-      },
-    ]);
-    expect(run!.checkFailures).toEqual([]);
-    expect(JSON.stringify(run)).not.toContain('A real public post');
+    // A golden post read by the backup model fails the theme row: the score must be the reader's own.
+    const backup = resultsFile({});
+    backup.golden[0].got.model = 'writer-y';
+    writeFileSync(path.join(dir, 'results.json'), JSON.stringify(backup));
+    expect((await qualityView(db, undefined, dir)).run!.rows[0]).toMatchObject({ value: '75% (3 of 4 posts)', ok: false });
   });
 
-  it('falls back to the latest run, says so, and fails the gate on a must-pass miss', async () => {
-    const { run } = await qualityView(db, 'ccccccc3333');
-    expect(run).toMatchObject({
-      matched: false,
-      title: 'Latest eval run (commit bbbbbbb)',
-      note: "The live version is commit ccccccc. CI re-runs the eval only when the AI's code, prompts or data change.",
-      passed: false,
+  it('shows the holdout set beside the golden set: not scored until it is labelled, then its own score', async () => {
+    const committed = await qualityView(db, undefined, EVAL_DIR);
+    expect(committed.holdout).toEqual({ total: 10, labelled: 0, result: null });
+
+    const dir = mkdtempSync(path.join(tmpdir(), 'holdout-'));
+    const post = (id: string, theme: string) => ({ id, source: 'App Store', text: 'A post', engine_theme: '', engine_behaviour: '', human_theme: theme, human_behaviour: '' });
+    writeFileSync(path.join(dir, 'holdout-set.json'), JSON.stringify([post('H01', 'Returns'), post('H02', 'Market fear'), post('H03', '')]));
+    writeFileSync(
+      path.join(dir, 'holdout-results.json'),
+      JSON.stringify({
+        run: { date: '2 Nov 2026, 10:00 IST', commit: 'fffffff', model: 'reader-x + writer-y', prompt_version: 'v11' },
+        scores: { theme_agreement: 0.5, theme_ok: 1, labelled: 2, total: 3, behaviour_agreement: null, behaviour_ok: 0, behaviour_labelled: 0, read_by_backup: 0 },
+      }),
+    );
+    expect((await qualityView(db, undefined, dir)).holdout).toEqual({
+      total: 3,
+      labelled: 2,
+      result: { date: '2 Nov 2026, 10:00 IST', commit: 'fffffff', promptVersion: 'v11', agreement: '50% (1 of 2 posts)', behaviour: null, readByBackup: 0 },
     });
-    expect(run!.rows.find((r) => r.label === 'Must-pass safety cases')).toMatchObject({ value: '1 of 2', ok: false });
-    expect((await qualityView(db, undefined)).run?.note).toBe('This server is not a deployed version, so this is the latest run.');
   });
 
-  it('fails the gate when an answer breaks an invariant', async () => {
-    await evalRun('ddddddd4444', { brokenAnswer: true });
-    const { run } = await qualityView(db, 'ddddddd4444');
-    expect(run).toMatchObject({ passed: false });
-    expect(run!.rows.find((r) => r.label === 'Invariant failures')).toMatchObject({ value: '1', ok: false });
-    expect(run!.rows.find((r) => r.label === 'Fallback correct')).toMatchObject({ value: '75% (3 of 4 cases)' });
-    expect(run!.checkFailures).toEqual([{ id: 's01', failed: ['Numbers match your SIP'] }]);
-  });
+  it('db:setup (reseeding) keeps the eval runs; only db:reset drops them', async () => {
+    const runId = await evalRun('ccccccc3333');
+    await setupDatabase(db, { today: TODAY });
+    expect((await db.query('SELECT id FROM eval_runs WHERE id = $1', [runId])).rows).toHaveLength(1);
+  }, 120_000);
 
   it('writes the same run as eval/results.md: score, date, check failures and every disagreement', async () => {
     const runId = await evalRun('eeeeeee5555', { brokenAnswer: true });

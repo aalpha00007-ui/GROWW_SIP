@@ -1,10 +1,11 @@
-// The two Mistral prompts. Changing a prompt means bumping PROMPT_VERSION, which every ai_checks row records.
+// The two prompts: reading the reason (call 1) and writing the answer (call 2). Changing a prompt means bumping
+// PROMPT_VERSION, which every ai_checks row records.
 import type { ChatMessage } from '../../llm/chat';
 import type { ExplainerChunk } from '../chunking/explainers';
 import type { FactsUnit } from '../chunking/facts';
 import { BEHAVIOURS, THEMES, type ExplainerKey, type Route } from '../loading/fixtures';
 
-export const DEFAULT_PROMPT_VERSION = 'v10';
+export const DEFAULT_PROMPT_VERSION = 'v11';
 export const DISCLAIMER = 'This is not investment advice.';
 /** A Hindi or Hinglish answer ends with the disclaimer in that language, then the English one. */
 export const LOCAL_DISCLAIMERS = {
@@ -12,8 +13,11 @@ export const LOCAL_DISCLAIMERS = {
   hinglish: 'Yeh investment advice nahi hai.',
 } as const;
 export const MAX_WORDS = 90;
-/** What the answer prompt asks for: below MAX_WORDS, so Hindi and Hinglish answers that run long still pass the check. */
-const TARGET_WORDS = 60;
+/**
+ * What the answer prompt asks for: below MAX_WORDS, so Hindi and Hinglish answers that run long still pass the check.
+ * Lower than before placeholders (v11), because each placeholder becomes a phrase of several words.
+ */
+const TARGET_WORDS = 50;
 
 export type Moment = 'before_stop' | 'is_this_normal';
 export type Language = 'en' | 'hi' | 'hinglish' | 'other';
@@ -69,19 +73,46 @@ export function understandMessages(facts: FactsUnit, reason: string): ChatMessag
 }
 
 const ROUTE_GUIDANCE: Record<Route, string> = {
-  doubt: "Put today's numbers in the context of their goal and time to go, the months invested, the worst fall since start and the biggest fall in this fund's demo history; both falls are percentages, so give them with the % sign. Then say they can keep, skip, pause or lower the amount, naming these options without numbers.",
+  doubt: "Using their placeholders, put today's value in the context of their goal and time to go, the months invested, the worst fall since start and the biggest fall in this fund's demo history. Then say they can keep, skip, pause or lower the amount.",
   explain: 'Using the explainer, say what stopping does: it ends future instalments, refunds no money and sells no units; the units stay invested until they redeem. Say how skipping or pausing differs from stopping.',
   cash: 'Using the explainers, first mention skipping the next instalment, pausing, or lowering the amount; then say that stopping is still available. Say that stopping gives no money back; getting money out is a separate redemption, which may have an exit load.',
   autopay: 'Acknowledge the autopay trouble. Say they can manage autopay on the autopay page in their profile, and that skipping or pausing is possible while it is sorted out.',
-  neutral: 'Restate the key facts briefly and say they can keep, skip, pause, lower the amount or stop.',
+  neutral: 'Restate the key facts briefly with their placeholders and say they can keep, skip, pause, lower the amount or stop.',
 };
 
 /**
  * "What does this dip mean for my goal?" (PRD F6): connect the dip to the goal and its timeline with the
- * numbers code worked out, so the answer says more than the screen already does.
+ * numbers code worked out, so the answer says more than the screen already does. Built from the placeholders
+ * this SIP has, so the writer is never pointed at one it doesn't have.
  */
-// No numerals here: the model copies them, and the grounded check would rightly fail them.
-const DIP_GUIDANCE = `Use three short sentences, at most fifteen words each, to connect today's dip to their goal and timeline. First: the worst fall since start, next to the biggest fall from a high in this fund's demo history, with both percentages. Second: the share of the planned amount put in so far (the planned amount is what the plan puts in, not the goal's target), the instalments still to come and the time to go; if no goal is set, or it has no target month, say so instead. Third: each future instalment buys units at the NAV on its date, so at the latest NAV one instalment buys the number of units the facts give, against the number at the peak NAV since this SIP started; give both numbers. Then one sentence: they can keep, skip, pause or lower the amount, naming these options without numbers. Then the disclaimer.`;
+export function dipGuidance(names: ReadonlySet<string>): string {
+  const has = (...n: string[]) => n.every((x) => names.has(x));
+  const falls = has('worst_fall', 'fund_biggest_fall')
+    ? 'First: {worst_fall}, next to {fund_biggest_fall}.'
+    : has('fund_biggest_fall')
+      ? 'First: {fund_biggest_fall}.'
+      : has('worst_fall')
+        ? 'First: {worst_fall}.'
+        : '';
+  const plan = has('instalments_to_go', 'time_to_goal')
+    ? `Second: ${has('share_put_in_pct') ? '{share_put_in_pct}, ' : ''}{instalments_to_go} and {time_to_goal}, for {goal_name}.`
+    : has('goal_name')
+      ? 'Second: say the goal has no target month or its date has passed, so the dip cannot be set against a plan.'
+      : 'Second: say that no goal is set for this SIP.';
+  const units = has('units_now')
+    ? `Third: each future instalment buys units at the NAV on its date: {units_now}${has('units_at_peak') ? ', against {units_at_peak}' : ''}.`
+    : '';
+  return [
+    "Use short sentences, at most fifteen words each, to connect today's dip to their goal and timeline.",
+    falls,
+    plan,
+    units,
+    'Then one sentence: they can keep, skip, pause or lower the amount.',
+    'Then the disclaimer.',
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
 
 const LANGUAGE_NAMES: Record<Language, string> = {
   en: 'English',
@@ -90,33 +121,55 @@ const LANGUAGE_NAMES: Record<Language, string> = {
   other: 'English',
 };
 
+/** An explainer as the writer sees it: its pause range is the {pause_length} placeholder, so it has no number to copy. */
+export function explainerForWriter(text: string): string {
+  return text.replace(/\b1 to 3 instalments\b/g, '{pause_length}');
+}
+
+/**
+ * Call 2. The writer never sees a number: it gets what is true about the SIP in words, and the placeholders it
+ * may use with what each becomes (numbers shown as #). The server fills the placeholders in (slots.ts).
+ */
 export function answerMessages(args: {
   route: Route;
-  facts: FactsUnit;
+  /** The placeholders this SIP has, and what each becomes with its number shown as #. */
+  slots: { name: string; reads: string }[];
+  /** What is true about the SIP, in words with no numbers. */
+  situation: string[];
   explainers: ExplainerChunk[];
   language: Language;
   moment: Moment;
   reason: string;
 }): ChatMessage[] {
   const opened = args.moment === 'before_stop' ? 'is thinking of stopping it' : 'asked "What does this dip mean for my goal?"';
+  const names = new Set(args.slots.map((s) => s.name));
+  const goal = names.has('time_to_goal')
+    ? 'Mention {goal_name} and {time_to_goal}.'
+    : names.has('goal_name')
+      ? 'Mention {goal_name}, and say it has no target month.'
+      : 'Say that no goal is set for this SIP.';
+  const pause = names.has('pause_length')
+    ? 'Count a pause with {pause_length}, never in months or weeks.'
+    : 'Never say how long a pause can last.';
   const system = `You write a short, calm reply to an investor in India who opened their SIP and ${opened}.
 Rules:
 - Write plain text: no markdown, no ** or other bold marks, no headings or bullet points.
-- Use only numbers that appear in the facts or explainers below, written exactly as they appear there. Do not calculate new numbers.
-- Keep each number's unit as the facts give it: a percentage stays a percentage with its % sign and never becomes a rupee amount.
-- If a goal is set, mention the goal and the time to go. If no goal is set, say that no goal is set.
-- Never call a fall normal, small, big, temporary or expected, and never tell them not to worry. Describe it only with the numbers in the facts. Make no predictions or promises about returns, and never say a fall will recover, end or come back.
+- Never write a number yourself: no digits and no number words (such as "two", "fifty", "lakh", "teen" or "दो"), in any language. Where a number belongs, write one of the placeholders listed below, exactly as shown with its curly braces, such as {instalment_amount}. The app replaces each placeholder with the number and the words that say what it is, in the reply's language, so use it as a whole phrase and never repeat or change its meaning around it.
+- Use only the placeholders listed below. Never make up a placeholder, compare their numbers, or work out new ones.
+- ${goal}
+- Never call a fall normal, small, big, temporary or expected, and never tell them not to worry. Describe it only with its placeholders. Make no predictions or promises about returns, and never say a fall will recover, end or come back.
 - Skipping misses that instalment; it is not taken later. Never say skipping delays or postpones an instalment.
-- Count a pause in instalments, as the explainers do, never in months or weeks.
+- ${pause}
 - Never name a fund. Never tell the investor to buy, sell, hold, switch, stop or continue: the choice is theirs.
 - Write in ${LANGUAGE_NAMES[args.language]}.
-- Write every number in digits (0-9), never in words.
-- Keep it to about ${TARGET_WORDS} words, never more than ${MAX_WORDS}. ${disclaimerRule(args.language)}
+- Keep it to about ${TARGET_WORDS} words, counting each placeholder as the words it becomes, never more than ${MAX_WORDS}. ${disclaimerRule(args.language)}
 - Return only a JSON object: {"text": "<the reply, ending with ${args.language === 'hi' || args.language === 'hinglish' ? `${LOCAL_DISCLAIMERS[args.language]} ` : ''}${DISCLAIMER}>"}
-What to cover: ${args.moment === 'is_this_normal' ? DIP_GUIDANCE : ROUTE_GUIDANCE[args.route]}`;
+What to cover: ${args.moment === 'is_this_normal' ? dipGuidance(names) : ROUTE_GUIDANCE[args.route]}`;
 
+  const known = `What is true about this SIP:\n${args.situation.map((l) => `- ${l}`).join('\n')}`;
+  const slots = `Placeholders you can use, and what each becomes (# stands for its number):\n${args.slots.map((s) => `- {${s.name}}: ${s.reads}`).join('\n')}`;
   const explainers = args.explainers.length
-    ? `Explainers:\n${args.explainers.map((e) => `- ${e.title}: ${e.text}`).join('\n')}`
+    ? `Explainers:\n${args.explainers.map((e) => `- ${e.title}: ${explainerForWriter(e.text)}`).join('\n')}`
     : 'Explainers: none for this reply.';
   const reason =
     args.moment === 'before_stop'
@@ -124,7 +177,7 @@ What to cover: ${args.moment === 'is_this_normal' ? DIP_GUIDANCE : ROUTE_GUIDANC
       : 'The investor tapped "What does this dip mean for my goal?".';
   return [
     { role: 'system', content: system },
-    { role: 'user', content: `${args.facts.text}\n\n${explainers}\n\n${reason}` },
+    { role: 'user', content: `${known}\n\n${slots}\n\n${explainers}\n\n${reason}` },
   ];
 }
 

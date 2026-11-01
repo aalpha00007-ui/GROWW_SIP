@@ -9,9 +9,10 @@ import { readReason, writeAnswer, type Understanding } from './ai';
 import { allPassed, runChecks, type QualityChecks } from './checks';
 import { decideRoute, type DeclineKind } from './decide';
 import { retrieveFacts } from './facts';
-import { detectLanguage } from './language';
+import { detectLanguage, writtenIn } from './language';
 import { findPii, PII_MESSAGE } from './pii';
 import { DEFAULT_PROMPT_VERSION, DISCLAIMER, LOCAL_DISCLAIMERS, ROUTE_EXPLAINERS, type Language, type Moment } from './prompts';
+import { fillSlots, situation, slotsFor, writtenNumbers } from './slots';
 
 export const DECLINED_TEXT =
   "I can't recommend funds or tell you to buy, sell or switch. Here are the facts about your SIP and official places to learn more.";
@@ -38,8 +39,13 @@ const CARD_TEXTS: Record<'advice' | 'prediction' | 'fallback', Record<'en' | 'hi
   },
 };
 
+/**
+ * A facts-only card's text: the fixed text, then the disclaimer as an AI answer has it (in Hindi or Hinglish
+ * first for those languages, then in English).
+ */
 export function cardText(kind: keyof typeof CARD_TEXTS, language: Language): string {
-  return CARD_TEXTS[kind][language === 'hi' || language === 'hinglish' ? language : 'en'];
+  const lang = language === 'hi' || language === 'hinglish' ? language : 'en';
+  return `${CARD_TEXTS[kind][lang]} ${lang === 'en' ? DISCLAIMER : `${LOCAL_DISCLAIMERS[lang]} ${DISCLAIMER}`}`;
 }
 
 /** A Hindi or Hinglish answer carries the disclaimer in that language too, just before the English one. */
@@ -176,6 +182,8 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
   let route: Route | null = null;
   let explainers: ExplainerChunk[] = [];
   let answer: string | null = null;
+  /** The writer's own text, placeholders and all, before the server filled them in. Logged with the checks. */
+  let modelText: string | null = null;
   let checks: QualityChecks | null = null;
   let outcome: Outcome = 'fallback';
   let declineKind: DeclineKind | null = null;
@@ -202,24 +210,31 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
     }
     if (route) {
       explainers = ROUTE_EXPLAINERS[route].map((key) => explainerChunks()[key]); // Step 6
-      const args = { route, facts: unit, explainers, language, moment: input.moment, reason };
+      // The writer gets placeholders, never numbers: the server fills them in with each number's meaning.
+      const slots = slotsFor(lookup.facts, { pause: explainers.some((e) => e.key === 'pause' || e.key === 'stop') });
+      const args = {
+        route, slots: slots.map(({ name, reads }) => ({ name, reads })), situation: situation(lookup.facts),
+        explainers, language, moment: input.moment, reason,
+      };
       // Step 7. Hindi and Hinglish answers are written by the bigger model on Groq, with Mistral as its backup.
       const groqWrites = (language === 'hi' || language === 'hinglish') && deps.reader;
       if (groqWrites) {
         try {
-          answer = await writeAnswer(deps.reader!, args);
+          modelText = await writeAnswer(deps.reader!, args);
           modelsUsed.push(deps.reader!.model);
         } catch (err) {
           if (!(err instanceof LlmError) || !deps.llm) throw err;
           log(`Writer ${deps.reader!.model} failed (${err.message}); ${deps.llm.model} writes instead`);
         }
       }
-      if (answer === null) {
+      if (modelText === null) {
         if (deps.llm) modelsUsed.push(deps.llm.model);
-        answer = await writeAnswer(deps.llm, args);
+        modelText = await writeAnswer(deps.llm, args);
       }
-      answer = withLocalDisclaimer(answer, language);
-      // Step 8, on the answer as the investor would see it.
+      // Any number the model wrote itself, or a placeholder this SIP doesn't have, fails "Numbers match your SIP".
+      const written = writtenNumbers(modelText, slots.map((s) => s.name));
+      answer = withLocalDisclaimer(fillSlots(modelText, slots, language), language);
+      // Step 8, on the answer as the investor would see it. The filled numbers are still checked against the facts.
       const explained = explainers.flatMap((e) => numberTokens(e.text));
       checks = runChecks(answer, [...unit.numbers, ...explained], advicePatterns(), claimPatterns(), language, {
         // The explainers count instalments ("the next 1 to 3 instalments").
@@ -227,6 +242,12 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
         units: unit.kinds.units,
         dates: unit.kinds.dates,
       });
+      if (written.length > 0) {
+        checks = { ...checks, grounded: false, ungrounded: [...written.map((w) => `written by the AI: ${w}`), ...checks.ungrounded] };
+      }
+      // The language is judged on the model's own words: the filled-in phrases are in the right language by
+      // construction, and Hindi ones would otherwise make a Hinglish reply look like Hindi.
+      checks = { ...checks, in_language: writtenIn(modelText.replace(/\{[^{}]*\}/g, ' '), language) };
       outcome = allPassed(checks) ? 'answer' : 'fallback';
       if (outcome === 'fallback') {
         fallbackReason = { kind: 'checks', failed: CHECK_KEYS.filter((k) => !checks![k]) };
@@ -250,7 +271,7 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
         // Reader, then writer: "openai/gpt-oss-120b + ministral-8b-latest". Shows when the backup read the reason.
         input.investorId, input.sipId, input.moment, reason || null, [...new Set(modelsUsed)].join(' + ') || (deps.llm?.model ?? 'none'),
         deps.promptVersion ?? DEFAULT_PROMPT_VERSION, understood, route, answer,
-        checks ? { ...checks, explainers: explainers.map((e) => ({ id: e.id, sha256: e.sha256 })) } : null,
+        checks ? { ...checks, model_text: modelText, explainers: explainers.map((e) => ({ id: e.id, sha256: e.sha256 })) } : null,
         outcome, latencyMs,
       ],
     )

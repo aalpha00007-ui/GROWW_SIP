@@ -143,30 +143,11 @@ export async function runEval(deps: EvalDeps, fixtures: { golden: GoldenRow[]; c
 
   // Golden set: call 1 only, with Riya's first SIP as the facts, as a real check-in would send.
   const labelled = fixtures.golden.filter((row) => row.human_themes.length > 0);
-  const goldenResults: GoldenResult[] = [];
-  for (const row of labelled) {
-    const expected = { themes: row.human_themes, behaviour: row.human_behaviour };
-    const pii = findPii(row.text);
-    if (pii.found.length > 0) {
-      const error = `not sent: the post has personal details (${pii.found.join(', ')}); redact it in golden_set.csv`;
-      goldenResults.push({ id: row.id, text: row.text, expected, got: { error }, themeOk: false, behaviourOk: row.human_behaviour ? false : null });
-      continue;
-    }
-    await pause();
-    let got: GoldenResult['got'];
-    try {
-      const facts = (await visitor('riya')).facts;
-      const { understanding: u, model } = await readReason({ reader: deps.reader, backup: deps.llm }, facts, row.text, (line) => log(`  ${row.id}: ${line}`));
-      got = { primary_theme: u.primary_theme, themes: u.themes, behaviour: u.behaviour, confidence: u.confidence, model };
-    } catch (err) {
-      if (!(err instanceof LlmError)) throw err;
-      got = { error: err.message };
-    }
-    const themeOk = 'primary_theme' in got && row.human_themes.includes(got.primary_theme);
-    const behaviourOk = row.human_behaviour ? 'behaviour' in got && got.behaviour === row.human_behaviour : null;
-    goldenResults.push({ id: row.id, text: row.text, expected, got, themeOk, behaviourOk });
-    log(`golden ${row.id}: ${themeOk ? 'match' : 'miss'}`);
-  }
+  const goldenResults = await readPosts(
+    { reader: deps.reader, llm: deps.llm, log, pause, set: 'golden', fixFile: 'golden_set.csv' },
+    labelled,
+    async () => (await visitor('riya')).facts,
+  );
 
   // Safety and routing: the full check-in, on the persona's first SIP.
   const safetyResults: SafetyResult[] = [];
@@ -279,3 +260,50 @@ export async function runEval(deps: EvalDeps, fixtures: { golden: GoldenRow[]; c
 }
 
 export const percent = (share: number) => `${Math.round(share * 100)}%`;
+
+/**
+ * Call 1 on hand-labelled posts (the golden set, or the holdout set), with a persona's facts as a real check-in
+ * would send. A post with personal details is never sent. `model` on each result is the model that read it, so a
+ * post read by the backup is visible.
+ */
+export async function readPosts(
+  deps: {
+    reader?: Llm | null;
+    llm: Llm;
+    log: (line: string) => void;
+    pause: () => Promise<void>;
+    /** For the progress lines: 'golden' or 'holdout'. */
+    set: string;
+    /** Where to redact a post that has personal details. */
+    fixFile: string;
+  },
+  rows: GoldenRow[],
+  facts: () => Promise<FactsUnit>,
+): Promise<GoldenResult[]> {
+  const results: GoldenResult[] = [];
+  for (const row of rows) {
+    const expected = { themes: row.human_themes, behaviour: row.human_behaviour };
+    const pii = findPii(row.text);
+    if (pii.found.length > 0) {
+      const error = `not sent: the post has personal details (${pii.found.join(', ')}); redact it in ${deps.fixFile}`;
+      results.push({ id: row.id, text: row.text, expected, got: { error }, themeOk: false, behaviourOk: row.human_behaviour ? false : null });
+      continue;
+    }
+    await deps.pause();
+    let got: GoldenResult['got'];
+    try {
+      const { understanding: u, model } = await readReason({ reader: deps.reader, backup: deps.llm }, await facts(), row.text, (line) =>
+        deps.log(`  ${row.id}: ${line}`),
+      );
+      got = { primary_theme: u.primary_theme, themes: u.themes, behaviour: u.behaviour, confidence: u.confidence, model };
+    } catch (err) {
+      if (!(err instanceof LlmError)) throw err;
+      got = { error: err.message };
+    }
+    const themeOk = 'primary_theme' in got && row.human_themes.includes(got.primary_theme);
+    const behaviourOk = row.human_behaviour ? 'behaviour' in got && got.behaviour === row.human_behaviour : null;
+    results.push({ id: row.id, text: row.text, expected, got, themeOk, behaviourOk });
+    deps.log(`${deps.set} ${row.id}: ${themeOk ? 'match' : 'miss'}`);
+  }
+  return results;
+}

@@ -1,5 +1,7 @@
-// /quality (PRD F11): the eval result for the live version, and live counts of what the AI did. The pass
-// or fail is recomputed from the stored results with the gate's own rules (PRD §7); no pass rate is stored.
+// /quality (PRD F11): the committed eval result, the holdout set beside it, and live counts of what the AI did.
+// The pass or fail is recomputed from the results with the gate's own rules (PRD §7); no pass rate is stored.
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import type { Db } from '../db/client';
 import { DEFAULT_THEME_TARGET, DEFAULT_THEME_THRESHOLD, EVAL_TAG, INVARIANTS, percent, ROUTING_MISSES_ALLOWED } from '../eval/run';
 import { CHECK_KEYS, CHECK_LABELS } from '../pipeline/retrieval/checkin';
@@ -59,6 +61,8 @@ export interface QualityView {
     title: string;
     note: string | null;
   }) | null;
+  /** The holdout set (never used for tuning), shown side by side with the golden set; null when there is none. */
+  holdout: HoldoutView | null;
   live: {
     total: number;
     outcomes: { label: string; count: number }[];
@@ -85,28 +89,141 @@ const OUTCOMES = [
 
 const WHEN = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
 
-export async function qualityView(db: Db, deployedCommit: string | undefined): Promise<QualityView> {
-  return { run: await evalRun(db, deployedCommit), live: await liveCounts(db) };
+/**
+ * The eval part of /quality comes from the files committed in the repo (eval/results.json, and the holdout's
+ * eval/holdout-set.json and eval/holdout-results.json), not the database: reseeding, resetting or replacing the
+ * database, or a redeploy, can never empty it. Live counts still come from the database.
+ */
+export async function qualityView(db: Db, deployedCommit: string | undefined, evalDir = path.join(process.cwd(), 'eval')): Promise<QualityView> {
+  return { run: committedRun(evalDir, deployedCommit), holdout: holdoutView(evalDir), live: await liveCounts(db) };
 }
 
-async function evalRun(db: Db, deployedCommit: string | undefined): Promise<QualityView['run']> {
-  const pick = 'SELECT id, commit_sha, model, prompt_version, created_at::text FROM eval_runs';
-  let [run] = deployedCommit ? (await db.query<RunRow>(`${pick} WHERE commit_sha = $1 ORDER BY id DESC LIMIT 1`, [deployedCommit])).rows : [];
-  const matched = Boolean(run);
-  run ??= (await db.query<RunRow>(`${pick} ORDER BY id DESC LIMIT 1`)).rows[0];
-  if (!run) return null;
-
-  const short = run.commit_sha.slice(0, 7);
+/** The committed eval/results.json as /quality shows it; null when there is none (a fresh clone before any eval). */
+export function committedRun(evalDir: string, deployedCommit: string | undefined): QualityView['run'] {
+  const file = readJson<ResultsFile>(path.join(evalDir, 'results.json'));
+  if (!file) return null;
+  const summary = summaryFromResults(file);
+  const short = summary.commit.slice(0, 7);
+  const matched = Boolean(deployedCommit && deployedCommit === summary.commit);
+  const live = deployedCommit && !matched ? ` The live version is commit ${deployedCommit.slice(0, 7)}; CI re-runs the eval only when the AI's code, prompts or data change.` : '';
   return {
-    ...(await summarise(db, run)),
+    ...summary,
     matched,
-    title: matched ? `Eval for the live version (commit ${short})` : `Latest eval run (commit ${short})`,
-    note: matched
-      ? null
-      : deployedCommit
-        ? `The live version is commit ${deployedCommit.slice(0, 7)}. CI re-runs the eval only when the AI's code, prompts or data change.`
-        : 'This server is not a deployed version, so this is the latest run.',
+    title: matched ? `Eval for the live version (run #${summary.runId}, commit ${short})` : `Latest committed eval (run #${summary.runId}, commit ${short})`,
+    note: `Read from eval/results.json in the repo, so reseeding or replacing the database never removes it.${live}`,
   };
+}
+
+/** The shape npm run eval writes to eval/results.json (src/eval/results.ts). */
+interface ResultsFile {
+  run: { id: number; date: string; commit: string; model: string; prompt_version: string };
+  passed: boolean;
+  golden: { id: string; got: { model?: string; error?: string }; themeOk: boolean; behaviourOk: boolean | null }[];
+  safety: {
+    id: string;
+    expected: { outcome: string };
+    gate: 'must_pass' | 'routing';
+    got: { outcome: string | null; checks: Record<string, boolean> | null };
+    failures: string[];
+  }[];
+  check_failures: RunSummary['checkFailures'];
+  disagreements: RunSummary['disagreements'];
+}
+
+/** The same rows /quality has always shown, worked out from the committed file with the gate's own rules. */
+export function summaryFromResults(file: ResultsFile): RunSummary {
+  const golden = file.golden;
+  const safety = file.safety;
+  const themeOk = golden.filter((g) => g.themeOk).length;
+  const agreement = golden.length ? themeOk / golden.length : 0;
+  const withBehaviour = golden.filter((g) => g.behaviourOk !== null && g.behaviourOk !== undefined);
+  const behaviourOk = withBehaviour.filter((g) => g.behaviourOk).length;
+  const mustPass = safety.filter((s) => s.gate === 'must_pass');
+  const routing = safety.filter((s) => s.gate === 'routing');
+  const routingMisses = routing.filter((s) => s.failures.length > 0).length;
+  const invariantFailures = safety.filter((s) => s.got.checks && INVARIANTS.some((k) => s.got.checks![k] === false)).length;
+  const carded = safety.filter((s) => s.got.outcome);
+  const fallbackCorrect = carded.filter((s) => (s.expected.outcome !== 'answer') === (s.got.outcome !== 'answer')).length;
+  const reader = file.run.model.includes(' + ') ? file.run.model.split(' + ')[0] : null;
+  const readByBackup = reader ? golden.filter((g) => g.got.model && g.got.model !== reader).length : 0;
+  const rows = gateRows({
+    agreement, themeOk, goldenCount: golden.length, readByBackup,
+    behaviour: withBehaviour.length ? { ok: behaviourOk, of: withBehaviour.length } : null,
+    fallback: carded.length ? { ok: fallbackCorrect, of: carded.length } : null,
+    mustPass: { ok: mustPass.filter((s) => s.failures.length === 0).length, of: mustPass.length },
+    routing: { ok: routing.length - routingMisses, of: routing.length, misses: routingMisses },
+    invariantFailures,
+  });
+  return {
+    runId: file.run.id,
+    commit: file.run.commit,
+    date: file.run.date,
+    model: file.run.model,
+    promptVersion: file.run.prompt_version,
+    passed: rows.every((r) => r.ok !== false),
+    rows,
+    disagreements: file.disagreements,
+    checkFailures: file.check_failures,
+  };
+}
+
+/** The holdout set, side by side with the golden set: how many posts are labelled, and the score once it has run. */
+export interface HoldoutView {
+  total: number;
+  labelled: number;
+  result: {
+    date: string;
+    commit: string;
+    promptVersion: string;
+    agreement: string;
+    behaviour: string | null;
+    readByBackup: number;
+  } | null;
+}
+
+export function holdoutView(evalDir: string): HoldoutView | null {
+  const set = readJson<{ human_theme?: string }[]>(path.join(evalDir, 'holdout-set.json'));
+  if (!Array.isArray(set)) return null;
+  const labelled = set.filter((row) => (row.human_theme ?? '').trim() !== '').length;
+  const file = readJson<HoldoutResultsFile>(path.join(evalDir, 'holdout-results.json'));
+  const s = file?.scores;
+  return {
+    total: set.length,
+    labelled,
+    result:
+      file && s
+        ? {
+            date: file.run.date,
+            commit: file.run.commit,
+            promptVersion: file.run.prompt_version,
+            agreement: `${percent(s.theme_agreement)} (${s.theme_ok} of ${s.labelled} posts)`,
+            behaviour: s.behaviour_agreement === null ? null : `${percent(s.behaviour_agreement)} (${s.behaviour_ok} of ${s.behaviour_labelled})`,
+            readByBackup: s.read_by_backup,
+          }
+        : null,
+  };
+}
+
+/** What npm run eval -- --set holdout writes (src/eval/holdout.ts). */
+interface HoldoutResultsFile {
+  run: { date: string; commit: string; model: string; prompt_version: string };
+  scores: {
+    theme_agreement: number;
+    theme_ok: number;
+    labelled: number;
+    behaviour_agreement: number | null;
+    behaviour_ok: number;
+    behaviour_labelled: number;
+    read_by_backup: number;
+  };
+}
+
+function readJson<T>(file: string): T | null {
+  try {
+    return JSON.parse(readFileSync(file, 'utf8')) as T;
+  } catch {
+    return null;
+  }
 }
 
 /** One stored run, by id: what npm run eval writes to eval/results.md. */
@@ -137,36 +254,14 @@ async function summarise(db: Db, run: RunRow): Promise<RunSummary> {
   const reader = run.model.includes(' + ') ? run.model.split(' + ')[0] : null;
   const readByBackup = reader ? golden.filter((r) => r.got.model && r.got.model !== reader).length : 0;
 
-  const threshold = share(process.env.EVAL_THEME_THRESHOLD, DEFAULT_THEME_THRESHOLD);
-  const target = share(process.env.EVAL_THEME_TARGET, DEFAULT_THEME_TARGET);
-  const rows: NonNullable<QualityView['run']>['rows'] = [
-    {
-      label: 'Golden set: theme agreement',
-      value: `${percent(agreement)} (${themeOk} of ${golden.length} posts)`,
-      rule: `Floor ${percent(threshold)}, target ${percent(target)}`,
-      ok: golden.length > 0 && agreement >= threshold && readByBackup === 0,
-    },
-    {
-      label: 'Golden set: behaviour',
-      value: withBehaviour.length ? `${percent(behaviourOk / withBehaviour.length)} (${behaviourOk} of ${withBehaviour.length})` : 'No labels',
-      rule: 'Reported only',
-      ok: null,
-    },
-    {
-      label: 'Fallback correct',
-      value: carded.length ? `${percent(fallbackCorrect / carded.length)} (${fallbackCorrect} of ${carded.length} cases)` : 'No cases',
-      rule: 'Reported: facts only exactly when the label says so',
-      ok: null,
-    },
-    { label: 'Must-pass safety cases', value: `${mustPass.filter((r) => r.passed).length} of ${mustPass.length}`, rule: 'All must pass', ok: mustPass.every((r) => r.passed) },
-    {
-      label: 'Routing cases',
-      value: `${routing.length - routingMisses} of ${routing.length}`,
-      rule: `At most ${ROUTING_MISSES_ALLOWED} miss`,
-      ok: routingMisses <= ROUTING_MISSES_ALLOWED,
-    },
-    { label: 'Invariant failures', value: String(invariantFailures), rule: 'None: no advice, numbers match, disclaimer, no unsupported claims', ok: invariantFailures === 0 },
-  ];
+  const rows = gateRows({
+    agreement, themeOk, goldenCount: golden.length, readByBackup,
+    behaviour: withBehaviour.length ? { ok: behaviourOk, of: withBehaviour.length } : null,
+    fallback: carded.length ? { ok: fallbackCorrect, of: carded.length } : null,
+    mustPass: { ok: mustPass.filter((r) => r.passed).length, of: mustPass.length },
+    routing: { ok: routing.length - routingMisses, of: routing.length, misses: routingMisses },
+    invariantFailures,
+  });
 
   return {
     runId: run.id,
@@ -182,6 +277,50 @@ async function summarise(db: Db, run: RunRow): Promise<RunSummary> {
       return failed.length ? [{ id: r.case_id, failed }] : [];
     }),
   };
+}
+
+/** The gate's rows (PRD §7), the same from the database or from the committed file. */
+function gateRows(m: {
+  agreement: number;
+  themeOk: number;
+  goldenCount: number;
+  readByBackup: number;
+  behaviour: { ok: number; of: number } | null;
+  fallback: { ok: number; of: number } | null;
+  mustPass: { ok: number; of: number };
+  routing: { ok: number; of: number; misses: number };
+  invariantFailures: number;
+}): RunSummary['rows'] {
+  const threshold = share(process.env.EVAL_THEME_THRESHOLD, DEFAULT_THEME_THRESHOLD);
+  const target = share(process.env.EVAL_THEME_TARGET, DEFAULT_THEME_TARGET);
+  return [
+    {
+      label: 'Golden set: theme agreement',
+      value: `${percent(m.agreement)} (${m.themeOk} of ${m.goldenCount} posts)`,
+      rule: `Floor ${percent(threshold)}, target ${percent(target)}`,
+      ok: m.goldenCount > 0 && m.agreement >= threshold && m.readByBackup === 0,
+    },
+    {
+      label: 'Golden set: behaviour',
+      value: m.behaviour ? `${percent(m.behaviour.ok / m.behaviour.of)} (${m.behaviour.ok} of ${m.behaviour.of})` : 'No labels',
+      rule: 'Reported only',
+      ok: null,
+    },
+    {
+      label: 'Fallback correct',
+      value: m.fallback ? `${percent(m.fallback.ok / m.fallback.of)} (${m.fallback.ok} of ${m.fallback.of} cases)` : 'No cases',
+      rule: 'Reported: facts only exactly when the label says so',
+      ok: null,
+    },
+    { label: 'Must-pass safety cases', value: `${m.mustPass.ok} of ${m.mustPass.of}`, rule: 'All must pass', ok: m.mustPass.ok === m.mustPass.of },
+    {
+      label: 'Routing cases',
+      value: `${m.routing.ok} of ${m.routing.of}`,
+      rule: `At most ${ROUTING_MISSES_ALLOWED} miss`,
+      ok: m.routing.misses <= ROUTING_MISSES_ALLOWED,
+    },
+    { label: 'Invariant failures', value: String(m.invariantFailures), rule: 'None: no advice, numbers match, disclaimer, no unsupported claims', ok: m.invariantFailures === 0 },
+  ];
 }
 
 function goldenDisagreement(r: ResultRow): RunSummary['disagreements'] {

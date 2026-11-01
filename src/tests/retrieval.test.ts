@@ -15,6 +15,7 @@ import { retrieveFacts } from '../pipeline/retrieval/facts';
 import { findPii, PII_MESSAGE } from '../pipeline/retrieval/pii';
 import { factsProblem } from '../pipeline/chunking/facts';
 import { answerMessages, LOCAL_DISCLAIMERS, ROUTE_EXPLAINERS } from '../pipeline/retrieval/prompts';
+import { situation, slotsFor } from '../pipeline/retrieval/slots';
 import { PERSONA_KEYS } from '../pipeline/loading/raw';
 import { startSip } from '../server/funds';
 import { investmentsView } from '../server/investments';
@@ -71,9 +72,13 @@ describe('The cash route', () => {
     expect(ROUTE_EXPLAINERS.cash).toEqual(['skip', 'pause', 'lower_amount', 'stop']);
     const lookup = await retrieveFacts(db, arjun, (await db.query<{ id: number }>('SELECT id FROM sips WHERE investor_id = $1', [arjun])).rows[0].id, TODAY);
     if (lookup.status === 'not_found') throw new Error('missing');
-    const [system, user] = answerMessages({ route: 'cash', facts: lookup.unit, explainers: [], language: 'en', moment: 'before_stop', reason: 'I need the money' });
+    const slots = slotsFor(lookup.facts, { pause: true });
+    const [system, user] = answerMessages({
+      route: 'cash', slots, situation: situation(lookup.facts), explainers: [], language: 'en', moment: 'before_stop', reason: 'I need the money',
+    });
     expect(system.content).toContain('Say that stopping gives no money back; getting money out is a separate redemption, which may have an exit load.');
-    expect(user.content).toMatch(/- Exit load: /);
+    // The exit load reaches the writer as a placeholder, never as a number.
+    expect(user.content).toContain('- {exit_load}: an exit load of #% if redeemed within # year');
   });
 });
 
@@ -253,26 +258,32 @@ describe('routing (step 5)', () => {
 });
 
 describe('the full check-in (steps 4-9)', () => {
+  // The writer never writes a number: it writes placeholders, and the server fills them in.
   const groundedAnswer =
-    'Your SIP is for Home down payment, by Mar 2031, with 4 years 5 months to go. You have put in Rs 14,000 over 7 months. Values move with the market. You can keep it, skip next, pause or lower the amount. This is not investment advice.';
+    'Your SIP is for {goal_name}, by {goal_date}, with {time_to_goal}. You have {put_in_so_far}, over {months_invested}. Values move with the market. You can keep it, skip next, pause or lower the amount. This is not investment advice.';
+  const groundedShown =
+    'Your SIP is for Home down payment, by Mar 2031, with 4 years 5 months to go. You have Rs 14,000 put in so far, over 7 months invested. Values move with the market. You can keep it, skip next, pause or lower the amount. This is not investment advice.';
   // The same answer as a model would write it in Hinglish and in Hindi: only the language changes.
   const hinglishAnswer =
-    'Aapka SIP Home down payment ke liye hai, by Mar 2031, aur 4 years 5 months baaki hain. Aapne 7 months mein Rs 14,000 daale hain. Aap keep, skip, pause ya amount lower kar sakte hain. This is not investment advice.';
+    'Aapka SIP {goal_name} ke liye hai, {goal_date} tak, aur {time_to_goal} hain. Aapne {put_in_so_far} hain. Aap keep, skip, pause ya amount lower kar sakte hain. This is not investment advice.';
   const hindiAnswer =
-    'आपका SIP Home down payment के लिए है, Mar 2031 तक, 4 years 5 months बाकी हैं। आपने 7 months में Rs 14,000 लगाए हैं। आप जारी रख सकते हैं, skip, pause या amount कम कर सकते हैं। This is not investment advice.';
+    'आपका SIP {goal_name} के लिए है, {goal_date} तक, {time_to_goal} हैं। आपने {put_in_so_far} हैं। आप जारी रख सकते हैं, skip, pause या amount कम कर सकते हैं। This is not investment advice.';
 
   it('answers a market-fall doubt with the goal, and logs it', async () => {
     const llm = fakeLlm(understood({ language: 'hinglish', confidence: 0.86 }), { text: hinglishAnswer });
     const r = ok(await ask(llm, 'Market crash ho gaya, mera SIP red mein hai. Band kar du?'));
-    // A Hinglish answer carries the Hinglish disclaimer too, just before the English one.
-    expect(r).toMatchObject({ outcome: 'answer', route: 'doubt', text: hinglishAnswer.replace('This is not', 'Yeh investment advice nahi hai. This is not') });
+    // The placeholders are filled in Hinglish, and a Hinglish answer carries the Hinglish disclaimer too, just before the English one.
+    expect(r).toMatchObject({
+      outcome: 'answer', route: 'doubt',
+      text: 'Aapka SIP Home down payment ke liye hai, Mar 2031 tak, aur goal tak 4 saal 5 mahine baaki hain. Aapne ab tak Rs 14,000 lagaye hain. Aap keep, skip, pause ya amount lower kar sakte hain. Yeh investment advice nahi hai. This is not investment advice.',
+    });
     expect(r.understood).toMatchObject({ language: 'hinglish', confidenceLabel: 'High' });
     expect(r.checks).toMatchObject({ no_advice: true, grounded: true, disclaimer: true, length: true });
     expect(r.options.map((o) => o.label)).toEqual(['Skip next', 'Lower amount', 'Pause', 'Keep my SIP', 'Stop anyway']);
     expect(llm.calls[1][0].content).toContain('Write in Hinglish');
     const [row] = (await db.query('SELECT moment, outcome, route, model, prompt_version, user_text FROM ai_checks WHERE id = $1', [r.aiCheckId])).rows;
     expect(row).toEqual({
-      moment: 'before_stop', outcome: 'answer', route: 'doubt', model: 'fake-model', prompt_version: 'v10',
+      moment: 'before_stop', outcome: 'answer', route: 'doubt', model: 'fake-model', prompt_version: 'v11',
       user_text: 'Market crash ho gaya, mera SIP red mein hai. Band kar du?',
     });
   });
@@ -280,7 +291,8 @@ describe('the full check-in (steps 4-9)', () => {
   it('declines a fund pick with fixed text and no second call', async () => {
     const llm = fakeLlm(understood({ asks_for_advice: true, primary_theme: 'Returns' }));
     const r = ok(await ask(llm, 'Which fund should I switch to for better returns?'));
-    expect(r).toMatchObject({ outcome: 'declined', declineKind: 'advice', route: null, text: DECLINED_TEXT, checks: null });
+    // A facts-only card ends with the disclaimer, as an AI answer does.
+    expect(r).toMatchObject({ outcome: 'declined', declineKind: 'advice', route: null, text: `${DECLINED_TEXT} This is not investment advice.`, checks: null });
     expect(llm.calls).toHaveLength(1);
   });
 
@@ -288,7 +300,7 @@ describe('the full check-in (steps 4-9)', () => {
     const llm = fakeLlm(understood({ asks_for_prediction: true, primary_theme: 'Market fear' }));
     const r = ok(await ask(llm, 'Will the market fall more next month?'));
     expect(r).toMatchObject({ outcome: 'declined', declineKind: 'prediction', route: null, checks: null, fallbackReason: null });
-    expect(r.text).toBe(PREDICTION_TEXT);
+    expect(r.text).toBe(`${PREDICTION_TEXT} This is not investment advice.`);
     expect(r.text.split('. ')[0]).toBe("This app can't predict whether markets will rise or fall");
     expect(llm.calls).toHaveLength(1);
     expect(llm.calls[0][0].content).toContain('"asks_for_prediction"');
@@ -303,7 +315,7 @@ describe('the full check-in (steps 4-9)', () => {
     // No AI at all: the investor's own words settle the language.
     const down = ok(await ask(null, 'job chali gayi, paise chahiye'));
     expect(down).toMatchObject({ outcome: 'fallback', language: 'hinglish', text: cardText('fallback', 'hinglish') });
-    expect(ok(await ask(null, 'I need the money'))).toMatchObject({ language: 'en', text: FALLBACK_TEXT });
+    expect(ok(await ask(null, 'I need the money'))).toMatchObject({ language: 'en', text: `${FALLBACK_TEXT} This is not investment advice.` });
   });
 
   it('explains a misread with the stop explainer in the context', async () => {
@@ -318,10 +330,11 @@ describe('the full check-in (steps 4-9)', () => {
 
   it('offers skip, pause and lower first for a cash need', async () => {
     const llm = fakeLlm(understood({ primary_theme: 'Need money' }), {
-      text: 'You can skip the next instalment, pause for 1 to 3 instalments, or lower the amount. Stopping is still available. This is not investment advice.',
+      text: 'You can skip the next instalment, pause for {pause_length}, or lower the amount. Stopping is still available. This is not investment advice.',
     });
     const r = ok(await ask(llm, "Need money for my sister's wedding next month"));
     expect(r).toMatchObject({ outcome: 'answer', route: 'cash' });
+    expect(r.text).toContain('pause for 1 to 3 instalments, or lower');
     for (const title of ['What skipping an instalment does', 'What pausing a SIP does', 'What lowering the SIP amount does']) {
       expect(llm.calls[1][1].content).toContain(title);
     }
@@ -329,7 +342,7 @@ describe('the full check-in (steps 4-9)', () => {
 
   it('falls back when the model is unsure, fails, or is not set up, and says which step stopped it', async () => {
     const unsure = fakeLlm(understood({ primary_theme: 'Not relevant', confidence: 0.1 }));
-    expect(ok(await ask(unsure, 'asdfgh'))).toMatchObject({ outcome: 'fallback', route: null, text: FALLBACK_TEXT, fallbackReason: { kind: 'unsure' } });
+    expect(ok(await ask(unsure, 'asdfgh'))).toMatchObject({ outcome: 'fallback', route: null, text: cardText('fallback', 'en'), fallbackReason: { kind: 'unsure' } });
     expect(unsure.calls).toHaveLength(1);
 
     expect(ok(await ask(fakeLlm(new LlmError('Mistral did not answer within 10 s')), 'Markets are down'))).toMatchObject({
@@ -348,14 +361,14 @@ describe('the full check-in (steps 4-9)', () => {
     const cases: [string, string][] = [
       ['no_advice', 'You should continue your SIP for Home down payment. This is not investment advice.'],
       ['grounded', 'You have put in Rs 99,999 so far for Home down payment. This is not investment advice.'],
-      ['disclaimer', 'Your goal is Home down payment, by Mar 2031.'],
+      ['disclaimer', 'Your goal is Home down payment, by {goal_date}.'],
       ['length', `${'Your plan is long. '.repeat(30)}This is not investment advice.`],
-      ['no_claims', 'This fall is temporary for Home down payment, by Mar 2031. This is not investment advice.'],
+      ['no_claims', 'This fall is temporary for Home down payment, by {goal_date}. This is not investment advice.'],
     ];
     for (const [failing, text] of cases) {
       const r = ok(await ask(fakeLlm(understood(), { text }), 'Markets are down'));
       expect(r.outcome, failing).toBe('fallback');
-      expect(r.text).toBe(FALLBACK_TEXT);
+      expect(r.text).toBe(cardText('fallback', 'en'));
       expect((r.checks as unknown as Record<string, boolean>)[failing], failing).toBe(false);
       expect(r.fallbackReason, failing).toEqual({ kind: 'checks', failed: [failing] });
     }
@@ -385,10 +398,16 @@ describe('the full check-in (steps 4-9)', () => {
   it('tells the writer never to call a fall normal, and gives it the fund history as a fact', async () => {
     const lookup = await retrieveFacts(db, riya, riyaSips[0], TODAY);
     if (lookup.status !== 'ok') throw new Error(lookup.status);
-    const [system] = answerMessages({ route: 'doubt', facts: lookup.unit, explainers: [], language: 'en', moment: 'is_this_normal', reason: '' });
+    const slots = slotsFor(lookup.facts, { pause: false });
+    const [system, user] = answerMessages({
+      route: 'doubt', slots, situation: situation(lookup.facts), explainers: [], language: 'en', moment: 'is_this_normal', reason: '',
+    });
     expect(system.content).toContain(
-      'Never call a fall normal, small, big, temporary or expected, and never tell them not to worry. Describe it only with the numbers in the facts.',
+      'Never call a fall normal, small, big, temporary or expected, and never tell them not to worry. Describe it only with its placeholders.',
     );
+    // The fund's history reaches the writer as a placeholder, which the dip guidance points to.
+    expect(user.content).toContain("- {fund_biggest_fall}: a fall of #% in <a month and year>, the biggest from a high in this fund's demo history");
+    expect(system.content).toContain('First: {worst_fall}, next to {fund_biggest_fall}.');
     expect(system.content).not.toContain('Describe what is normal only in general terms.');
     const biggest = lookup.facts.fund_biggest_fall;
     expect(biggest?.pct).toBeLessThan(0);
@@ -418,7 +437,7 @@ describe('the full check-in (steps 4-9)', () => {
 
   it('strips markdown the model adds before checking and showing the answer', async () => {
     const markdown =
-      '**Your SIP** is for Home down payment, by Mar 2031, with 4 years 5 months to go.\n- You can *skip next* or pause.\n* Or lower the amount.\n\nThis is not investment advice.';
+      '**Your SIP** is for {goal_name}, by {goal_date}, with {time_to_goal}.\n- You can *skip next* or pause.\n* Or lower the amount.\n\nThis is not investment advice.';
     const r = ok(await ask(fakeLlm(understood(), { text: markdown }), 'Markets are down'));
     expect(r.outcome).toBe('answer');
     expect(r.text).toBe(
@@ -452,11 +471,15 @@ describe('the full check-in (steps 4-9)', () => {
     expect(devanagari.calls[1][0].content).toContain('Write in Hindi, in Devanagari script');
   });
 
-  it('accepts an amount written without its comma, but still catches a new number', async () => {
-    const r = ok(await ask(fakeLlm(understood(), { text: groundedAnswer.replace('Rs 14,000', 'Rs 14000') }), 'Markets are down'));
-    expect(r).toMatchObject({ outcome: 'answer', checks: { grounded: true } });
-    const invented = ok(await ask(fakeLlm(understood(), { text: groundedAnswer.replace('Rs 14,000', 'Rs 15000') }), 'Markets are down'));
-    expect(invented.checks).toMatchObject({ grounded: false, ungrounded: ['Rs 15000'] });
+  it('fills the placeholders, and blocks any number the model writes itself, even one the facts state', async () => {
+    const r = ok(await ask(fakeLlm(understood(), { text: groundedAnswer }), 'Markets are down'));
+    expect(r).toMatchObject({ outcome: 'answer', text: groundedShown, checks: { grounded: true } });
+    // Rs 14,000 is a real fact, but the model wrote it, not the server: it could have given it any meaning.
+    const copied = ok(await ask(fakeLlm(understood(), { text: groundedAnswer.replace('{put_in_so_far}', 'put in Rs 14,000') }), 'Markets are down'));
+    expect(copied).toMatchObject({ outcome: 'fallback', checks: { grounded: false }, fallbackReason: { kind: 'checks', failed: ['grounded'] } });
+    expect(copied.checks!.ungrounded).toContain('written by the AI: 14,000');
+    const invented = ok(await ask(fakeLlm(understood(), { text: groundedAnswer.replace('{put_in_so_far}', 'put in Rs 15000') }), 'Markets are down'));
+    expect(invented.checks).toMatchObject({ grounded: false, ungrounded: ['written by the AI: 15000', 'Rs 15000'] });
   });
 
   it('checks every number: counts, units and amounts without "Rs" must be numbers the facts state', () => {
@@ -530,9 +553,13 @@ describe('the full check-in (steps 4-9)', () => {
     // Its own guidance: connect the dip to the goal and timeline, with the plan's share and the units at the latest NAV.
     const system = llm.calls[0][0].content;
     expect(system).toContain("connect today's dip to their goal and timeline");
-    expect(system).toContain('at the latest NAV one instalment buys the number of units the facts give');
-    expect(llm.calls[0][1].content).toContain('- Share of the planned amount put in so far: Rs ');
-    expect(llm.calls[0][1].content).toContain('- One instalment at the latest NAV buys: ');
+    expect(system).toContain('Second: {share_put_in_pct}, {instalments_to_go} and {time_to_goal}, for {goal_name}.');
+    expect(system).toContain('Third: each future instalment buys units at the NAV on its date: {units_now}, against {units_at_peak}.');
+    const user = llm.calls[0][1].content;
+    expect(user).toContain('- {share_put_in_pct}: #% of the planned amount put in so far');
+    expect(user).toContain('- {units_now}: # units for one instalment at the latest NAV');
+    // The writer never sees a number, so it has none to copy or misuse.
+    expect(user).not.toMatch(/\d/);
   });
 
   it('reads with the reader and writes with Mistral, and logs both models', async () => {

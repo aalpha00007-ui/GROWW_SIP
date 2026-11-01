@@ -9,11 +9,13 @@ import { loadEvalCases, loadGoldenSet } from '../pipeline/loading/fixtures';
 import { CHECK_KEYS } from '../pipeline/retrieval/checkin';
 import { DEFAULT_PROMPT_VERSION, MAX_WORDS } from '../pipeline/retrieval/prompts';
 import { runSummary } from '../server/quality';
+import { chosenSet, HOLDOUT_FILE, loadHoldoutSet, runHoldout, writeHoldoutResults } from './holdout';
 import { writeResults } from './results';
 import { DEFAULT_THEME_TARGET, DEFAULT_THEME_THRESHOLD, percent, ROUTING_MISSES_ALLOWED, runEval, type EvalReport } from './run';
 
-async function main(): Promise<void> {
+async function main(args: string[]): Promise<void> {
   loadEnvFiles();
+  if (chosenSet(args) === 'holdout') return holdout();
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is empty. Set it in .env or .env.local.');
   // Patient: the eval waits out free-plan rate limits instead of scoring the backup or the fallback card.
   const llm = mistralFromEnv(process.env, { patient: true });
@@ -37,6 +39,42 @@ async function main(): Promise<void> {
     const files = writeResults(report, await runSummary(db, report.runId));
     console.log(`\nWrote ${files.map((f) => path.relative(process.cwd(), f)).join(' and ')}.`);
     if (!report.passed) process.exitCode = 1;
+  } finally {
+    await db.close();
+  }
+}
+
+/**
+ * The holdout set: call 1 on each hand-labelled post, reported only (it never gates a deploy). With no labels yet
+ * it says so and stops before any database or AI call, so it costs no tokens.
+ */
+async function holdout(): Promise<void> {
+  const rows = loadHoldoutSet();
+  const labelled = rows.filter((r) => r.human_themes.length > 0).length;
+  if (labelled === 0) {
+    console.log(
+      `None of the ${rows.length} holdout posts has a hand label yet. Fill in human_theme (and human_behaviour) in ${HOLDOUT_FILE}, then run this again. No AI calls were made.`,
+    );
+    return;
+  }
+  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is empty. Set it in .env or .env.local.');
+  const llm = mistralFromEnv(process.env, { patient: true });
+  if (!llm) throw new Error('MISTRAL_API_KEY is empty. The eval needs the model; set it in .env or .env.local.');
+  const reader = groqFromEnv(process.env, { patient: true });
+  const db = connectNeon(process.env.DATABASE_URL);
+  try {
+    const promptVersion = process.env.PROMPT_VERSION || DEFAULT_PROMPT_VERSION;
+    console.log(`Running the holdout set: ${labelled} of ${rows.length} posts have a hand label (call 1 only, prompt ${promptVersion}).`);
+    const report = await runHoldout({ db, llm, reader, commitSha: commitSha(), promptVersion, log: (line) => console.log(`  ${line}`) }, rows);
+    const themeOk = report.results.filter((r) => r.themeOk).length;
+    console.log(`\nHoldout theme agreement: ${themeOk} of ${report.results.length} (${percent(report.themeAgreement)}), reported only`);
+    if (report.readByBackup > 0) console.log(`Note: the backup model read ${report.readByBackup} posts, so this is not the reader's own score; run it again later.`);
+    for (const r of report.results.filter((x) => !x.themeOk)) {
+      const got = 'error' in r.got ? `error: ${r.got.error}` : `${r.got.primary_theme} / ${r.got.behaviour} (confidence ${r.got.confidence})`;
+      console.log(`  ${r.id} miss: you ${r.expected.themes.join(', ')} · AI ${got}`);
+    }
+    const files = writeHoldoutResults(report);
+    console.log(`\nWrote ${files.map((f) => path.relative(process.cwd(), f)).join(' and ')}.`);
   } finally {
     await db.close();
   }
@@ -104,7 +142,7 @@ function print(r: EvalReport): void {
   console.log(r.passed ? '\nRESULT: PASS' : `\nRESULT: FAIL\n${r.reasons.map((reason) => `  - ${reason}`).join('\n')}`);
 }
 
-main().catch((err: unknown) => {
+main(process.argv.slice(2)).catch((err: unknown) => {
   console.error(err instanceof Error ? err.message : err);
   process.exitCode = 1;
 });

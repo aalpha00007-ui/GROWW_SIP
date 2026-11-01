@@ -70,11 +70,18 @@ describe('A check-in in each language, with scripted AI replies', () => {
   let riya: string;
   let sipId: number;
 
-  // The same reply in three languages, with numbers from Riya's facts.
+  // The same reply in three languages, with placeholders for Riya's numbers: the server fills them in.
   const REPLIES = {
-    en: 'Your SIP is for Home down payment, by Mar 2031, with 4 years 5 months to go. You have put in Rs 14,000 over 7 months. You can keep it, skip next, pause or lower the amount. This is not investment advice.',
-    hinglish: 'Aapka goal Home down payment hai, by Mar 2031, aur 4 years 5 months baaki hain. Aapne 7 months mein Rs 14,000 daale hain. Aap keep, skip, pause ya amount lower kar sakte hain. This is not investment advice.',
-    hi: 'आपका लक्ष्य Home down payment है, Mar 2031 तक, 4 years 5 months बाकी हैं। आपने 7 months में Rs 14,000 लगाए हैं। आप SIP जारी रख सकते हैं, skip, pause या amount कम कर सकते हैं। This is not investment advice.',
+    en: 'Your SIP is for {goal_name}, by {goal_date}, with {time_to_goal}. You have {put_in_so_far}, over {months_invested}. You can keep it, skip next, pause or lower the amount. This is not investment advice.',
+    hinglish: 'Aapka goal {goal_name} hai, {goal_date} tak, aur {time_to_goal} hain. Aapne {put_in_so_far} hain. Aap keep, skip, pause ya amount lower kar sakte hain. This is not investment advice.',
+    hi: 'आपका लक्ष्य {goal_name} है, {goal_date} तक, {time_to_goal} हैं। आपने {put_in_so_far} हैं। आप SIP जारी रख सकते हैं, skip, pause या amount कम कर सकते हैं। This is not investment advice.',
+  };
+  // The quality-check line in each language, for an answer that wasn't in the investor's language.
+  const NOT_IN_LANGUAGE: Record<string, string> = {
+    en: "Quality check: the answer wasn't in your language → showing facts only",
+    other: "Quality check: the answer wasn't in your language → showing facts only",
+    hinglish: 'Quality check: jawab aapki bhasha mein nahi tha → sirf facts dikha rahe hain',
+    hi: 'गुणवत्ता जाँच: जवाब आपकी भाषा में नहीं था → सिर्फ़ तथ्य दिखा रहे हैं',
   };
 
   /** Scripted replies in order, recording every call. */
@@ -116,8 +123,15 @@ describe('A check-in in each language, with scripted AI replies', () => {
     const r = await ask(llm, 'Market crash ho gaya, mera SIP red mein hai. Band kar du?');
     expect(systemPrompt(llm)).toContain('Write in Hinglish');
     expect(r).toMatchObject({ outcome: 'answer', language: 'hinglish', checks: { in_language: true } });
+    // The numbers are filled in Hinglish, each with what it means.
+    expect(r.text).toContain('Mar 2031 tak, aur goal tak 4 saal 5 mahine baaki hain. Aapne ab tak Rs 14,000 lagaye hain.');
     expect(r.text.endsWith(`${LOCAL_DISCLAIMERS.hinglish} ${DISCLAIMER}`)).toBe(true);
     expect(checkInCard(r)).toMatchObject({ lang: 'hi-Latn', understood: 'Market girne se dar kar SIP band karna chahte hain' });
+    // The quality strip is in Hinglish too.
+    expect(checkInCard(r).strip?.map((s) => s.label)).toEqual([
+      'Investment advice nahi', 'Numbers aapke SIP se match', 'Disclaimer dikhaya', 'Koi bina saboot ka daava nahi', 'Aapki bhasha mein',
+    ]);
+    expect(checkInCard(r).confidence).toBe('Bharosa: zyada');
   });
 
   it('answers Hindi in Hindi, even when the model says Hinglish, with both disclaimers', async () => {
@@ -125,14 +139,25 @@ describe('A check-in in each language, with scripted AI replies', () => {
     const r = await ask(llm, 'बाज़ार गिर गया, SIP बंद कर दूँ?');
     expect(systemPrompt(llm)).toContain('Write in Hindi, in Devanagari script');
     expect(r).toMatchObject({ outcome: 'answer', language: 'hi', checks: { in_language: true } });
+    // The numbers are filled in Hindi: the month in Devanagari, years and months as साल and महीने.
+    expect(r.text).toContain('मार्च 2031 तक, लक्ष्य तक 4 साल 5 महीने बाकी हैं। आपने अब तक लगाए Rs 14,000 हैं।');
     expect(r.text.endsWith(`${LOCAL_DISCLAIMERS.hi} ${DISCLAIMER}`)).toBe(true);
     expect(checkInCard(r).lang).toBe('hi');
+    expect(checkInCard(r).strip?.map((s) => s.label)).toEqual([
+      'निवेश सलाह नहीं', 'आंकड़े आपके SIP से मेल खाते हैं', 'डिस्क्लेमर दिखाया', 'कोई बेबुनियाद दावा नहीं', 'आपकी भाषा में',
+    ]);
   });
 
   it('answers English in English, with the English disclaimer only', async () => {
     const llm = fakeLlm(reading('en'), { text: REPLIES.en });
     const r = await ask(llm, 'Markets are down and my SIP is red');
-    expect(r).toMatchObject({ outcome: 'answer', language: 'en', text: REPLIES.en, checks: { in_language: true } });
+    expect(r).toMatchObject({
+      outcome: 'answer', language: 'en', checks: { in_language: true },
+      text: 'Your SIP is for Home down payment, by Mar 2031, with 4 years 5 months to go. You have Rs 14,000 put in so far, over 7 months invested. You can keep it, skip next, pause or lower the amount. This is not investment advice.',
+    });
+    expect(checkInCard(r).strip?.map((s) => s.label)).toEqual([
+      'No investment advice', 'Numbers match your SIP', 'Disclaimer shown', 'No unsupported claims', 'In your language',
+    ]);
   });
 
   it('answers other languages in English, which the checks can read', async () => {
@@ -153,7 +178,8 @@ describe('A check-in in each language, with scripted AI replies', () => {
     const r = await ask(fakeLlm(reading(said), { text: REPLIES[replyIn] }), reason);
     expect(r).toMatchObject({ outcome: 'fallback', checks: { in_language: false }, fallbackReason: { kind: 'checks', failed: ['in_language'] } });
     expect(r.text).toBe(cardText('fallback', r.language));
-    expect(checkInCard(r).gate).toBe("Quality check: the answer wasn't in your language → showing facts only");
+    // The quality-check line is in the investor's language and script, from fixed translations.
+    expect(checkInCard(r).gate).toBe(NOT_IN_LANGUAGE[r.language]);
   });
 
   it('shows the fixed cards in the investor\'s language when the AI is unavailable', async () => {
@@ -162,6 +188,6 @@ describe('A check-in in each language, with scripted AI replies', () => {
     expect(await ask(null, 'I need the money')).toMatchObject({ outcome: 'fallback', language: 'en', text: cardText('fallback', 'en') });
     const down = await ask(fakeLlm(new LlmError('Groq did not answer within 10 s')), 'Market crash ho gaya, band kar du?');
     expect(down).toMatchObject({ outcome: 'fallback', language: 'hinglish' });
-    expect(checkInCard(down).gate).toBe('Quality check: AI unavailable → showing facts only');
+    expect(checkInCard(down).gate).toBe('Quality check: AI abhi uplabdh nahi hai → sirf facts dikha rahe hain');
   });
 });

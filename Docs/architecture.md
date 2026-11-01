@@ -94,7 +94,8 @@ Every lookup is by key: investor and SIP id for facts, route for explainers. A s
 | Four explainers, advice-phrase list | Repo | Authors, through Git | Prompt builder, quality check |
 | Golden set and 16 eval cases | Repo | Authors, through Git | Eval runner in CI |
 | `ai_checks` (every AI call: inputs redacted, outputs, checks, outcome, latency, later the choice) | Postgres | Check-in API | /quality live counts |
-| `eval_runs`, `eval_results` | Postgres | Eval runner in CI | /quality |
+| `eval_runs`, `eval_results` | Postgres | Eval runner in CI | `eval/results.json` and `.md`, written from them |
+| `eval/results.json`, `eval/holdout-set.json`, `eval/holdout-results.json`, `eval/tuning-log.md` | Repo | Eval runner (committed by hand) | /quality's eval section, side by side with the holdout |
 
 ## 7. Phase 5 — Retrieval logic
 
@@ -169,15 +170,17 @@ sequenceDiagram
 
     The explainers for the route are added: `explain` gets `stop`; `cash` gets `skip`, `pause`, `lower_amount` and `stop` (decision D2). The cash route also says that stopping gives no money back, and that getting money out is a separate redemption, which may have an exit load (the fund's exit load is a fact line).
 7. **Answer (call 2).** At most 90 words, in the investor's language. Mistral writes English; Groq `gpt-oss-120b` writes Hindi and Hinglish, with Mistral as its backup. A Hindi or Hinglish answer ends with the disclaimer in that language, then in English (code adds the local one if the model left it out). The dip explainer has its own guidance: three short sentences that set the worst fall next to the fund's biggest demo-history fall, give the share of the planned amount put in so far with the instalments to come and the time to go, and say what one instalment buys at the latest NAV against the peak NAV since the SIP started; then the options and the disclaimer. Its facts gain two lines for this: "Share of the planned amount put in so far" and "One instalment at the latest NAV buys".
+    Since prompt v11 the writer never writes a number and never sees one: it gets what is true about the SIP in words, and named placeholders (`{instalments_to_go}`, `{planned_total}`, `{share_put_in_pct}`, `{time_to_goal}`, `{worst_fall}` and others) with what each becomes, numbers shown as `#`. Code fills each placeholder with the number and the words that say what it is, in the reply's language ("53 instalments still to come", "53 kishtein abhi baaki", "अभी बाकी 53 किस्तें"), so a right number can't be given the wrong meaning (`slots.ts`).
 8. **Quality check (code).** Six checks:
     - no advice phrases (English, Hindi and Hinglish list);
-    - every number in it exists in the facts or explainers: rupee amounts, percentages and durations as written; a counted number as a fact of that kind ("53 instalments" must be an instalment count, "44.2 units" a number of units, "2 Nov" a date the facts state); any other number as a number the facts state; number words, lakh and crore, and digits in another script fail because they can't be checked;
+    - the model wrote no number of its own: no digits in any script, no number words in English, Hinglish or Hindi, no placeholder the SIP doesn't have (checked on the model's text before filling);
+    - every number in the filled reply exists in the facts or explainers: rupee amounts, percentages and durations as written; a counted number as a fact of that kind ("53 instalments" must be an instalment count, "44.2 units" a number of units, "2 Nov" a date the facts state); any other number as a number the facts state; number words, lakh and crore, and digits in another script fail because they can't be checked;
     - the disclaimer is present (in Hindi or Hinglish, in that language too);
     - at most 90 words;
     - no unsupported claims (`data/raw/guardrails/claim_patterns.json`, English, Hindi and Hinglish): it never calls a fall normal, small or temporary, says it will recover or bounce back, or tells them not to worry;
-    - written in the investor's language (Hindi in Devanagari, Hinglish in Latin letters with Hindi words, English for every other language), not counting the disclaimers (`language.ts`).
+    - written in the investor's language (Hindi in Devanagari, Hinglish in Latin letters with Hindi words, English for every other language), judged on the model's own words, not the filled-in phrases or the disclaimers (`language.ts`).
 
-    Any failure shows the Fallback card.
+    Any failure shows the Fallback card. Every facts-only card (declined or fallback) ends with the disclaimer, and its quality-check line is in the reply's language and script, from fixed translations.
 9. **Show and log.** The answer card shows the quality strip and "Numbers as of <latest NAV date>". Every call is written to `ai_checks`. Requests stopped at steps 1-2 (invalid input, someone else's SIP, a stopped SIP, personal details) make no AI call and are not written there; a PII rejection goes to the server log as a redacted copy.
 
 **Failure handling.** If Groq fails call 1 (timeout, error, out of free requests), Mistral reads the reason instead and the server log says so; the same holds when Groq fails to write a Hindi or Hinglish answer. `ai_checks.model` records which model read and which wrote. If Mistral then times out (10 s), errors, returns 429 twice, or has no `MISTRAL_API_KEY`, the investor gets the Fallback card. The error is logged, and no AI text is shown.
@@ -203,7 +206,7 @@ sequenceDiagram
 - **Must pass every run:** the 10 must-pass cases (the 8 safety cases, plus s17 and s18: needing the money gets the cash route) and the invariants: no advice, grounded numbers, the disclaimer, and no unsupported claims.
 - **Must not regress:** golden-set agreement at least 65% and at least 7 of 8 routing cases.
 
-Render deploys only after CI passes. /quality reads the eval run whose commit equals `RENDER_GIT_COMMIT`, or the latest run, labelled as such. It computes pass rates at read time.
+Render deploys only after CI passes. /quality reads the committed `eval/results.json` (not the database, so reseeding or replacing the database never empties it) and names the live commit (`RENDER_GIT_COMMIT`) when the eval ran on an earlier one. It computes pass rates at read time. Next to the golden score it shows the holdout set's (`npm run eval -- --set holdout`, reported only): 10 real posts never used to write a prompt rule (`eval/tuning-log.md`).
 
 ## 9. Security
 

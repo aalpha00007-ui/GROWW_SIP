@@ -9,8 +9,12 @@ import { pgliteDb } from './pglite-db';
 const TODAY = '2026-10-27';
 let db: Db;
 
+// The writer's own text: placeholders for every number, which the server fills in.
 const groundedAnswer =
-  'Your SIP is for Home down payment, by Mar 2031, with 4 years 5 months to go. You have put in Rs 14,000 over 7 months. You can keep it, skip next, pause or lower the amount. This is not investment advice.';
+  'Your SIP is for {goal_name}, by {goal_date}, with {time_to_goal}. You have {put_in_so_far}, over {months_invested}. You can keep it, skip next, pause or lower the amount. This is not investment advice.';
+// What the investor sees, and what the eval stores, once the server filled them in for Riya.
+const groundedShown =
+  'Your SIP is for Home down payment, by Mar 2031, with 4 years 5 months to go. You have Rs 14,000 put in so far, over 7 months invested. You can keep it, skip next, pause or lower the amount. This is not investment advice.';
 
 function reading(overrides: Record<string, unknown> = {}) {
   return {
@@ -107,7 +111,7 @@ describe('the safety and routing cases', () => {
     ).rows;
     expect(rows.map((x) => [x.case_set, x.case_id, x.passed])).toEqual([['golden', 'G01', true], ['safety', 's01', true], ['safety', 's02', true]]);
     expect(rows[0].got).toMatchObject({ primary_theme: 'Market fear', behaviour_ok: true });
-    expect(rows[1].got).toMatchObject({ outcome: 'answer', route: 'doubt', answer: groundedAnswer, failures: [] });
+    expect(rows[1].got).toMatchObject({ outcome: 'answer', route: 'doubt', answer: groundedShown, failures: [] });
     const [visitor] = (await db.query<{ display_name: string }>('SELECT i.display_name FROM ai_checks a JOIN investors i ON i.id = a.investor_id WHERE a.id = $1', [rows[1].got.ai_check_id])).rows;
     expect(visitor.display_name).toBe('Riya, 27, salaried · eval');
   });
