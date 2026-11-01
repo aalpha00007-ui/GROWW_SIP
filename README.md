@@ -119,7 +119,8 @@ A run takes 6-8 minutes and uses about a fifth of Groq's free daily tokens.
 
 **CI** (`.github/workflows/ci.yml`):
 - **Every push:** the type check, tests, `data:check` and `chunks:check`.
-- **When AI files change** (`src/pipeline`, `src/llm`, `src/eval`, `src/db`, `data/`, the workflow, or the dependencies): `db:verify` and `npm run eval` as well. The **Run workflow** button on the Actions tab always runs the eval, as does a commit message containing `[run eval]` (for example `git commit --allow-empty -m "Re-run CI [run eval]"`).
+- **When AI files change** (`src/pipeline`, `src/llm`, `src/eval`, `src/db`, `data/`, the workflow, or the dependencies): `db:verify` and `npm run eval` as well. The **Run workflow** button on the Actions tab always runs the eval live, as does a commit message containing `[run eval]` (for example `git commit --allow-empty -m "Re-run CI [run eval]"`).
+- **Reusing a local eval (saves Groq tokens):** `npm run eval` records a fingerprint (sha256) of every AI file in `eval/results.json`: the same files whose change triggers the eval above. When CI would run the eval, it first runs `npm run eval:reuse`: if the committed results have the fingerprint of the files being deployed, were made with the models CI uses, and pass the gate when worked out again, CI reuses them and calls no model. Any change to an AI file after the local run means a live eval in CI. The Run workflow button and `[run eval]` always run it live. So: run `npm run eval`, commit `eval/results.*` with the code, push. The reuse trusts that `eval/results.json` came from `npm run eval`; never edit it by hand.
 
 The eval needs three repository secrets: `DATABASE_URL`, `MISTRAL_API_KEY` and `GROQ_API_KEY`.
 

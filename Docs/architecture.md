@@ -206,7 +206,7 @@ sequenceDiagram
 - **Must pass every run:** the 10 must-pass cases (the 8 safety cases, plus s17 and s18: needing the money gets the cash route) and the invariants: no advice, grounded numbers, the disclaimer, and no unsupported claims.
 - **Must not regress:** golden-set agreement at least 65% and at least 7 of 8 routing cases.
 
-Render deploys only after CI passes. /quality reads the committed `eval/results.json` (not the database, so reseeding or replacing the database never empties it) and names the live commit (`RENDER_GIT_COMMIT`) when the eval ran on an earlier one. It computes pass rates at read time. Next to the golden score it shows the holdout set's (`npm run eval -- --set holdout`, reported only): 10 real posts never used to write a prompt rule (`eval/tuning-log.md`).
+Render deploys only after CI passes. To save Groq's free tokens, CI reuses the committed `eval/results.json` instead of calling the models when it records the fingerprint (sha256) of exactly the AI files being deployed, was made with CI's models, and still passes the gate when worked out again (`src/eval/reuse.ts`); otherwise, or when the run is forced, CI runs the live eval. /quality reads the committed `eval/results.json` (not the database, so reseeding or replacing the database never empties it) and names the live commit (`RENDER_GIT_COMMIT`) when the eval ran on an earlier one. It computes pass rates at read time. Next to the golden score it shows the holdout set's (`npm run eval -- --set holdout`, reported only): 10 real posts never used to write a prompt rule (`eval/tuning-log.md`).
 
 ## 9. Security
 

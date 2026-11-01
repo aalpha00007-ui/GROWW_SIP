@@ -51,17 +51,18 @@ jobs:
 
       # Groq's free plan caps tokens a day and one eval uses about a fifth of them, so the eval runs only
       # when something that changes the AI's behaviour changed: code, data, the schema or this workflow.
-      # "[run eval]" in the commit message runs it anyway, for a re-run from the terminal.
+      # "[run eval]" in the commit message runs it anyway, for a re-run from the terminal. Those two forced
+      # runs always call the models; otherwise the committed results may be reused (next steps).
       - name: Did the AI change?
         id: changes
         env:
           # Through env, never pasted into the script: a commit message must not be able to run commands.
           HEAD_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; echo "forced=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           if printf '%s' "$HEAD_MESSAGE" | grep -qF '[run eval]'; then
             echo "The commit message asks for the eval."
-            echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+            echo "run=true" >> "$GITHUB_OUTPUT"; echo "forced=true" >> "$GITHUB_OUTPUT"; exit 0
           fi
           if [ "${{ github.event_name }}" = "pull_request" ]; then base="${{ github.event.pull_request.base.sha }}"; else base="${{ github.event.before }}"; fi
           if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
@@ -70,6 +71,7 @@ jobs:
           fi
           changed=$(git diff --name-only "$base" "${{ github.sha }}")
           echo "Changed files:"; echo "$changed"
+          # The same pattern as AI_FILES in src/eval/fingerprint.ts (a test keeps them equal).
           if echo "$changed" | grep -qE '^(src/(pipeline|llm|eval|db)/|data/|\.github/workflows/|package(-lock)?\.json$)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
@@ -80,8 +82,26 @@ jobs:
         if: steps.changes.outputs.run != 'true'
         run: echo "No AI files changed (only docs, tests or screens), so the eval is skipped."
 
-      - name: Check the secrets are set
+      - uses: actions/setup-node@v4
         if: steps.changes.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - if: steps.changes.outputs.run == 'true'
+        run: npm ci
+
+      # Saves a day's Groq tokens: when the committed eval/results.json was made on exactly these AI files (same
+      # fingerprint), with the models CI uses, and passes the gate when worked out again, it stands in for a new
+      # run. Any change to an AI file since then means a live eval below. No AI or database call here.
+      - name: Can the committed eval be reused?
+        id: reuse
+        if: steps.changes.outputs.run == 'true' && steps.changes.outputs.forced != 'true'
+        # If this check itself breaks, it says nothing, and the live eval runs.
+        continue-on-error: true
+        run: npm run -s eval:reuse
+
+      - name: Check the secrets are set
+        if: steps.changes.outputs.run == 'true' && steps.reuse.outputs.reuse != 'true'
         env:
           # Only true or false, never a value: spots a key saved under Variables instead of Secrets.
           IN_VARS_DATABASE_URL: ${{ vars.DATABASE_URL != '' }}
@@ -101,23 +121,16 @@ jobs:
           done
           exit $missing
 
-      - uses: actions/setup-node@v4
-        if: steps.changes.outputs.run == 'true'
-        with:
-          node-version: 22
-          cache: npm
-      - if: steps.changes.outputs.run == 'true'
-        run: npm ci
-
       - name: Neon holds the seed
-        if: steps.changes.outputs.run == 'true'
+        if: steps.changes.outputs.run == 'true' && steps.reuse.outputs.reuse != 'true'
         run: npm run db:verify
 
       - name: Eval (exits 1 when the gate fails)
-        if: steps.changes.outputs.run == 'true'
+        if: steps.changes.outputs.run == 'true' && steps.reuse.outputs.reuse != 'true'
         run: npm run eval
 
-      # eval/results.md and results.json from this run, on the run's page under Artifacts, pass or fail.
+      # eval/results.md and results.json from this run (or the committed ones it reused), on the run's page
+      # under Artifacts, pass or fail.
       - name: Keep the eval results
         if: always() && steps.changes.outputs.run == 'true'
         uses: actions/upload-artifact@v4

@@ -1,6 +1,7 @@
 // Phase 6 eval (build spec §11): call 1 against the hand-labelled golden set, the 16 safety and routing
 // cases through the full check-in, and the invariants on every AI answer. Results are stored per commit.
 import type { Db } from '../db/client';
+import type { Fingerprint } from './fingerprint';
 import { LlmError, type Llm } from '../llm/chat';
 import type { FactsUnit } from '../pipeline/chunking/facts';
 import { todayInIndia } from '../pipeline/loading/dates';
@@ -92,6 +93,8 @@ export interface EvalReport {
   commitSha: string;
   model: string;
   promptVersion: string;
+  /** The AI files' fingerprint at the run, when they didn't change during it (npm run eval sets it). */
+  aiFiles?: Fingerprint | null;
   themeThreshold: number;
   themeTarget: number;
   golden: {

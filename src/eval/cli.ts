@@ -9,6 +9,7 @@ import { loadEvalCases, loadGoldenSet } from '../pipeline/loading/fixtures';
 import { CHECK_KEYS } from '../pipeline/retrieval/checkin';
 import { DEFAULT_PROMPT_VERSION, MAX_WORDS } from '../pipeline/retrieval/prompts';
 import { runSummary } from '../server/quality';
+import { aiFilesFingerprint } from './fingerprint';
 import { chosenSet, HOLDOUT_FILE, loadHoldoutSet, runHoldout, writeHoldoutResults } from './holdout';
 import { writeResults } from './results';
 import { DEFAULT_THEME_TARGET, DEFAULT_THEME_THRESHOLD, percent, ROUTING_MISSES_ALLOWED, runEval, type EvalReport } from './run';
@@ -31,12 +32,21 @@ async function main(args: string[]): Promise<void> {
     const promptVersion = process.env.PROMPT_VERSION || DEFAULT_PROMPT_VERSION;
     const models = reader ? `${reader.model} reads and writes Hindi and Hinglish, ${llm.model} writes the rest` : `${llm.model} reads and writes`;
     console.log(`Running the eval: ${golden.labelled} golden posts and ${cases.length} safety cases, one call at a time (${models}, prompt ${promptVersion}).`);
+    // The fingerprint of the AI files this run is about, so CI can reuse it for exactly this code.
+    const before = aiFilesFingerprint();
     const report = await runEval(
       { db, llm, reader, commitSha: commitSha(), promptVersion, themeThreshold, themeTarget, log: (line) => console.log(`  ${line}`) },
       { golden: golden.rows, cases },
     );
     print(report);
-    const files = writeResults(report, await runSummary(db, report.runId));
+    const after = aiFilesFingerprint();
+    const steady = after.hash === before.hash;
+    console.log(
+      steady
+        ? `\nAI files fingerprint: ${before.hash.slice(0, 12)} (${before.files} files). CI reuses this run while they stay the same.`
+        : '\nThe AI files changed during the run, so no fingerprint is recorded: CI will run the eval again.',
+    );
+    const files = writeResults({ ...report, aiFiles: steady ? before : null }, await runSummary(db, report.runId));
     console.log(`\nWrote ${files.map((f) => path.relative(process.cwd(), f)).join(' and ')}.`);
     if (!report.passed) process.exitCode = 1;
   } finally {

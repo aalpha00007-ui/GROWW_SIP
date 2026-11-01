@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -73,32 +73,32 @@ beforeAll(async () => {
 describe('/quality: the eval result (PRD F11), from the committed files', () => {
   const EVAL_DIR = path.join(process.cwd(), 'eval');
 
-  it("reads the committed eval/results.json, not the database: today's run #23 at 90%", async () => {
+  // The committed files change with every eval run, so these tests read what to expect from the files themselves;
+  // the exact rows and rules are pinned by the hand-made files below.
+  const committed = () => JSON.parse(readFileSync(path.join(EVAL_DIR, 'results.json'), 'utf8')) as { run: { id: number; commit: string; prompt_version: string } };
+
+  it('reads the committed eval/results.json, not the database', async () => {
+    const file = committed();
+    const short = file.run.commit.slice(0, 7);
     const { run } = await qualityView(db, undefined, EVAL_DIR);
     expect(run).toMatchObject({
-      runId: 23, matched: false, title: 'Latest committed eval (run #23, commit ca053d8)', passed: true, promptVersion: 'v10',
+      runId: file.run.id, matched: false, title: `Latest committed eval (run #${file.run.id}, commit ${short})`, promptVersion: file.run.prompt_version,
       note: 'Read from eval/results.json in the repo, so reseeding or replacing the database never removes it.',
     });
-    expect(run!.rows.map((r) => [r.label, r.value, r.ok])).toEqual([
-      ['Golden set: theme agreement', '90% (18 of 20 posts)', true],
-      ['Golden set: behaviour', '85% (17 of 20)', null],
-      ['Fallback correct', '100% (18 of 18 cases)', null],
-      ['Must-pass safety cases', '10 of 10', true],
-      ['Routing cases', '7 of 8', true],
-      ['Invariant failures', '0', true],
+    expect(run!.rows.map((r) => r.label)).toEqual([
+      'Golden set: theme agreement', 'Golden set: behaviour', 'Fallback correct', 'Must-pass safety cases', 'Routing cases', 'Invariant failures',
     ]);
-    expect(run!.disagreements.map((d) => d.id)).toEqual(['G08', 'G11', 'G12', 'G15', 'G20', 's14']);
     // The live version is named when it isn't the commit the eval ran on.
-    const live = await qualityView(db, '9038468aaaa', EVAL_DIR);
-    expect(live.run!.note).toContain("The live version is commit 9038468; CI re-runs the eval only when the AI's code, prompts or data change.");
-    const same = await qualityView(db, 'ca053d8cfa587a66306011dfdfa896703311b14f', EVAL_DIR);
-    expect(same.run).toMatchObject({ matched: true, title: 'Eval for the live version (run #23, commit ca053d8)' });
+    const live = await qualityView(db, 'fffffff9999', EVAL_DIR);
+    expect(live.run!.note).toContain("The live version is commit fffffff; CI re-runs the eval only when the AI's code, prompts or data change.");
+    const same = await qualityView(db, file.run.commit, EVAL_DIR);
+    expect(same.run).toMatchObject({ matched: true, title: `Eval for the live version (run #${file.run.id}, commit ${short})` });
   });
 
   it('keeps showing it when the database has no eval runs at all (reseeded, reset or replaced)', async () => {
     await evalRun('aaaaaaa1111');
     await db.query('DELETE FROM eval_runs');
-    expect((await qualityView(db, undefined, EVAL_DIR)).run?.runId).toBe(23);
+    expect((await qualityView(db, undefined, EVAL_DIR)).run?.runId).toBe(committed().run.id);
     // A version with no committed results says so instead of failing.
     expect((await qualityView(db, undefined, mkdtempSync(path.join(tmpdir(), 'no-eval-')))).run).toBeNull();
   });
@@ -125,8 +125,9 @@ describe('/quality: the eval result (PRD F11), from the committed files', () => 
   });
 
   it('shows the holdout set beside the golden set: not scored until it is labelled, then its own score', async () => {
-    const committed = await qualityView(db, undefined, EVAL_DIR);
-    expect(committed.holdout).toEqual({ total: 10, labelled: 0, result: null });
+    const set = JSON.parse(readFileSync(path.join(EVAL_DIR, 'holdout-set.json'), 'utf8')) as { human_theme: string }[];
+    const fromRepo = (await qualityView(db, undefined, EVAL_DIR)).holdout!;
+    expect(fromRepo).toMatchObject({ total: 10, labelled: set.filter((p) => p.human_theme.trim() !== '').length });
 
     const dir = mkdtempSync(path.join(tmpdir(), 'holdout-'));
     const post = (id: string, theme: string) => ({ id, source: 'App Store', text: 'A post', engine_theme: '', engine_behaviour: '', human_theme: theme, human_behaviour: '' });

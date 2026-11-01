@@ -62,10 +62,28 @@ So the 65-80% range before 1 Nov is also partly tuned. Only the holdout set give
 
 ## The holdout set: `eval/holdout-set.json`
 
-Ten real posts from the same collected data as the golden set, never used for any rule, with every label left
-blank for the owner to fill in by hand. The fields are the golden set's own (`id, source, text, engine_theme,
-engine_behaviour, human_theme, human_behaviour`). The engine's own guesses are left blank too: they would be a
-suggested label.
+Ten real posts from the same collected data as the golden set, never used for any rule. The fields are the golden
+set's own (`id, source, text, engine_theme, engine_behaviour, human_theme, human_behaviour`). The engine's own
+guesses are left blank: they would be a suggested label.
+
+**Who labelled them:** the labels (`human_theme`, `human_behaviour`) were **drafted by Claude and reviewed by the
+owner** on 1 Nov 2026, then entered as given. They were not written blind by hand first, as the golden set's were,
+so where the drafting model and the model under test lean the same way, the holdout may agree a little more than
+fully hand-written labels would. The labels were entered before the holdout was ever run, and no prompt rule was
+changed after seeing a holdout result.
+
+| Post | Theme(s) | Behaviour |
+| --- | --- | --- |
+| H01 | App experience | Not stated |
+| H02 | KYC & onboarding, App experience | Not stated |
+| H03 | Other | Not stated |
+| H04 | App experience | Not stated |
+| H05 | Need money | Stopped |
+| H06 | Returns, Market fear | Not stated |
+| H07 | Market fear | Not stated |
+| H08 | App experience | Not stated |
+| H09 | Payment & mandate issues, App experience | Continuing |
+| H10 | Not relevant | Not stated |
 
 **Where they come from:** the Google Sheet "Groww SIP Discovery Engine (1000-post run)", the same Evidence Log run as
 the golden set (`run_2026-10-26T15-35-36`). Written posts are from the "2 Feedback Analysis" tab (the posts the
@@ -101,9 +119,9 @@ transcript is from the "6 Voice Data" tab ("Transcript Clip", the column G11 mat
 
 **To use it:**
 
-1. Fill in `human_theme` (one to three of the 13 themes, comma-separated, as in the golden set) and
-   `human_behaviour` (one of Started, Continuing, Paused, Reduced, Stopped, Not stated) for each post, by hand,
-   before looking at any AI output.
+1. The labels are in (see above). A post added later gets `human_theme` (one to three of the 13 themes,
+   comma-separated, as in the golden set) and `human_behaviour` (one of Started, Continuing, Paused, Reduced,
+   Stopped, Not stated) before any AI output is seen.
 2. Run `npm run eval -- --set holdout`. It reads only the labelled posts (call 1, about 1,400 Groq tokens each)
    and writes `eval/holdout-results.json` and `.md`. Commit them; /quality shows the score next to the golden set's.
 3. Don't change a prompt rule because of a holdout miss. If one is changed anyway, the holdout is no longer a

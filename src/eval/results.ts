@@ -16,7 +16,11 @@ export function writeResults(report: EvalReport, summary: RunSummary, dir = path
 export function resultsJson(report: EvalReport, summary: RunSummary) {
   const { golden, safety } = report;
   return {
-    run: { id: summary.runId, date: summary.date, commit: summary.commit, model: summary.model, prompt_version: summary.promptVersion },
+    run: {
+      id: summary.runId, date: summary.date, commit: summary.commit, model: summary.model, prompt_version: summary.promptVersion,
+      // What CI checks before reusing this run instead of calling the models again (src/eval/reuse.ts).
+      ai_files: report.aiFiles ?? null,
+    },
     passed: report.passed,
     reasons: report.reasons,
     scores: {
