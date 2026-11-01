@@ -49,6 +49,9 @@ describe('The numbers check: what it lets through', () => {
     ['Hindi words around ASCII digits', 'आपकी 53 किस्तें बाकी हैं, और एक किस्त अभी 44.2 यूनिट खरीदती है।'],
     ['Hinglish words for instalments', 'Abhi 53 kishtein baaki hain.'],
     ['an answer with no numbers at all', 'You can keep, skip, pause or lower the amount.'],
+    // Live run v9-stop-1-3 (1 Nov 2026): the instalment's amount is not a count of instalments.
+    ['the instalment amount before the word "instalment"', 'You can keep, skip, pause, or lower the Rs 2,000 instalment.'],
+    ['the instalment amount with the rupee sign', 'You can lower the ₹2,000 instalment.'],
   ])('passes %s', (_what, text) => {
     expect(check(text)).toEqual({ grounded: true, ungrounded: [] });
   });
@@ -61,6 +64,8 @@ describe('The numbers check: what it lets through', () => {
 describe('The numbers check: what it stops', () => {
   it.each([
     ['an amount the facts never state', 'You have put in Rs 15,000 so far.', ['Rs 15,000']],
+    ['a made-up instalment amount', 'You can lower the Rs 2,500 instalment.', ['Rs 2,500']],
+    ['a made-up instalment amount with the rupee sign', 'You can lower the ₹2,500 instalment.', ['2,500']],
     ['an amount it worked out itself', 'You are Rs 1,914 down and need Rs 1,06,000 more.', ['Rs 1,06,000']],
     ['a percentage the facts never state', 'Your SIP is down 13.8%.', ['13.8%']],
     ['a duration that is not the time to go', 'Your goal is 5 years away.', ['5 years']],

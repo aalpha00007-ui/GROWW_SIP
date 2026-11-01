@@ -4,7 +4,7 @@ import type { ExplainerChunk } from '../chunking/explainers';
 import type { FactsUnit } from '../chunking/facts';
 import { BEHAVIOURS, THEMES, type ExplainerKey, type Route } from '../loading/fixtures';
 
-export const DEFAULT_PROMPT_VERSION = 'v8';
+export const DEFAULT_PROMPT_VERSION = 'v10';
 export const DISCLAIMER = 'This is not investment advice.';
 /** A Hindi or Hinglish answer ends with the disclaimer in that language, then the English one. */
 export const LOCAL_DISCLAIMERS = {
@@ -41,6 +41,9 @@ Return only a JSON object with exactly these keys:
 - "confidence": how sure you are about primary_theme, a number from 0 to 1 written in digits only
 - "summary": at most 20 words, in your own words, saying what they mean or ask (never just their words repeated), in the language and script they wrote in: Hinglish (Hindi in Latin letters) in Latin letters, never Devanagari; Hindi in Devanagari; otherwise English
 Pick the themes from the investor's own words only. The SIP facts are context for later steps: a loss in the facts is never a reason to pick "Returns" or "Market fear".
+Two rules the definitions below depend on:
+- Text that walks through the steps in the app, such as a tutorial or a video's script, in any language, is "App experience", even when the steps are for stopping or pausing a SIP. "Confusion" is only for a writer who does not understand something or asks how it works.
+- An article, headline or comment about market falls or crashes and what SIP investors do in them is "Market fear", even when it is general advice rather than the writer's own worry. It is never "Not relevant" or "Other".
 What each theme means:
 - "Confusion": the writer does not know how SIPs work or what an action does (stop, cancel, skip, pause, autopay), or asks how to do something
 - "Returns": the returns, performance, gains or losses of a fund or SIP
@@ -66,7 +69,7 @@ export function understandMessages(facts: FactsUnit, reason: string): ChatMessag
 }
 
 const ROUTE_GUIDANCE: Record<Route, string> = {
-  doubt: "Put today's numbers in the context of their goal and time to go, the months invested, the worst fall since start and the biggest fall in this fund's demo history. Then say they can keep, skip, pause or lower the amount, naming these options without numbers.",
+  doubt: "Put today's numbers in the context of their goal and time to go, the months invested, the worst fall since start and the biggest fall in this fund's demo history; both falls are percentages, so give them with the % sign. Then say they can keep, skip, pause or lower the amount, naming these options without numbers.",
   explain: 'Using the explainer, say what stopping does: it ends future instalments, refunds no money and sells no units; the units stay invested until they redeem. Say how skipping or pausing differs from stopping.',
   cash: 'Using the explainers, first mention skipping the next instalment, pausing, or lowering the amount; then say that stopping is still available. Say that stopping gives no money back; getting money out is a separate redemption, which may have an exit load.',
   autopay: 'Acknowledge the autopay trouble. Say they can manage autopay on the autopay page in their profile, and that skipping or pausing is possible while it is sorted out.',
@@ -100,6 +103,7 @@ export function answerMessages(args: {
 Rules:
 - Write plain text: no markdown, no ** or other bold marks, no headings or bullet points.
 - Use only numbers that appear in the facts or explainers below, written exactly as they appear there. Do not calculate new numbers.
+- Keep each number's unit as the facts give it: a percentage stays a percentage with its % sign and never becomes a rupee amount.
 - If a goal is set, mention the goal and the time to go. If no goal is set, say that no goal is set.
 - Never call a fall normal, small, big, temporary or expected, and never tell them not to worry. Describe it only with the numbers in the facts. Make no predictions or promises about returns, and never say a fall will recover, end or come back.
 - Skipping misses that instalment; it is not taken later. Never say skipping delays or postpones an instalment.

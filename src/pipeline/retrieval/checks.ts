@@ -30,6 +30,8 @@ export interface NumberKinds {
 
 /** A number with the word that says what it counts: "53 instalments", "30.6 units", "53 किस्तें", "53 kishtein". */
 const COUNTED = /(\d[\d,]*(?:\.\d+)?)\s*(instalments?|installments?|kisht\w*|kist\w*|किस्त\S*|किश्त\S*|units?|यूनिट\S*)/gi;
+/** A rupee sign or "Rs" right before a number: the number is an amount, whatever word follows it. */
+const RUPEES_BEFORE = /(?:\bRs\.?|₹|\bINR)\s*$/i;
 /** A day and month: "2 Nov", "2 November". */
 export const DAY_MONTH = /\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\b/g;
 /** Number words can't be matched to a fact, so they fail. "one" is left out: "one instalment" names no amount. */
@@ -66,7 +68,11 @@ export function runChecks(
   // Counted numbers must also be of the right kind. One the facts don't state at all is already listed above.
   if (kinds) {
     const ofKind = { instalments: new Set(kinds.instalments.map(bare)), units: new Set(kinds.units.map(bare)) };
-    for (const [whole, number, word] of answer.matchAll(COUNTED)) {
+    for (const match of answer.matchAll(COUNTED)) {
+      const [whole, number, word] = match;
+      // "the Rs 2,000 instalment" names the instalment's amount, not a count of instalments. The amount
+      // itself is checked as a rupee amount above, so it must still match the facts exactly.
+      if (RUPEES_BEFORE.test(answer.slice(0, match.index))) continue;
       const kind = /^(units?|यूनिट)/i.test(word) ? ofKind.units : ofKind.instalments;
       if (allowedBare.has(bare(number)) && !kind.has(bare(number))) ungrounded.push(whole.trim());
     }
