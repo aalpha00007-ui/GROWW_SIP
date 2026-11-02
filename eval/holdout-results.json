@@ -1,0 +1,225 @@
+{
+  "run": {
+    "date": "2 Nov 2026, 13:18 IST",
+    "commit": "db767b3453353f30e65663af48ee10794ee2c088",
+    "model": "openai/gpt-oss-120b + ministral-8b-latest",
+    "prompt_version": "v11"
+  },
+  "set": "holdout",
+  "scores": {
+    "theme_agreement": 0.7,
+    "theme_ok": 7,
+    "labelled": 10,
+    "total": 10,
+    "behaviour_agreement": 0.8,
+    "behaviour_ok": 8,
+    "behaviour_labelled": 10,
+    "read_by_backup": 0
+  },
+  "results": [
+    {
+      "id": "H01",
+      "expected": {
+        "themes": [
+          "App experience"
+        ],
+        "behaviour": "Not stated"
+      },
+      "got": {
+        "primary_theme": "App experience",
+        "themes": [
+          "App experience"
+        ],
+        "behaviour": "Not stated",
+        "confidence": 0.99,
+        "model": "openai/gpt-oss-120b"
+      },
+      "themeOk": true,
+      "behaviourOk": true
+    },
+    {
+      "id": "H02",
+      "expected": {
+        "themes": [
+          "KYC & onboarding",
+          "App experience"
+        ],
+        "behaviour": "Not stated"
+      },
+      "got": {
+        "primary_theme": "Confusion",
+        "themes": [
+          "Confusion",
+          "KYC & onboarding"
+        ],
+        "behaviour": "Not stated",
+        "confidence": 0.96,
+        "model": "openai/gpt-oss-120b"
+      },
+      "themeOk": false,
+      "behaviourOk": true
+    },
+    {
+      "id": "H03",
+      "expected": {
+        "themes": [
+          "Other"
+        ],
+        "behaviour": "Not stated"
+      },
+      "got": {
+        "primary_theme": "Other",
+        "themes": [
+          "Other"
+        ],
+        "behaviour": "Not stated",
+        "confidence": 0.97,
+        "model": "openai/gpt-oss-120b"
+      },
+      "themeOk": true,
+      "behaviourOk": true
+    },
+    {
+      "id": "H04",
+      "expected": {
+        "themes": [
+          "App experience"
+        ],
+        "behaviour": "Not stated"
+      },
+      "got": {
+        "primary_theme": "App experience",
+        "themes": [
+          "App experience"
+        ],
+        "behaviour": "Stopped",
+        "confidence": 0.97,
+        "model": "openai/gpt-oss-120b"
+      },
+      "themeOk": true,
+      "behaviourOk": false
+    },
+    {
+      "id": "H05",
+      "expected": {
+        "themes": [
+          "Need money"
+        ],
+        "behaviour": "Stopped"
+      },
+      "got": {
+        "primary_theme": "Need money",
+        "themes": [
+          "Need money"
+        ],
+        "behaviour": "Stopped",
+        "confidence": 0.92,
+        "model": "openai/gpt-oss-120b"
+      },
+      "themeOk": true,
+      "behaviourOk": true
+    },
+    {
+      "id": "H06",
+      "expected": {
+        "themes": [
+          "Returns",
+          "Market fear"
+        ],
+        "behaviour": "Not stated"
+      },
+      "got": {
+        "primary_theme": "Other",
+        "themes": [
+          "Other"
+        ],
+        "behaviour": "Not stated",
+        "confidence": 0.95,
+        "model": "openai/gpt-oss-120b"
+      },
+      "themeOk": false,
+      "behaviourOk": true
+    },
+    {
+      "id": "H07",
+      "expected": {
+        "themes": [
+          "Market fear"
+        ],
+        "behaviour": "Not stated"
+      },
+      "got": {
+        "primary_theme": "Market fear",
+        "themes": [
+          "Market fear"
+        ],
+        "behaviour": "Not stated",
+        "confidence": 0.98,
+        "model": "openai/gpt-oss-120b"
+      },
+      "themeOk": true,
+      "behaviourOk": true
+    },
+    {
+      "id": "H08",
+      "expected": {
+        "themes": [
+          "App experience"
+        ],
+        "behaviour": "Not stated"
+      },
+      "got": {
+        "primary_theme": "App experience",
+        "themes": [
+          "App experience"
+        ],
+        "behaviour": "Not stated",
+        "confidence": 0.99,
+        "model": "openai/gpt-oss-120b"
+      },
+      "themeOk": true,
+      "behaviourOk": true
+    },
+    {
+      "id": "H09",
+      "expected": {
+        "themes": [
+          "Payment & mandate issues",
+          "App experience"
+        ],
+        "behaviour": "Continuing"
+      },
+      "got": {
+        "primary_theme": "Payment & mandate issues",
+        "themes": [
+          "Payment & mandate issues"
+        ],
+        "behaviour": "Not stated",
+        "confidence": 0.98,
+        "model": "openai/gpt-oss-120b"
+      },
+      "themeOk": true,
+      "behaviourOk": false
+    },
+    {
+      "id": "H10",
+      "expected": {
+        "themes": [
+          "Not relevant"
+        ],
+        "behaviour": "Not stated"
+      },
+      "got": {
+        "primary_theme": "Other",
+        "themes": [
+          "Other"
+        ],
+        "behaviour": "Not stated",
+        "confidence": 0.98,
+        "model": "openai/gpt-oss-120b"
+      },
+      "themeOk": false,
+      "behaviourOk": true
+    }
+  ]
+}
