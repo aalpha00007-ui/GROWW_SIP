@@ -19,6 +19,20 @@ export interface QualityChecks {
   ungrounded: string[];
   /** Claim patterns the answer matched. */
   claims_found: string[];
+  /**
+   * Why the writer was asked for a second draft (checkin.ts), when it was: the first was too long once filled
+   * in, stated a number itself, or compared two numbers. These checks ran on the second draft. Absent otherwise.
+   */
+  second_draft?: ('length' | 'numbers' | 'comparison')[];
+}
+
+/**
+ * The words the length check counts: the reply and the English disclaimer, as it always has. The Hindi or
+ * Hinglish disclaimer is fixed text added for those languages, so it doesn't eat into the reply's words.
+ */
+export function answerWords(answer: string, language: Language): number {
+  const local = language === 'hi' || language === 'hinglish' ? LOCAL_DISCLAIMERS[language] : null;
+  return (local ? answer.replace(local, ' ') : answer).trim().split(/\s+/).length;
 }
 
 /** Which fact numbers are which: a count of instalments, a number of units, or a day and month ('2 Nov'). */
@@ -84,10 +98,8 @@ export function runChecks(
   ungrounded.push(...(answer.match(/[०-९]+/g) ?? []), ...(answer.match(NUMBER_WORDS) ?? []));
   const adviceFound = patterns.filter((p) => p.regex.test(answer)).map((p) => p.pattern);
   const claimsFound = claimPatterns.filter((p) => p.regex.test(answer)).map((p) => p.pattern);
-  // The limit covers the reply and the English disclaimer, as it always has. The Hindi or Hinglish disclaimer is
-  // fixed text added for those languages, so it doesn't eat into the reply's words.
   const local = language === 'hi' || language === 'hinglish' ? LOCAL_DISCLAIMERS[language] : null;
-  const words = (local ? answer.replace(local, ' ') : answer).trim().split(/\s+/).length;
+  const words = answerWords(answer, language);
   return {
     no_advice: adviceFound.length === 0,
     grounded: ungrounded.length === 0,

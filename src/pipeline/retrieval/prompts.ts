@@ -5,7 +5,7 @@ import type { ExplainerChunk } from '../chunking/explainers';
 import type { FactsUnit } from '../chunking/facts';
 import { BEHAVIOURS, THEMES, type ExplainerKey, type Route } from '../loading/fixtures';
 
-export const DEFAULT_PROMPT_VERSION = 'v11';
+export const DEFAULT_PROMPT_VERSION = 'v12';
 export const DISCLAIMER = 'This is not investment advice.';
 /** A Hindi or Hinglish answer ends with the disclaimer in that language, then the English one. */
 export const LOCAL_DISCLAIMERS = {
@@ -107,6 +107,8 @@ export function dipGuidance(names: ReadonlySet<string>): string {
     falls,
     plan,
     units,
+    // v12: run #24's dip draft added {planned_total} and {instalment_amount}, and ran to 121 words filled in.
+    'Use no placeholder other than these: the answer must stay short once they are filled in.',
     'Then one sentence: they can keep, skip, pause or lower the amount.',
     'Then the disclaimer.',
   ]
@@ -178,6 +180,51 @@ What to cover: ${args.moment === 'is_this_normal' ? dipGuidance(names) : ROUTE_G
   return [
     { role: 'system', content: system },
     { role: 'user', content: `${known}\n\n${slots}\n\n${explainers}\n\n${reason}` },
+  ];
+}
+
+/**
+ * Why a first draft gets one more try (v12). Only these: a draft with advice or an unsupported claim never gets a
+ * second try, it goes straight to the facts-only card.
+ * - length: too long once the placeholders are filled in; `over` is the words filled in, divided by MAX_WORDS.
+ *   `longest` names the placeholders it used that become the most words.
+ * - numbers: it states a number itself (digits or a number word), or uses a placeholder this SIP doesn't have.
+ * - comparison: it says one placeholder's number is bigger or smaller than another's.
+ */
+export type DraftProblem =
+  | { kind: 'length'; over: number; longest: string[] }
+  | { kind: 'numbers'; unknown: string[] }
+  | { kind: 'comparison'; found: string[] };
+
+/**
+ * The second try: the same prompt, the first draft as the model's own reply, then what to fix. In words with no
+ * numbers, so the writer still never sees one: not the word count, and not a number the draft wrote.
+ */
+export function rewriteMessages(args: Parameters<typeof answerMessages>[0], draft: string, problems: DraftProblem[]): ChatMessage[] {
+  const fixes = problems.map((p) => {
+    if (p.kind === 'length') {
+      const howMuch =
+        p.over <= 1.15
+          ? 'a little too long: cut one sentence, or a placeholder the guidance does not ask for'
+          : p.over <= 1.4
+            ? 'about a third too long: make it about a third shorter'
+            : 'far too long: make it about half as long';
+      const longest = p.longest.length ? ` The ones you used that become the most words: ${p.longest.join(', ')}.` : '';
+      return `- Once the placeholders are filled in, it is ${howMuch}. Use fewer and shorter sentences, and only the placeholders the guidance asks for. Each placeholder becomes several words.${longest}`;
+    }
+    if (p.kind === 'numbers') {
+      const unknown = p.unknown.length ? ` ${p.unknown.join(', ')} ${p.unknown.length === 1 ? 'is not a placeholder' : 'are not placeholders'} you have.` : '';
+      return `- It states a number in its own words or digits.${unknown} Write no number at all: use only the placeholders listed.`;
+    }
+    return `- It compares numbers (${p.found.map((f) => `"${f}"`).join(', ')}). You can't see the numbers, so never say one is bigger, smaller, higher or lower than another: state each on its own.`;
+  });
+  return [
+    ...answerMessages(args),
+    { role: 'assistant', content: JSON.stringify({ text: draft }) },
+    {
+      role: 'user',
+      content: `This reply can't be shown yet:\n${fixes.join('\n')}\nWrite the whole reply again, keeping every rule above and still covering what the guidance asks for, and return only the JSON object.`,
+    },
   ];
 }
 

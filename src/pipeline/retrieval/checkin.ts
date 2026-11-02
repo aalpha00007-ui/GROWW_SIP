@@ -6,13 +6,13 @@ import { numberTokens } from '../chunking/format';
 import { todayInIndia } from '../loading/dates';
 import { loadAdvicePatterns, loadClaimPatterns, type AdvicePattern, type Outcome, type Route } from '../loading/fixtures';
 import { readReason, writeAnswer, type Understanding } from './ai';
-import { allPassed, runChecks, type QualityChecks } from './checks';
+import { allPassed, answerWords, runChecks, type QualityChecks } from './checks';
 import { decideRoute, type DeclineKind } from './decide';
 import { retrieveFacts } from './facts';
 import { detectLanguage, writtenIn } from './language';
 import { findPii, PII_MESSAGE } from './pii';
-import { DEFAULT_PROMPT_VERSION, DISCLAIMER, LOCAL_DISCLAIMERS, ROUTE_EXPLAINERS, type Language, type Moment } from './prompts';
-import { fillSlots, situation, slotsFor, writtenNumbers } from './slots';
+import { DEFAULT_PROMPT_VERSION, DISCLAIMER, LOCAL_DISCLAIMERS, MAX_WORDS, ROUTE_EXPLAINERS, type DraftProblem, type Language, type Moment } from './prompts';
+import { comparisons, fillSlots, situation, slotLanguage, slotsFor, writtenNumbers, type Slot } from './slots';
 
 export const DECLINED_TEXT =
   "I can't recommend funds or tell you to buy, sell or switch. Here are the facts about your SIP and official places to learn more.";
@@ -56,6 +56,33 @@ export function withLocalDisclaimer(answer: string, language: Language): string 
   // Without the English disclaimer the check fails anyway.
   if (answer.includes(local) || at === -1) return answer;
   return `${answer.slice(0, at).trimEnd()} ${local} ${answer.slice(at)}`.trim();
+}
+
+/**
+ * What a first draft needs fixed before it can be shown, if anything (step 7b). Length is counted on the answer as
+ * the investor would see it, filled in, exactly as the length check counts it.
+ */
+export function draftProblems(draft: string, slots: Slot[], language: Language): DraftProblem[] {
+  const problems: DraftProblem[] = [];
+  const words = answerWords(withLocalDisclaimer(fillSlots(draft, slots, language), language), language);
+  if (words > MAX_WORDS) {
+    const lang = slotLanguage(language);
+    const used = new Set([...draft.matchAll(/\{([^{}]*)\}/g)].map((m) => m[1].trim()));
+    const longest = slots
+      .filter((s) => used.has(s.name))
+      .map((s) => ({ name: `{${s.name}}`, words: s.values[lang].trim().split(/\s+/).length }))
+      .filter((s) => s.words >= 6)
+      .sort((a, b) => b.words - a.words)
+      .slice(0, 3)
+      .map((s) => s.name);
+    problems.push({ kind: 'length', over: words / MAX_WORDS, longest });
+  }
+  const written = writtenNumbers(draft, slots.map((s) => s.name));
+  // Unknown placeholders are named back to the writer, unless the name has a digit: it never sees a number.
+  if (written.length > 0) problems.push({ kind: 'numbers', unknown: written.filter((w) => w.startsWith('{') && !/\p{Nd}/u.test(w)) });
+  const compared = comparisons(draft);
+  if (compared.length > 0) problems.push({ kind: 'comparison', found: compared });
+  return problems;
 }
 
 /** Shown on every card. Stop anyway is always there and always one tap (PRD §3.4). */
@@ -184,6 +211,9 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
   let answer: string | null = null;
   /** The writer's own text, placeholders and all, before the server filled them in. Logged with the checks. */
   let modelText: string | null = null;
+  /** The first draft, when the writer was asked for a second one, and why. Logged with the checks. */
+  let firstDraft: string | null = null;
+  let secondDraftFor: DraftProblem['kind'][] | null = null;
   let checks: QualityChecks | null = null;
   let outcome: Outcome = 'fallback';
   let declineKind: DeclineKind | null = null;
@@ -218,9 +248,11 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
       };
       // Step 7. Hindi and Hinglish answers are written by the bigger model on Groq, with Mistral as its backup.
       const groqWrites = (language === 'hi' || language === 'hinglish') && deps.reader;
+      let writer: Llm | null = null;
       if (groqWrites) {
         try {
           modelText = await writeAnswer(deps.reader!, args);
+          writer = deps.reader!;
           modelsUsed.push(deps.reader!.model);
         } catch (err) {
           if (!(err instanceof LlmError) || !deps.llm) throw err;
@@ -229,10 +261,30 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
       }
       if (modelText === null) {
         if (deps.llm) modelsUsed.push(deps.llm.model);
+        writer = deps.llm;
         modelText = await writeAnswer(deps.llm, args);
       }
+      // Step 7b (v12): one second try when the draft is too long once filled in, states a number itself, or
+      // compares two numbers. The same writer gets the draft back with what to fix. Whatever comes back gets every
+      // check in step 8, so a second draft that still fails shows the facts-only card. Advice or a claim gets no
+      // second try: those go straight to the facts-only card.
+      const filledDraft = withLocalDisclaimer(fillSlots(modelText, slots, language), language);
+      const unsafe = [...advicePatterns(), ...claimPatterns()].some((p) => p.regex.test(filledDraft));
+      const problems = unsafe ? [] : draftProblems(modelText, slots, language);
+      if (problems.length > 0) {
+        firstDraft = modelText;
+        secondDraftFor = problems.map((p) => p.kind);
+        try {
+          modelText = await writeAnswer(writer, args, { draft: modelText, problems });
+        } catch (err) {
+          if (!(err instanceof LlmError)) throw err;
+          log(`Second draft failed (${err.message}); the first draft is checked as it is`);
+        }
+      }
       // Any number the model wrote itself, or a placeholder this SIP doesn't have, fails "Numbers match your SIP".
+      // So does a comparison between two numbers it can't see ("larger than").
       const written = writtenNumbers(modelText, slots.map((s) => s.name));
+      const compared = comparisons(modelText);
       answer = withLocalDisclaimer(fillSlots(modelText, slots, language), language);
       // Step 8, on the answer as the investor would see it. The filled numbers are still checked against the facts.
       const explained = explainers.flatMap((e) => numberTokens(e.text));
@@ -242,9 +294,11 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
         units: unit.kinds.units,
         dates: unit.kinds.dates,
       });
-      if (written.length > 0) {
-        checks = { ...checks, grounded: false, ungrounded: [...written.map((w) => `written by the AI: ${w}`), ...checks.ungrounded] };
+      if (written.length > 0 || compared.length > 0) {
+        const own = [...written.map((w) => `written by the AI: ${w}`), ...compared.map((c) => `compared by the AI: ${c}`)];
+        checks = { ...checks, grounded: false, ungrounded: [...own, ...checks.ungrounded] };
       }
+      if (secondDraftFor) checks = { ...checks, second_draft: secondDraftFor };
       // The language is judged on the model's own words: the filled-in phrases are in the right language by
       // construction, and Hindi ones would otherwise make a Hinglish reply look like Hindi.
       checks = { ...checks, in_language: writtenIn(modelText.replace(/\{[^{}]*\}/g, ' '), language) };
@@ -271,7 +325,7 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
         // Reader, then writer: "openai/gpt-oss-120b + ministral-8b-latest". Shows when the backup read the reason.
         input.investorId, input.sipId, input.moment, reason || null, [...new Set(modelsUsed)].join(' + ') || (deps.llm?.model ?? 'none'),
         deps.promptVersion ?? DEFAULT_PROMPT_VERSION, understood, route, answer,
-        checks ? { ...checks, model_text: modelText, explainers: explainers.map((e) => ({ id: e.id, sha256: e.sha256 })) } : null,
+        checks ? { ...checks, model_text: modelText, first_draft: firstDraft, explainers: explainers.map((e) => ({ id: e.id, sha256: e.sha256 })) } : null,
         outcome, latencyMs,
       ],
     )

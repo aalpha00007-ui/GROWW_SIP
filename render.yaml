@@ -30,4 +30,4 @@ services:
       - key: GROQ_MODEL
         value: openai/gpt-oss-120b
       - key: PROMPT_VERSION
-        value: v11
+        value: v12

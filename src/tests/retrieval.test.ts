@@ -283,7 +283,7 @@ describe('the full check-in (steps 4-9)', () => {
     expect(llm.calls[1][0].content).toContain('Write in Hinglish');
     const [row] = (await db.query('SELECT moment, outcome, route, model, prompt_version, user_text FROM ai_checks WHERE id = $1', [r.aiCheckId])).rows;
     expect(row).toEqual({
-      moment: 'before_stop', outcome: 'answer', route: 'doubt', model: 'fake-model', prompt_version: 'v11',
+      moment: 'before_stop', outcome: 'answer', route: 'doubt', model: 'fake-model', prompt_version: 'v12',
       user_text: 'Market crash ho gaya, mera SIP red mein hai. Band kar du?',
     });
   });
@@ -366,11 +366,17 @@ describe('the full check-in (steps 4-9)', () => {
       ['no_claims', 'This fall is temporary for Home down payment, by {goal_date}. This is not investment advice.'],
     ];
     for (const [failing, text] of cases) {
-      const r = ok(await ask(fakeLlm(understood(), { text }), 'Markets are down'));
+      // The writer writes the same failing draft twice: a wrong number or a long draft gets a second try (v12).
+      const llm = fakeLlm(understood(), { text }, { text });
+      const r = ok(await ask(llm, 'Markets are down'));
       expect(r.outcome, failing).toBe('fallback');
       expect(r.text).toBe(cardText('fallback', 'en'));
       expect((r.checks as unknown as Record<string, boolean>)[failing], failing).toBe(false);
       expect(r.fallbackReason, failing).toEqual({ kind: 'checks', failed: [failing] });
+      // Advice, a claim or no disclaimer never gets a second try.
+      const retried = failing === 'grounded' || failing === 'length';
+      expect(llm.calls, failing).toHaveLength(retried ? 3 : 2);
+      expect(r.checks!.second_draft, failing).toEqual(retried ? [failing === 'grounded' ? 'numbers' : 'length'] : undefined);
     }
   });
 
@@ -406,7 +412,7 @@ describe('the full check-in (steps 4-9)', () => {
       'Never call a fall normal, small, big, temporary or expected, and never tell them not to worry. Describe it only with its placeholders.',
     );
     // The fund's history reaches the writer as a placeholder, which the dip guidance points to.
-    expect(user.content).toContain("- {fund_biggest_fall}: a fall of #% in <a month and year>, the biggest from a high in this fund's demo history");
+    expect(user.content).toContain("- {fund_biggest_fall}: a #% fall in <a month and year>, the biggest in this fund's demo history");
     expect(system.content).toContain('First: {worst_fall}, next to {fund_biggest_fall}.');
     expect(system.content).not.toContain('Describe what is normal only in general terms.');
     const biggest = lookup.facts.fund_biggest_fall;
@@ -475,10 +481,12 @@ describe('the full check-in (steps 4-9)', () => {
     const r = ok(await ask(fakeLlm(understood(), { text: groundedAnswer }), 'Markets are down'));
     expect(r).toMatchObject({ outcome: 'answer', text: groundedShown, checks: { grounded: true } });
     // Rs 14,000 is a real fact, but the model wrote it, not the server: it could have given it any meaning.
-    const copied = ok(await ask(fakeLlm(understood(), { text: groundedAnswer.replace('{put_in_so_far}', 'put in Rs 14,000') }), 'Markets are down'));
+    // Each gets one second draft (v12), and here writes the number again.
+    const twice = (text: string) => fakeLlm(understood(), { text }, { text });
+    const copied = ok(await ask(twice(groundedAnswer.replace('{put_in_so_far}', 'put in Rs 14,000')), 'Markets are down'));
     expect(copied).toMatchObject({ outcome: 'fallback', checks: { grounded: false }, fallbackReason: { kind: 'checks', failed: ['grounded'] } });
     expect(copied.checks!.ungrounded).toContain('written by the AI: 14,000');
-    const invented = ok(await ask(fakeLlm(understood(), { text: groundedAnswer.replace('{put_in_so_far}', 'put in Rs 15000') }), 'Markets are down'));
+    const invented = ok(await ask(twice(groundedAnswer.replace('{put_in_so_far}', 'put in Rs 15000')), 'Markets are down'));
     expect(invented.checks).toMatchObject({ grounded: false, ungrounded: ['written by the AI: 15000', 'Rs 15000'] });
   });
 
@@ -557,7 +565,7 @@ describe('the full check-in (steps 4-9)', () => {
     expect(system).toContain('Third: each future instalment buys units at the NAV on its date: {units_now}, against {units_at_peak}.');
     const user = llm.calls[0][1].content;
     expect(user).toContain('- {share_put_in_pct}: #% of the planned amount put in so far');
-    expect(user).toContain('- {units_now}: # units for one instalment at the latest NAV');
+    expect(user).toContain('- {units_now}: # units per instalment at the latest NAV');
     // The writer never sees a number, so it has none to copy or misuse.
     expect(user).not.toMatch(/\d/);
   });

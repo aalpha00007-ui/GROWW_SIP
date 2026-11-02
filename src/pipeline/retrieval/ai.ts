@@ -2,7 +2,7 @@
 import { LlmError, type Llm } from '../../llm/chat';
 import type { FactsUnit } from '../chunking/facts';
 import { BEHAVIOURS, THEMES } from '../loading/fixtures';
-import { answerMessages, understandMessages, type Language } from './prompts';
+import { answerMessages, rewriteMessages, understandMessages, type DraftProblem, type Language } from './prompts';
 import { scriptLanguage } from './language';
 
 export type Theme = (typeof THEMES)[number];
@@ -61,8 +61,14 @@ export async function readReason(
  * Step 7: temperature 0.2, at most 90 words in the investor's language. Returns the model's own text, with its
  * placeholders still in: the check-in fills them in after checking the text has no number of its own.
  */
-export async function writeAnswer(llm: Llm | null, args: Parameters<typeof answerMessages>[0]): Promise<string> {
-  const raw = await requireLlm(llm).complete(answerMessages(args), { temperature: 0.2 });
+/** Call 2. With `retry`, the second try: the first draft and what to fix in it (prompts.ts, rewriteMessages). */
+export async function writeAnswer(
+  llm: Llm | null,
+  args: Parameters<typeof answerMessages>[0],
+  retry?: { draft: string; problems: DraftProblem[] },
+): Promise<string> {
+  const messages = retry ? rewriteMessages(args, retry.draft, retry.problems) : answerMessages(args);
+  const raw = await requireLlm(llm).complete(messages, { temperature: 0.2 });
   const parsed = readJson(raw) as { text?: unknown };
   const text = typeof parsed.text === 'string' ? stripMarkdown(parsed.text) : '';
   if (text === '') throw new LlmError('Mistral returned an answer with no text');

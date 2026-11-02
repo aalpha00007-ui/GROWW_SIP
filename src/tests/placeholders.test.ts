@@ -8,10 +8,10 @@ import type { SipFacts } from '../pipeline/chunking/facts';
 import { loadExplainers } from '../pipeline/loading/fixtures';
 import { clonePersona } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
-import { cardText, runCheckIn, type CheckInResult } from '../pipeline/retrieval/checkin';
+import { cardText, draftProblems, runCheckIn, type CheckInResult } from '../pipeline/retrieval/checkin';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
 import { answerMessages, explainerForWriter, type Language } from '../pipeline/retrieval/prompts';
-import { fillSlots, PAUSE_RANGE, situation, slotsFor, writtenNumbers, type Slot } from '../pipeline/retrieval/slots';
+import { comparisons, fillSlots, PAUSE_RANGE, situation, slotsFor, writtenNumbers, type Slot } from '../pipeline/retrieval/slots';
 import { gateLine } from '../server/checkin-card';
 import { pgliteDb } from './pglite-db';
 
@@ -41,10 +41,13 @@ const reading = (language: Language, primary_theme = 'Market fear') => ({
   misreads_cancel: false, language, confidence: 0.9, summary: 'Worried about the fall',
 });
 
-/** A Before you stop check-in whose reader says `language`, and whose writer replies `text`. */
-async function reply(who: typeof riya, language: Language, text: string): Promise<Extract<CheckInResult, { status: 200 }>> {
+/**
+ * A Before you stop check-in whose reader says `language`, and whose writer replies `text`, and `second` (the same
+ * text unless given) if it is asked for a second draft.
+ */
+async function reply(who: typeof riya, language: Language, text: string, second = text): Promise<Extract<CheckInResult, { status: 200 }>> {
   const reason = language === 'hi' ? 'बाज़ार गिर गया, SIP बंद कर दूँ?' : language === 'hinglish' ? 'Market gir gaya, band kar du?' : 'Markets are down';
-  const r = await runCheckIn({ db, llm: fakeLlm(reading(language), { text }), today: TODAY, log: () => {} }, { investorId: who.investor, sipId: who.sip, moment: 'before_stop', text: reason });
+  const r = await runCheckIn({ db, llm: fakeLlm(reading(language), { text }, { text: second }), today: TODAY, log: () => {} }, { investorId: who.investor, sipId: who.sip, moment: 'before_stop', text: reason });
   if (r.status !== 200) throw new Error(r.error);
   return r;
 }
@@ -199,6 +202,123 @@ describe('Filling in', () => {
     const slots = slotsFor(riya.facts, { pause: false });
     const filled = fillSlots('{value_today}. You have Rs {put_in_so_far}, which is {share_put_in_pct}%.', slots, 'en');
     expect(filled).toMatch(/^A value today of Rs [\d,]+\. You have Rs 14,000 put in so far, which is 12% of the planned amount put in so far\.$/);
+  });
+
+  // Eval run #24 (2 Nov) showed these to investors: "1 to 3 instalments instalments", "an exit load of an exit
+  // load of 1% ...", "goal tak 4 saal 1 mahina baaki baaki hai", "Your a value today of ...", "a a fall of ...".
+  it('drops words the model repeats next to a placeholder, in every language', () => {
+    const slots = slotsFor(riya.facts, { pause: true });
+    expect(fillSlots('Pause for {pause_length} instalments.', slots, 'en')).toBe('Pause for 1 to 3 instalments.');
+    expect(fillSlots('Redeeming may have an exit load of {exit_load}.', slots, 'en')).toBe('Redeeming may have an exit load of 1% if redeemed within 1 year.');
+    expect(fillSlots('Aapke paas {time_to_goal} baaki hai.', slots, 'hinglish')).toBe('Aapke paas goal tak 4 saal 5 mahine baaki hai.');
+    expect(fillSlots('Aap {pause_length} kishtein ke liye pause kar sakte hain.', slots, 'hinglish')).toBe('Aap 1 se 3 kishtein ke liye pause kar sakte hain.');
+    expect(fillSlots('आपकी अभी {instalments_to_go} किस्तें हैं।', slots, 'hi')).toBe('आपकी अभी बाकी 53 किस्तें हैं।');
+  });
+
+  it('drops an English value\'s own "a" after "your", "the" or "Today\'s"', () => {
+    const slots = slotsFor(riya.facts, { pause: false });
+    const today = value(slots, 'value_today', 'en');
+    expect(today).toMatch(/^a value today of /);
+    expect(fillSlots('Your {value_today} is below what you put in.', slots, 'en')).toBe(`Your ${today.slice(2)} is below what you put in.`);
+    expect(fillSlots('It has {value_today}.', slots, 'en')).toBe(`It has ${today}.`);
+    // Hindi and Hinglish values have no article to drop.
+    expect(fillSlots('Aapki {value_today} hai.', slots, 'hinglish')).toBe(`Aapki ${value(slots, 'value_today', 'hinglish')} hai.`);
+  });
+
+  it('leaves the words alone when they only look alike, or are not at the edge', () => {
+    const slots = slotsFor(riya.facts, { pause: false });
+    expect(fillSlots('You have {instalments_to_go} planned.', slots, 'en')).toBe('You have 53 instalments still to come planned.');
+    expect(fillSlots('Your SIP for {goal_name} is set.', slots, 'en')).toBe('Your SIP for Home down payment is set.');
+  });
+});
+
+describe('Comparisons between two numbers the model cannot see', () => {
+  it.each([
+    ['en', 'Today {worst_fall} is larger than {fund_biggest_fall}.', ['larger than']],
+    ['en, more than', 'It has {put_in_so_far}, more than {value_today}.', ['more than']],
+    ['hinglish', 'Aapki {worst_fall} {fund_biggest_fall} se badi hai.', ['se badi']],
+    ['hi', 'आपकी {worst_fall} {fund_biggest_fall} से बड़ी है।', ['से बड़ी']],
+  ])('are found (%s)', (_what, text, found) => {
+    expect(comparisons(text)).toEqual(found);
+  });
+
+  it('let numbers side by side through, and a comparison with only one placeholder in its sentence', () => {
+    expect(comparisons('{worst_fall}, next to {fund_biggest_fall}.')).toEqual([]);
+    expect(comparisons('Each future instalment buys {units_now}, against {units_at_peak}.')).toEqual([]);
+    expect(comparisons('You can lower the amount to less than {instalment_amount}. Your goal is {goal_name}.')).toEqual([]);
+    expect(comparisons('जैसे कम {worst_fall} {fund_biggest_fall} हैं।')).toEqual([]);
+  });
+});
+
+describe('v12: one second draft, for what the writer can fix', () => {
+  /** A Before you stop check-in in English with the given writer replies after the reading. */
+  async function checkIn(...writes: (object | LlmError)[]) {
+    const llm = fakeLlm(reading('en'), ...writes);
+    const r = await runCheckIn({ db, llm, today: TODAY, log: () => {} }, { investorId: riya.investor, sipId: riya.sip, moment: 'before_stop', text: 'Markets are down' });
+    if (r.status !== 200) throw new Error(r.error);
+    return { r, llm };
+  }
+  const long = `${'You can keep your SIP going. '.repeat(14)}{fund_biggest_fall}. This is not investment advice.`;
+  const short = 'Your SIP for {goal_name} has {time_to_goal}. You can keep, skip, pause or lower the amount. This is not investment advice.';
+
+  it('asks again when the answer is too long once filled in, in words with no numbers, and shows a second draft that fits', async () => {
+    const { r, llm } = await checkIn({ text: long }, { text: short });
+    expect(r).toMatchObject({ outcome: 'answer', checks: { length: true, second_draft: ['length'] } });
+    expect(r.text).toBe('Your SIP for Home down payment has 4 years 5 months to go. You can keep, skip, pause or lower the amount. This is not investment advice.');
+    expect(llm.calls).toHaveLength(3);
+    const [system, , draft, ask] = llm.calls[2];
+    // The same prompt, the first draft as the writer's own reply, then what to fix.
+    expect(system.content).toBe(llm.calls[1][0].content);
+    expect(draft).toEqual({ role: 'assistant', content: JSON.stringify({ text: long }) });
+    expect(ask.content).toContain('Once the placeholders are filled in, it is a little too long');
+    expect(ask.content).toContain('{fund_biggest_fall}');
+    // Still no number: not the word count, not the limit.
+    expect(ask.content).not.toMatch(/\d/);
+    const [row] = (await db.query<{ checks: { first_draft: string; model_text: string } }>('SELECT checks FROM ai_checks WHERE id = $1', [r.aiCheckId])).rows;
+    expect(row.checks).toMatchObject({ first_draft: long, model_text: short });
+  });
+
+  it('says how much too long, without a number', () => {
+    const slots = slotsFor(riya.facts, { pause: false });
+    const longer = (n: number) => `${'You can keep your SIP going. '.repeat(n)}This is not investment advice.`;
+    const over = (n: number) => (draftProblems(longer(n), slots, 'en')[0] as { over: number }).over;
+    // Six words a sentence, and the disclaimer's five.
+    expect(draftProblems(longer(14), slots, 'en')).toEqual([]); // 89 words
+    expect(over(15)).toBeLessThanOrEqual(1.15); // 95
+    expect(over(18)).toBeGreaterThan(1.15); // 113
+    expect(over(18)).toBeLessThanOrEqual(1.4);
+    expect(over(22)).toBeGreaterThan(1.4); // 137
+  });
+
+  it('asks again for a number the model wrote, without showing it back, and names an unknown placeholder', async () => {
+    const { r, llm } = await checkIn({ text: 'You have put in Rs 14,000 for {goal_target}. This is not investment advice.' }, { text: short });
+    expect(r).toMatchObject({ outcome: 'answer', checks: { grounded: true, second_draft: ['numbers'] } });
+    const ask = llm.calls[2][3].content;
+    expect(ask).toContain('It states a number in its own words or digits. {goal_target} is not a placeholder you have.');
+    expect(ask).not.toMatch(/\d/);
+  });
+
+  it('fails "Numbers match your SIP" when the second draft still compares two numbers', async () => {
+    const compares = 'Your {worst_fall} is larger than {fund_biggest_fall}. This is not investment advice.';
+    const { r, llm } = await checkIn({ text: compares }, { text: compares });
+    expect(r).toMatchObject({ outcome: 'fallback', fallbackReason: { kind: 'checks', failed: ['grounded'] }, checks: { second_draft: ['comparison'] } });
+    expect(r.checks!.ungrounded).toEqual(['compared by the AI: larger than']);
+    expect(llm.calls[2][3].content).toContain('It compares numbers ("larger than")');
+  });
+
+  it('gives advice or an unsupported claim no second try, even in a draft that is also too long', async () => {
+    for (const text of [`You should continue your SIP. ${long}`, `This dip is temporary. ${long}`]) {
+      // Only one writer reply: a second-draft request would be an unexpected extra call.
+      const { r, llm } = await checkIn({ text });
+      expect(r.outcome).toBe('fallback');
+      expect(llm.calls).toHaveLength(2);
+      expect(r.checks!.second_draft).toBeUndefined();
+    }
+  });
+
+  it('checks the first draft as it is when the second-draft call fails', async () => {
+    const { r } = await checkIn({ text: long }, new LlmError('Mistral did not answer within 10 s'));
+    expect(r).toMatchObject({ outcome: 'fallback', fallbackReason: { kind: 'checks', failed: ['length'] }, checks: { second_draft: ['length'] } });
   });
 });
 

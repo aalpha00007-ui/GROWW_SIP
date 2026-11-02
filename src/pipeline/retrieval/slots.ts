@@ -169,11 +169,12 @@ const DEFS: SlotDef[] = [
       const { pct, date } = c.facts.fund_biggest_fall!;
       const p = f.pct(pct);
       const when = f.monthYear(date);
+      // Short on purpose (v12): the dip answer uses it with five other placeholders and must stay within MAX_WORDS.
       return pick(
         f,
-        `a fall of ${p} in ${when}, the biggest from a high in this fund's demo history`,
-        `${p} ki giravat (${when}), is fund ki demo history mein high se sabse badi`,
-        `${p} की गिरावट (${when}), इस फंड के डेमो इतिहास में ऊँचाई से सबसे बड़ी`,
+        `a ${p} fall in ${when}, the biggest in this fund's demo history`,
+        `${p} ki giravat (${when}), is fund ki demo history mein sabse badi`,
+        `${p} की गिरावट (${when}), इस फंड के डेमो इतिहास में सबसे बड़ी`,
       );
     },
   },
@@ -182,7 +183,7 @@ const DEFS: SlotDef[] = [
     available: (c) => paid(c) && c.facts.next_due_date !== null && Boolean(c.facts.latest_nav),
     phrase: (f, c) => {
       const u = f.num((c.facts.amount / c.facts.latest_nav!).toFixed(1));
-      return pick(f, `${u} units for one instalment at the latest NAV`, `latest NAV par ek kisht mein ${u} units`, `ताज़ा NAV पर एक किस्त में ${u} यूनिट`);
+      return pick(f, `${u} units per instalment at the latest NAV`, `latest NAV par ek kisht mein ${u} units`, `ताज़ा NAV पर एक किस्त में ${u} यूनिट`);
     },
   },
   {
@@ -193,9 +194,9 @@ const DEFS: SlotDef[] = [
       const u = f.num((c.facts.amount / c.facts.peak_nav_since_start!).toFixed(1));
       return pick(
         f,
-        `${u} units for one instalment at the peak NAV since your SIP started`,
-        `SIP shuru hone ke baad peak NAV par ek kisht mein ${u} units`,
-        `SIP शुरू होने के बाद सबसे ऊँचे NAV पर एक किस्त में ${u} यूनिट`,
+        `${u} units per instalment at the SIP's peak NAV`,
+        `SIP ke peak NAV par ek kisht mein ${u} units`,
+        `SIP के सबसे ऊँचे NAV पर एक किस्त में ${u} यूनिट`,
       );
     },
   },
@@ -351,18 +352,84 @@ export function writtenNumbers(raw: string, allowed: Iterable<string>): string[]
   return found;
 }
 
+/** A word of the model's own text: letters and marks in any script (the model writes no digits). */
+const WORD = "[\\p{L}\\p{M}'’]+";
+/** Up to this many words the model repeats next to a placeholder are dropped ("an exit load of {exit_load}"). */
+const MAX_DOUBLED = 4;
+const AFTER = new RegExp(`\\{([^{}]*)\\}((?:[ \\t]+${WORD}){1,${MAX_DOUBLED}})`, 'gu');
+const BEFORE = new RegExp(`(?<![\\p{L}\\p{M}'’])((?:${WORD}[ \\t]+){1,${MAX_DOUBLED}})\\{([^{}]*)\\}`, 'gu');
+/** A word that already says which one: "your", "the", "Today's". An English value's own "a" or "the" goes after it. */
+const DETERMINER_BEFORE = /(?:\b(?:the|a|an|your|my|our|their|its|this|that|these|those|his|her)|\p{L}['’]s)\s+$/iu;
+const sameWord = (w: string) => w.normalize('NFC').toLowerCase().replace(/[^\p{L}\p{M}]/gu, '');
+const wordsOf = (text: string) => text.trim().split(/\s+/).filter(Boolean);
+const sameWords = (a: string[], b: string[]) => a.length === b.length && a.every((w, i) => sameWord(w) === sameWord(b[i]));
+
 /**
  * Puts each placeholder's value in. A placeholder that starts a sentence starts with a capital letter. A rupee
  * sign or "Rs" the model put before an amount placeholder, or a "%" after one, is dropped: the value has its own.
- * Unknown placeholders are left as they are; writtenNumbers has already failed the reply for them.
+ * So are words the model wrote again right next to a placeholder whose value already has them at that edge
+ * ("{pause_length} instalments" would read "1 to 3 instalments instalments"; "an exit load of {exit_load}" would
+ * read "an exit load of an exit load of 1% ..."), and an English value's "a" after a word like "your" or "the"
+ * ("your a value today of ..."). Unknown placeholders are left as they are; writtenNumbers has already failed
+ * the reply for them.
  */
 export function fillSlots(raw: string, slots: Slot[], language: Language): string {
-  const values = new Map(slots.map((s) => [s.name, s.values[slotLanguage(language)]]));
-  const text = raw.replace(/(?:\bRs\.?|₹|\bINR)\s*(?=\{)/g, '').replace(/\}\s*%/g, '}');
+  const lang = slotLanguage(language);
+  const values = new Map(slots.map((s) => [s.name, s.values[lang]]));
+  const text = raw
+    .replace(/(?:\bRs\.?|₹|\bINR)\s*(?=\{)/g, '')
+    .replace(/\}\s*%/g, '}')
+    .replace(AFTER, (whole, name: string, tail: string) => {
+      const value = values.get(name.trim());
+      if (value === undefined) return whole;
+      const next = wordsOf(tail);
+      const end = wordsOf(value);
+      for (let k = Math.min(next.length, end.length); k >= 1; k--) {
+        if (sameWords(next.slice(0, k), end.slice(-k))) return `{${name}}${tail.replace(new RegExp(`^(?:[ \\t]+${WORD}){${k}}`, 'u'), '')}`;
+      }
+      return whole;
+    })
+    .replace(BEFORE, (whole, head: string, name: string) => {
+      const value = values.get(name.trim());
+      if (value === undefined) return whole;
+      const before = wordsOf(head);
+      const start = wordsOf(value);
+      for (let k = Math.min(before.length, start.length); k >= 1; k--) {
+        if (sameWords(before.slice(-k), start.slice(0, k))) {
+          const kept = before.slice(0, before.length - k).join(' ');
+          return `${kept ? `${kept} ` : ''}{${name}}`;
+        }
+      }
+      return whole;
+    });
   return text.replace(SLOT, (whole, name: string, offset: number) => {
-    const value = values.get(name.trim());
+    let value = values.get(name.trim());
     if (value === undefined) return whole;
-    const startsSentence = /(?:^|[.!?।]\s+|\n\s*)$/.test(text.slice(0, offset));
+    const preceding = text.slice(0, offset);
+    if (lang === 'en' && /^(?:a|an|the)\s/i.test(value) && DETERMINER_BEFORE.test(preceding)) value = value.replace(/^(?:a|an|the)\s+/i, '');
+    const startsSentence = /(?:^|[.!?।]\s+|\n\s*)$/.test(preceding);
     return startsSentence ? value.charAt(0).toUpperCase() + value.slice(1) : value;
   });
+}
+
+/** Words that say one number is bigger or smaller than another, in English, Hinglish and Hindi. */
+const COMPARATIVES = [
+  /\b(?:larger|bigger|greater|smaller|higher|lower|deeper|steeper|worse|better|more|less|fewer)\s+than\b/giu,
+  /\bse\s+(?:zyada|jyada|zyaada|adhik|kam|bada|badi|bade|chhota|chhoti|chhote|behtar|bura|buri|gehra|gehri)\b/giu,
+  new RegExp('(?<![\\p{L}\\p{M}])से\\s+(?:ज़्यादा|ज्यादा|अधिक|कम|बड़ा|बड़ी|बड़े|छोटा|छोटी|छोटे|बेहतर|बुरा|बुरी|गहरा|गहरी)(?![\\p{L}\\p{M}])'.normalize('NFC'), 'gu'),
+];
+
+/**
+ * Comparisons the model made between two placeholders in one sentence ("{worst_fall} is larger than
+ * {fund_biggest_fall}"). The prompt forbids them: the model never sees the numbers, so it can't know which is
+ * bigger, and -20.7% "larger than" -21.0% is simply wrong. Setting two numbers side by side ("next to",
+ * "against") is not a comparison and passes.
+ */
+export function comparisons(raw: string): string[] {
+  const found: string[] = [];
+  for (const sentence of raw.normalize('NFC').split(/[.!?।]+/)) {
+    if ((sentence.match(SLOT) ?? []).length < 2) continue;
+    for (const pattern of COMPARATIVES) found.push(...(sentence.match(pattern) ?? []));
+  }
+  return found;
 }

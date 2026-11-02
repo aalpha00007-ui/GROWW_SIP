@@ -311,7 +311,9 @@ describe('AI cards (PRD F8-F10)', () => {
     const r = await riya();
     const claim = await card(fakeLlm(understood(), { text: 'This dip is temporary. This is not investment advice.' }), 'before_stop', r.id, r.banyan);
     expect(claim).toMatchObject({ outcome: 'fallback', gate: 'Quality check: the answer made an unsupported claim → showing facts only', confidence: 'Confidence: High' });
-    const number = await card(fakeLlm({ text: 'You have put in Rs 99,999. This is not investment advice.' }), 'is_this_normal', r.id, r.banyan);
+    // A number the model wrote gets one second draft (v12); this one writes it again.
+    const wrote = { text: 'You have put in Rs 99,999. This is not investment advice.' };
+    const number = await card(fakeLlm(wrote, wrote), 'is_this_normal', r.id, r.banyan);
     expect(number).toMatchObject({ outcome: 'fallback', gate: "Quality check: a number didn't match your SIP → showing facts only", strip: null });
     expect(number.facts?.length).toBeGreaterThan(0);
     // A timeout, an error or no key: the AI is unavailable, and the card still shows the facts.

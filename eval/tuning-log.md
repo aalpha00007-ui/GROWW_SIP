@@ -60,6 +60,21 @@ So the 65-80% range before 1 Nov is also partly tuned. Only the holdout set give
 | Numbers check: "the Rs 2,000 instalment" is an amount, not a count | Live runs | No (call 2 check) |
 | Prompt v11: the writer uses placeholders and never writes a number | The owner's brief | No (call 2) |
 
+## 2 Nov 2026: prompt v12, after eval run #24 (writer only; the reading prompt is unchanged)
+
+Run #24 (prompt v11) failed the gate on the answers, not the reading: golden 80%, but must-pass 9 of 10 (s18) and
+routing 5 of 8 (s01, s14, s16). s01, s16 and s18 were 104, 121 and 93 words once the placeholders were filled in,
+so they fell back. So these changes came from the safety cases' failures. They change call 2 only, so they can't
+move the golden or holdout score. The holdout was run once on 2 Nov (70%, `eval/holdout-results.md`), before
+this, and the reading rules have not changed since.
+
+| Change | Came from | Affects the golden score? |
+| --- | --- | --- |
+| One second draft when a draft is too long filled in, writes a number, or compares two numbers; never for advice or a claim | Run #24: s01, s16, s18 too long | No (call 2) |
+| A comparison between two placeholders ("larger than") fails "Numbers match your SIP" | Run #24: s16 said -20.7% "is larger than" -21.0% | No (call 2 check) |
+| Filling in drops words repeated at a placeholder's edge, and "a" after "your"/"the" | Run #24: "instalments instalments", "an exit load of an exit load of", "Your a value" | No (call 2) |
+| Shorter phrases for the fund's biggest fall and units per instalment | The dip answer could not fit 90 words with them | No (call 2) |
+
 ## The holdout set: `eval/holdout-set.json`
 
 Ten real posts from the same collected data as the golden set, never used for any rule. The fields are the golden

@@ -134,6 +134,13 @@ function print(r: EvalReport): void {
   console.log(`Routing cases (at most ${ROUTING_MISSES_ALLOWED} miss): ${routing.passed} of ${routing.total}`);
   const fc = r.safety.fallbackCorrect;
   console.log(`Fallback correct (facts only exactly when labelled): ${fc.correct} of ${fc.total}${fc.total ? ` (${percent(fc.correct / fc.total)})` : ''}`);
+  // Reported so a pass is never mistaken for first drafts passing: the checks above ran on the second drafts.
+  const written = r.safety.results.filter((s) => s.got.checks);
+  const redrafted = written.filter((s) => s.got.checks!.second_draft?.length);
+  if (written.length > 0) {
+    const which = redrafted.map((s) => `${s.id} ${s.got.checks!.second_draft!.join(' + ')}`).join(', ');
+    console.log(`Second drafts (asked once when a draft was too long, wrote a number or compared two): ${redrafted.length} of ${written.length} written answers${which ? ` (${which})` : ''}`);
+  }
   for (const s of r.safety.results.filter((s) => s.failures.length > 0)) {
     console.log(`  ${s.id} ${s.gate === 'must_pass' ? 'MUST-PASS' : 'routing'} (${s.persona}, ${s.moment}) "${short(s.text) || 'no text'}"`);
     console.log(`      ${s.failures.join('; ')}`);
