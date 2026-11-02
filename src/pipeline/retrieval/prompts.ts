@@ -5,7 +5,7 @@ import type { ExplainerChunk } from '../chunking/explainers';
 import type { FactsUnit } from '../chunking/facts';
 import { BEHAVIOURS, THEMES, type ExplainerKey, type Route } from '../loading/fixtures';
 
-export const DEFAULT_PROMPT_VERSION = 'v13';
+export const DEFAULT_PROMPT_VERSION = 'v14';
 export const DISCLAIMER = 'This is not investment advice.';
 /** A Hindi or Hinglish answer ends with the disclaimer in that language, then the English one. */
 export const LOCAL_DISCLAIMERS = {
@@ -78,12 +78,32 @@ export function understandMessages(facts: FactsUnit, reason: string): ChatMessag
 }
 
 const ROUTE_GUIDANCE: Record<Route, string> = {
+  // Before you stop on route doubt uses doubtGuidance, built from the SIP's placeholders. This is its wording
+  // for a writer given no placeholder names.
   doubt: "Using their placeholders, put today's value in the context of their goal and time to go, the months invested, the worst fall since start and the biggest fall in this fund's demo history. Then say they can keep, skip, pause or lower the amount.",
   explain: 'Using the explainer, say what stopping does: it ends future instalments, refunds no money and sells no units; the units stay invested until they redeem. Say how skipping or pausing differs from stopping.',
   cash: 'Using the explainers, first mention skipping the next instalment, pausing, or lowering the amount; then say that stopping is still available. Say that stopping gives no money back; getting money out is a separate redemption, which may have an exit load.',
   autopay: 'Acknowledge the autopay trouble. Say they can manage autopay on the autopay page in their profile, and that skipping or pausing is possible while it is sorted out.',
   neutral: 'Restate the key facts briefly with their placeholders and say they can keep, skip, pause, lower the amount or stop.',
 };
+
+/**
+ * Before you stop on route doubt (market fear, returns), v14: the same points as ROUTE_GUIDANCE.doubt, but naming
+ * the placeholders this SIP has and no others, as the dip guidance does. Runs #24-#26 showed why: s01's Hinglish
+ * answer added {put_in_so_far} and {change_vs_put_in}, and wrote words that said a placeholder's meaning again,
+ * and ran to 91-104 words filled in.
+ */
+export function doubtGuidance(names: ReadonlySet<string>): string {
+  const named = ['value_today', 'months_invested', 'worst_fall', 'fund_biggest_fall', 'goal_name', 'time_to_goal'].filter((n) => names.has(n));
+  if (named.length === 0) return ROUTE_GUIDANCE.doubt;
+  const goal = names.has('time_to_goal') ? 'their goal and time to go, ' : names.has('goal_name') ? 'their goal, ' : '';
+  return [
+    `Put today's value in the context of ${goal}the months invested, the worst fall since start and the biggest fall in this fund's demo history, with these placeholders only: ${named.map((n) => `{${n}}`).join(', ')}.`,
+    'Each already says what its number is, so write no words around it that say that again.',
+    'Use short sentences: the answer must stay short once the placeholders are filled in.',
+    'Then say they can keep, skip, pause or lower the amount.',
+  ].join(' ');
+}
 
 /**
  * "What does this dip mean for my goal?" (PRD F6): connect the dip to the goal and its timeline with the
@@ -171,7 +191,7 @@ Rules:
 - Write in ${LANGUAGE_NAMES[args.language]}.
 - Keep it to about ${TARGET_WORDS} words, counting each placeholder as the words it becomes, never more than ${MAX_WORDS}. ${disclaimerRule(args.language)}
 - Return only a JSON object: {"text": "<the reply, ending with ${args.language === 'hi' || args.language === 'hinglish' ? `${LOCAL_DISCLAIMERS[args.language]} ` : ''}${DISCLAIMER}>"}
-What to cover: ${args.moment === 'is_this_normal' ? dipGuidance(names) : ROUTE_GUIDANCE[args.route]}`;
+What to cover: ${args.moment === 'is_this_normal' ? dipGuidance(names) : args.route === 'doubt' ? doubtGuidance(names) : ROUTE_GUIDANCE[args.route]}`;
 
   const known = `What is true about this SIP:\n${args.situation.map((l) => `- ${l}`).join('\n')}`;
   const slots = `Placeholders you can use, and what each becomes (# stands for its number):\n${args.slots.map((s) => `- {${s.name}}: ${s.reads}`).join('\n')}`;

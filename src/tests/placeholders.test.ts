@@ -10,7 +10,7 @@ import { clonePersona } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
 import { cardText, draftProblems, runCheckIn, type CheckInResult } from '../pipeline/retrieval/checkin';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
-import { answerMessages, explainerForWriter, type Language } from '../pipeline/retrieval/prompts';
+import { answerMessages, doubtGuidance, explainerForWriter, type Language } from '../pipeline/retrieval/prompts';
 import { comparisons, fillSlots, PAUSE_RANGE, situation, slotsFor, writtenNumbers, type Slot } from '../pipeline/retrieval/slots';
 import { gateLine } from '../server/checkin-card';
 import { pgliteDb } from './pglite-db';
@@ -247,6 +247,34 @@ describe('Comparisons between two numbers the model cannot see', () => {
     expect(comparisons('Each future instalment buys {units_now}, against {units_at_peak}.')).toEqual([]);
     expect(comparisons('You can lower the amount to less than {instalment_amount}. Your goal is {goal_name}.')).toEqual([]);
     expect(comparisons('जैसे कम {worst_fall} {fund_biggest_fall} हैं।')).toEqual([]);
+  });
+});
+
+describe('v14: the doubt answer names its placeholders, and the Hinglish and Hindi falls are shorter', () => {
+  const doubt = (facts: SipFacts, route: 'doubt' | 'cash' = 'doubt') =>
+    answerMessages({ route, slots: slotsFor(facts, { pause: route === 'cash' }), situation: situation(facts), explainers: [], language: 'hinglish', moment: 'before_stop', reason: 'Market gir gaya' })[0].content;
+
+  it('names only the placeholders this SIP has for the doubt route, and asks for no others', () => {
+    const system = doubt(riya.facts);
+    expect(system).toContain(
+      "Put today's value in the context of their goal and time to go, the months invested, the worst fall since start and the biggest fall in this fund's demo history, with these placeholders only: {value_today}, {months_invested}, {worst_fall}, {fund_biggest_fall}, {goal_name}, {time_to_goal}.",
+    );
+    expect(system).toContain('Each already says what its number is, so write no words around it that say that again.');
+    // Not the extra ones run #26's s01 used.
+    expect(system).not.toMatch(/\{put_in_so_far\}|\{change_vs_put_in\}/);
+    // With no goal: no goal placeholder, and no goal to set the value against.
+    const noGoal = doubtGuidance(new Set(slotsFor({ ...riya.facts, goal: null, instalments_planned: null }, { pause: false }).map((s) => s.name)));
+    expect(noGoal).not.toMatch(/goal/);
+    // Other routes keep their own guidance.
+    expect(doubt(riya.facts, 'cash')).not.toContain('with these placeholders only');
+  });
+
+  it('fills the shorter fall phrases in Hinglish and Hindi', () => {
+    const slots = slotsFor(riya.facts, { pause: false });
+    expect(value(slots, 'worst_fall', 'hinglish')).toMatch(/^-\d+\.\d%, SIP ke shuru se sabse badi giravat$/);
+    expect(value(slots, 'worst_fall', 'hi')).toMatch(/^-\d+\.\d%, SIP की शुरुआत से सबसे बड़ी गिरावट$/);
+    expect(value(slots, 'fund_biggest_fall', 'hinglish')).toMatch(/^-\d+\.\d% \([A-Z][a-z]{2} \d{4}\), fund ki demo history mein sabse badi giravat$/);
+    expect(value(slots, 'fund_biggest_fall', 'hi')).toMatch(/^-\d+\.\d% \(\S+ \d{4}\), फंड के डेमो इतिहास में सबसे बड़ी गिरावट$/);
   });
 });
 

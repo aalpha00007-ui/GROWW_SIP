@@ -80,6 +80,17 @@ Run #25 (prompt v12) then passed must-pass 10 of 10 with 0 invariant failures an
 aims at 75 words ("about a third shorter"), not just under 90 ("a little too long" was all s01 was told). The
 90-word limit and every check are unchanged.
 
+Run #26 (prompt v13) missed the same way: golden 80%, behaviour 85%, must-pass 10 of 10, 0 invariant failures,
+routing 6 of 8 (s14, and s01 again: its second draft was 98 words). s01 is the Hinglish doubt answer written by
+Groq; in runs #24-#26 it used 7 or 8 placeholders, including two the doubt guidance never asked for, and wrote
+words that said a placeholder's meaning again ("..., SIP shuru hone ke baad sabse badi aapke SIP ka sabse bada
+girav hai"). Prompt v14, the last writer change before the next run is reported as it comes:
+
+| Change | Came from | Affects the golden score? |
+| --- | --- | --- |
+| The doubt route's guidance names its placeholders (the six it always meant) and says to use no others and not to say a placeholder's meaning again, as the dip guidance does | Runs #24-#26: s01 | No (call 2) |
+| Shorter Hinglish and Hindi phrases for the worst fall and the fund's biggest fall (10 and 13 words to 8 and 11) | Runs #24-#26: s01 | No (call 2) |
+
 ## The holdout set: `eval/holdout-set.json`
 
 Ten real posts from the same collected data as the golden set, never used for any rule. The fields are the golden

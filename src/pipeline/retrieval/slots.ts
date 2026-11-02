@@ -159,7 +159,8 @@ const DEFS: SlotDef[] = [
       const worst = c.facts.worst_fall_since_start_pct!;
       if (worst > -0.05) return pick(f, 'no fall since your SIP started', 'SIP shuru hone ke baad koi giravat nahi', 'SIP शुरू होने के बाद कोई गिरावट नहीं');
       const p = f.pct(worst);
-      return pick(f, `a fall of ${p}, the worst since your SIP started`, `${p} ki giravat, SIP shuru hone ke baad sabse badi`, `${p} की गिरावट, SIP शुरू होने के बाद सबसे बड़ी`);
+      // Hinglish and Hindi shortened in v14 (10 words to 8): run #26's Hinglish doubt answer ran long.
+      return pick(f, `a fall of ${p}, the worst since your SIP started`, `${p}, SIP ke shuru se sabse badi giravat`, `${p}, SIP की शुरुआत से सबसे बड़ी गिरावट`);
     },
   },
   {
@@ -173,8 +174,8 @@ const DEFS: SlotDef[] = [
       return pick(
         f,
         `a ${p} fall in ${when}, the biggest in this fund's demo history`,
-        `${p} ki giravat (${when}), is fund ki demo history mein sabse badi`,
-        `${p} की गिरावट (${when}), इस फंड के डेमो इतिहास में सबसे बड़ी`,
+        `${p} (${when}), fund ki demo history mein sabse badi giravat`,
+        `${p} (${when}), फंड के डेमो इतिहास में सबसे बड़ी गिरावट`,
       );
     },
   },
