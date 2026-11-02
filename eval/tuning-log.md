@@ -75,6 +75,11 @@ this, and the reading rules have not changed since.
 | Filling in drops words repeated at a placeholder's edge, and "a" after "your"/"the" | Run #24: "instalments instalments", "an exit load of an exit load of", "Your a value" | No (call 2) |
 | Shorter phrases for the fund's biggest fall and units per instalment | The dip answer could not fit 90 words with them | No (call 2) |
 
+Run #25 (prompt v12) then passed must-pass 10 of 10 with 0 invariant failures and golden 80%, but missed routing
+(6 of 8: s14, and s01, whose second draft was 91 words). Prompt v13 changes one thing: a second draft for length
+aims at 75 words ("about a third shorter"), not just under 90 ("a little too long" was all s01 was told). The
+90-word limit and every check are unchanged.
+
 ## The holdout set: `eval/holdout-set.json`
 
 Ten real posts from the same collected data as the golden set, never used for any rule. The fields are the golden

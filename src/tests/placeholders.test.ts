@@ -270,7 +270,8 @@ describe('v12: one second draft, for what the writer can fix', () => {
     // The same prompt, the first draft as the writer's own reply, then what to fix.
     expect(system.content).toBe(llm.calls[1][0].content);
     expect(draft).toEqual({ role: 'assistant', content: JSON.stringify({ text: long }) });
-    expect(ask.content).toContain('Once the placeholders are filled in, it is a little too long');
+    // 101 words filled in: just over the limit, but the second draft aims well under it (v13).
+    expect(ask.content).toContain('Once the placeholders are filled in, it is too long: make it about a third shorter.');
     expect(ask.content).toContain('{fund_biggest_fall}');
     // Still no number: not the word count, not the limit.
     expect(ask.content).not.toMatch(/\d/);
@@ -278,16 +279,15 @@ describe('v12: one second draft, for what the writer can fix', () => {
     expect(row.checks).toMatchObject({ first_draft: long, model_text: short });
   });
 
-  it('says how much too long, without a number', () => {
+  it('asks for a second draft only over the limit, and measures how much too long against an aim well under it', () => {
     const slots = slotsFor(riya.facts, { pause: false });
     const longer = (n: number) => `${'You can keep your SIP going. '.repeat(n)}This is not investment advice.`;
     const over = (n: number) => (draftProblems(longer(n), slots, 'en')[0] as { over: number }).over;
     // Six words a sentence, and the disclaimer's five.
-    expect(draftProblems(longer(14), slots, 'en')).toEqual([]); // 89 words
-    expect(over(15)).toBeLessThanOrEqual(1.15); // 95
-    expect(over(18)).toBeGreaterThan(1.15); // 113
-    expect(over(18)).toBeLessThanOrEqual(1.4);
-    expect(over(22)).toBeGreaterThan(1.4); // 137
+    expect(draftProblems(longer(14), slots, 'en')).toEqual([]); // 89 words: within the limit, no second draft
+    expect(over(15)).toBeCloseTo(95 / 75); // "about a third shorter"
+    expect(over(16)).toBeLessThanOrEqual(1.4); // 101
+    expect(over(17)).toBeGreaterThan(1.4); // 107: "about half as long"
   });
 
   it('asks again for a number the model wrote, without showing it back, and names an unknown placeholder', async () => {

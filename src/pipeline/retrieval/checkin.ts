@@ -11,7 +11,7 @@ import { decideRoute, type DeclineKind } from './decide';
 import { retrieveFacts } from './facts';
 import { detectLanguage, writtenIn } from './language';
 import { findPii, PII_MESSAGE } from './pii';
-import { DEFAULT_PROMPT_VERSION, DISCLAIMER, LOCAL_DISCLAIMERS, MAX_WORDS, ROUTE_EXPLAINERS, type DraftProblem, type Language, type Moment } from './prompts';
+import { DEFAULT_PROMPT_VERSION, DISCLAIMER, LOCAL_DISCLAIMERS, MAX_WORDS, REWRITE_AIM_WORDS, ROUTE_EXPLAINERS, type DraftProblem, type Language, type Moment } from './prompts';
 import { comparisons, fillSlots, situation, slotLanguage, slotsFor, writtenNumbers, type Slot } from './slots';
 
 export const DECLINED_TEXT =
@@ -75,7 +75,7 @@ export function draftProblems(draft: string, slots: Slot[], language: Language):
       .sort((a, b) => b.words - a.words)
       .slice(0, 3)
       .map((s) => s.name);
-    problems.push({ kind: 'length', over: words / MAX_WORDS, longest });
+    problems.push({ kind: 'length', over: words / REWRITE_AIM_WORDS, longest });
   }
   const written = writtenNumbers(draft, slots.map((s) => s.name));
   // Unknown placeholders are named back to the writer, unless the name has a digit: it never sees a number.

@@ -5,7 +5,7 @@ import type { ExplainerChunk } from '../chunking/explainers';
 import type { FactsUnit } from '../chunking/facts';
 import { BEHAVIOURS, THEMES, type ExplainerKey, type Route } from '../loading/fixtures';
 
-export const DEFAULT_PROMPT_VERSION = 'v12';
+export const DEFAULT_PROMPT_VERSION = 'v13';
 export const DISCLAIMER = 'This is not investment advice.';
 /** A Hindi or Hinglish answer ends with the disclaimer in that language, then the English one. */
 export const LOCAL_DISCLAIMERS = {
@@ -18,6 +18,11 @@ export const MAX_WORDS = 90;
  * Lower than before placeholders (v11), because each placeholder becomes a phrase of several words.
  */
 const TARGET_WORDS = 50;
+/**
+ * What a second draft for length aims at, well below MAX_WORDS (v13): run #25's s01 was told "a little too long"
+ * at a little over the limit, cut just enough, and came back at 91 words.
+ */
+export const REWRITE_AIM_WORDS = 75;
 
 export type Moment = 'before_stop' | 'is_this_normal';
 export type Language = 'en' | 'hi' | 'hinglish' | 'other';
@@ -186,7 +191,8 @@ What to cover: ${args.moment === 'is_this_normal' ? dipGuidance(names) : ROUTE_G
 /**
  * Why a first draft gets one more try (v12). Only these: a draft with advice or an unsupported claim never gets a
  * second try, it goes straight to the facts-only card.
- * - length: too long once the placeholders are filled in; `over` is the words filled in, divided by MAX_WORDS.
+ * - length: over MAX_WORDS once the placeholders are filled in; `over` is the words filled in, divided by
+ *   REWRITE_AIM_WORDS, so the second draft aims well under the limit.
  *   `longest` names the placeholders it used that become the most words.
  * - numbers: it states a number itself (digits or a number word), or uses a placeholder this SIP doesn't have.
  * - comparison: it says one placeholder's number is bigger or smaller than another's.
@@ -203,12 +209,7 @@ export type DraftProblem =
 export function rewriteMessages(args: Parameters<typeof answerMessages>[0], draft: string, problems: DraftProblem[]): ChatMessage[] {
   const fixes = problems.map((p) => {
     if (p.kind === 'length') {
-      const howMuch =
-        p.over <= 1.15
-          ? 'a little too long: cut one sentence, or a placeholder the guidance does not ask for'
-          : p.over <= 1.4
-            ? 'about a third too long: make it about a third shorter'
-            : 'far too long: make it about half as long';
+      const howMuch = p.over <= 1.4 ? 'too long: make it about a third shorter' : 'far too long: make it about half as long';
       const longest = p.longest.length ? ` The ones you used that become the most words: ${p.longest.join(', ')}.` : '';
       return `- Once the placeholders are filled in, it is ${howMuch}. Use fewer and shorter sentences, and only the placeholders the guidance asks for. Each placeholder becomes several words.${longest}`;
     }

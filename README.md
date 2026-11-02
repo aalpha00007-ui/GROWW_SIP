@@ -85,7 +85,7 @@ Not used (architecture decision D3). Two plain stores hold everything: Neon Post
 
 Two free models share the work (architecture decision D4):
 - **Call 1, understanding the reason:** Groq `openai/gpt-oss-120b`. If Groq fails or runs out of free requests, Mistral reads the reason instead.
-- **Call 2, writing the answer:** Mistral `ministral-8b-latest` in English. Hindi and Hinglish answers are written by Groq `openai/gpt-oss-120b`, with Mistral as its backup (since prompt v7; kept because the eval gate still passed). Prompt v12 is the current one: a draft that is too long once its placeholders are filled in, states a number itself, or compares two numbers gets one second try before the checks (never one with advice or a claim).
+- **Call 2, writing the answer:** Mistral `ministral-8b-latest` in English. Hindi and Hinglish answers are written by Groq `openai/gpt-oss-120b`, with Mistral as its backup (since prompt v7; kept because the eval gate still passed). Prompt v13 is the current one: a draft that is too long once its placeholders are filled in, states a number itself, or compares two numbers gets one second try before the checks (never one with advice or a claim).
 
 `src/llm/chat.ts` calls both from the server only (JSON mode, 10 s timeout, one retry on 429). Without `GROQ_API_KEY`, Mistral does both calls. Without `MISTRAL_API_KEY`, every check-in ends safely in the facts-only card ("AI unavailable").
 
