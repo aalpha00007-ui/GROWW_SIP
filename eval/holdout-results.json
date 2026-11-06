@@ -1,18 +1,18 @@
 {
   "run": {
-    "date": "2 Nov 2026, 13:18 IST",
-    "commit": "db767b3453353f30e65663af48ee10794ee2c088",
+    "date": "6 Nov 2026, 16:23 IST",
+    "commit": "b4fa8c9dcbf132e9c03f409393d68ed10c843f1e",
     "model": "openai/gpt-oss-120b + ministral-8b-latest",
-    "prompt_version": "v11"
+    "prompt_version": "v16"
   },
   "set": "holdout",
   "scores": {
-    "theme_agreement": 0.7,
-    "theme_ok": 7,
+    "theme_agreement": 0.6,
+    "theme_ok": 6,
     "labelled": 10,
     "total": 10,
-    "behaviour_agreement": 0.8,
-    "behaviour_ok": 8,
+    "behaviour_agreement": 0.7,
+    "behaviour_ok": 7,
     "behaviour_labelled": 10,
     "read_by_backup": 0
   },
@@ -53,7 +53,7 @@
           "KYC & onboarding"
         ],
         "behaviour": "Not stated",
-        "confidence": 0.96,
+        "confidence": 0.97,
         "model": "openai/gpt-oss-120b"
       },
       "themeOk": false,
@@ -68,15 +68,15 @@
         "behaviour": "Not stated"
       },
       "got": {
-        "primary_theme": "Other",
+        "primary_theme": "Not relevant",
         "themes": [
-          "Other"
+          "Not relevant"
         ],
         "behaviour": "Not stated",
-        "confidence": 0.97,
+        "confidence": 0.2,
         "model": "openai/gpt-oss-120b"
       },
-      "themeOk": true,
+      "themeOk": false,
       "behaviourOk": true
     },
     {
@@ -108,16 +108,16 @@
         "behaviour": "Stopped"
       },
       "got": {
-        "primary_theme": "Need money",
+        "primary_theme": "Other",
         "themes": [
-          "Need money"
+          "Other"
         ],
-        "behaviour": "Stopped",
+        "behaviour": "Not stated",
         "confidence": 0.92,
         "model": "openai/gpt-oss-120b"
       },
-      "themeOk": true,
-      "behaviourOk": true
+      "themeOk": false,
+      "behaviourOk": false
     },
     {
       "id": "H06",
@@ -134,7 +134,7 @@
           "Other"
         ],
         "behaviour": "Not stated",
-        "confidence": 0.95,
+        "confidence": 0.9,
         "model": "openai/gpt-oss-120b"
       },
       "themeOk": false,
@@ -195,7 +195,7 @@
           "Payment & mandate issues"
         ],
         "behaviour": "Not stated",
-        "confidence": 0.98,
+        "confidence": 0.97,
         "model": "openai/gpt-oss-120b"
       },
       "themeOk": true,
@@ -210,15 +210,15 @@
         "behaviour": "Not stated"
       },
       "got": {
-        "primary_theme": "Other",
+        "primary_theme": "Not relevant",
         "themes": [
-          "Other"
+          "Not relevant"
         ],
         "behaviour": "Not stated",
-        "confidence": 0.98,
+        "confidence": 0.9,
         "model": "openai/gpt-oss-120b"
       },
-      "themeOk": false,
+      "themeOk": true,
       "behaviourOk": true
     }
   ]

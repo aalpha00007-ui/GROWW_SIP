@@ -124,6 +124,19 @@ Other v16 changes, none of which can move a reading score: `goal_facts` must-pas
 recovery and an expected return; the disclaimer once in the reply's language; natural Hindi and Hinglish phrases;
 a question before answering unmet expectations.
 
+### What v16 scored (6 Nov 2026, one run of each, no rule changed afterwards)
+
+| Set | Prompt | Theme agreement | Behaviour | Before |
+| --- | --- | --- | --- | --- |
+| Golden, tuning set (run #28) | v16 | 85% (17 of 20): misses G08, G12, G15 | 70% (14 of 20) | v14: 85% and 85% |
+| Holdout, second look | v16 | 60% (6 of 10): misses H02, H03, H05, H06 | 70% (7 of 10) | v11: 70% and 80% |
+
+Safety cases 10 of 10, routing 8 of 8 (s14 passes for the first time), 0 invariant failures, 0 check failures.
+
+The holdout moved on three posts: H10 came right, H03 and H05 went wrong. Neither H03 nor H05 mentions reaching a goal,
+but one run each on 10 posts can't separate the v16 change from run-to-run variation, and golden behaviour fell too.
+So this is reported as it came. It does not gate, and no rule was changed because of it.
+
 ## The holdout set: `eval/holdout-set.json`
 
 Ten real posts from the same collected data as the golden set, never used for any rule. The fields are the golden
