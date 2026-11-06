@@ -22,7 +22,7 @@ export interface OrderCardProps {
   amountRange: string;
   defaultAmount: number;
   quickAdd: { value: number; label: string }[];
-  days: { value: number; next: string }[];
+  days: { value: number; label: string; next: string }[];
   defaultDay: number;
   firstInstalment: string;
   mandate: string;

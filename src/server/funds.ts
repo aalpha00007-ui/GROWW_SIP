@@ -3,11 +3,10 @@
 // worth; only the fund page's return calculator estimates a value, from a rate the investor chooses, never the
 // fund's past return.
 import type { Db } from '../db/client';
-import { dayMonthYear, monthYear, percent, pricesAsOf } from '../pipeline/chunking/format';
+import { dayMonthYear, monthYear, ordinal, percent, pricesAsOf } from '../pipeline/chunking/format';
 import { inr } from './money';
 import { sipSchedule } from '../pipeline/chunking/schedule';
 import { addMonths, firstDueDate, monthStart } from '../pipeline/loading/dates';
-import { loadMarket } from '../pipeline/loading/raw';
 import { logEvent, tooltipDismissed } from './events';
 import { goalGap, type GoalGap } from './goal-gap';
 import { demoBalance } from './shell';
@@ -119,20 +118,13 @@ function bySub(...subs: string[]) {
   return (all: FundRow[]) => all.filter((f) => subs.includes(f.sub_category)).sort(byName);
 }
 
-/** Mutual Funds -> Explore, left column: the first funds A to Z, the collections and the new fund offers. */
+/** Mutual Funds -> Explore, left column: the first funds A to Z and the collections. */
 export async function exploreFunds(db: Db, investorId: string) {
   const all = await funds(db, investorId);
   return {
     /** "Funds A–Z (demo)": the first 8 by name, two rows of four; "All mutual funds" has the rest. */
     az: [...all].sort(byName).slice(0, 8).map(card),
     collections: COLLECTIONS.map(({ key, label, icon }) => ({ key, label, icon, href: `/collections/${key}` })),
-    // No closing dates or countdowns: an offer that can't be bought here has nothing to hurry for.
-    nfos: loadMarket().nfos.map((n) => ({
-      name: n.name,
-      initials: initials(n.name),
-      category: n.category,
-      minAmount: `Min. ${inr(n.min_amount)}`,
-    })),
   };
 }
 
@@ -205,8 +197,8 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
       amountRange: `From ${inr(fund.min_sip)} to ${inr(MAX_AMOUNT)}`,
       defaultAmount: Math.max(DEFAULT_AMOUNT, fund.min_sip),
       quickAdd: QUICK_ADD.map((value) => ({ value, label: `+${inr(value)}` })),
-      /** The days a SIP can be on, each with the next instalment it would give. */
-      days: Array.from({ length: 28 }, (_, i) => ({ value: i + 1, next: dayMonthYear(nextAfterFirst(today, i + 1)) })),
+      /** The days a SIP can be on, each with its button text and the next instalment it would give. */
+      days: Array.from({ length: 28 }, (_, i) => ({ value: i + 1, label: `Monthly on ${ordinal(i + 1)}`, next: dayMonthYear(nextAfterFirst(today, i + 1)) })),
       defaultDay: Math.min(Number(today.slice(8, 10)), 28),
       /** Paid when the SIP starts: the demo date. */
       firstInstalment: dayMonthYear(today),

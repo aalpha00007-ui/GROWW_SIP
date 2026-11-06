@@ -1,6 +1,6 @@
-// Mutual Funds -> Explore, laid out after the reference in two columns. Left: Funds A–Z (demo), Collections and
-// the new fund offers. Right: Your investments and Products and tools. One column below
-// 1024px, the right column under the left. Every fund, return and offer is made up.
+// Mutual Funds -> Explore, laid out after the reference in two columns. Left: Funds A–Z (demo) and Collections.
+// Right: Your investments and Products and tools. One column below 1024px, the right column under the left. Every
+// fund and return is made up.
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { fundLinkLabel, Initials } from '@/components/fund-rows';
@@ -27,13 +27,6 @@ export default async function Explore() {
     { label: 'Goal planner', href: '/calculators/goal', icon: 'calculator' },
     { label: 'SWP calculator', href: '/calculators/swp', icon: 'calculator' },
     { label: 'My goals', href: '/dashboard#your-goals', icon: 'goals' },
-  ];
-  // Said up front, and not links: there is nothing behind them to click through to.
-  const notHere: { label: string; icon: IconName }[] = [
-    { label: 'New fund offers', icon: 'nfo' },
-    { label: 'Compare funds', icon: 'compare' },
-    { label: 'Import funds', icon: 'import' },
-    { label: 'File tax', icon: 'tax' },
   ];
 
   return (
@@ -74,25 +67,6 @@ export default async function Explore() {
             ))}
           </ul>
         </section>
-
-        <section>
-          <SectionTitle title="New fund offers · Not in this demo" />
-          <ul className="grid gap-4 @lg:grid-cols-2 @3xl:grid-cols-3">
-            {funds.nfos.map((nfo) => (
-              <li key={nfo.name} className={`${CARD} flex items-start gap-3`}>
-                <Initials text={nfo.initials} />
-                <div className="min-w-0">
-                  <p className="font-medium text-strong">{nfo.name}</p>
-                  <p className="text-sm text-muted">
-                    {nfo.category} · {nfo.minAmount}
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-accent-ink">Demo offer · can&apos;t be bought here</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-xs text-muted">Made-up offers to show the layout. They cannot be bought in this prototype.</p>
-        </section>
       </div>
 
       <div className="space-y-6">
@@ -107,13 +81,6 @@ export default async function Explore() {
                   <span className="flex-1">{tool.label}</span>
                   <Icon name="chevron" size={16} className="text-muted" />
                 </Link>
-              </li>
-            ))}
-            {notHere.map((tool) => (
-              <li key={tool.label} className="flex min-h-12 items-center gap-3 py-3 text-[15px] text-muted">
-                <Icon name={tool.icon} />
-                <span className="flex-1">{tool.label}</span>
-                <span className="rounded-full bg-page px-2.5 py-0.5 text-xs font-semibold">Not in this demo</span>
               </li>
             ))}
           </ul>

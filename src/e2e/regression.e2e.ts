@@ -1,6 +1,6 @@
 // The regression suite: every journey the QA review covered, on the real production build (npm run e2e:regression).
-import { expect, test } from '@playwright/test';
-import { balance, changeAmount, DEMO_DAY, openFund, pause, pickDay, setClock, signUp, skipNext, startClean, startSipNoGoal, startSipWithGoal } from './regression-helpers';
+import { expect, test, type Page } from '@playwright/test';
+import { balance, changeAmount, dateButton, DEMO_DAY, openFund, pause, pickDay, setClock, signUp, skipNext, startClean, startSipNoGoal, startSipWithGoal } from './regression-helpers';
 
 test.beforeEach(async ({ page, request }) => {
   await setClock(request, DEMO_DAY);
@@ -431,14 +431,6 @@ test.describe('Calculators and placeholders', () => {
     await expect(dialog.getByLabel('Month')).toHaveValue('11');
   });
 
-  test('Compare, Import and NFO say "Not in this demo" before the click', async ({ page }) => {
-    await page.goto('/explore');
-    await expect(page.getByText('Not in this demo', { exact: true })).toHaveCount(4);
-    await expect(page.getByRole('link', { name: 'Compare funds' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Import funds' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: /See all/ })).toHaveCount(0);
-  });
-
   test('/about says which controls differ from Groww today', async ({ page }) => {
     await page.goto('/about');
     await expect(page.getByRole('heading', { name: 'Where this differs from Groww today' })).toBeVisible();
@@ -473,16 +465,28 @@ test.describe('When the AI is unavailable', () => {
   });
 });
 
-test.describe('The SIP date grid', () => {
-  test('picking a day highlights it and says when the instalments fall', async ({ page }) => {
+test.describe('The SIP date calendar', () => {
+  const day = (page: Page, n: number) => page.getByRole('button', { name: `Day ${n}`, exact: true });
+
+  test('is a compact button until it is opened', async ({ page }) => {
     await openFund(page, { amount: 1000 });
-    await expect(page.getByRole('radio', { name: 'Day 5', exact: true })).toBeChecked();
+    await expect(dateButton(page)).toHaveText(/Monthly on 5th/);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(day(page, 14)).toHaveCount(0);
     await expect(page.getByText('First instalment: 5 Nov 2026 · Next instalment: 5 Dec 2026')).toBeVisible();
-    await pickDay(page, 15);
+  });
+
+  test('picking a day closes it, and updates the button and the next instalment', async ({ page }) => {
+    await openFund(page, { amount: 1000 });
+    await dateButton(page).click();
+    await expect(day(page, 5)).toHaveAttribute('aria-pressed', 'true');
+    await day(page, 15).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(dateButton(page)).toHaveText(/Monthly on 15th/);
     await expect(page.getByText('First instalment: 5 Nov 2026 · Next instalment: 15 Dec 2026')).toBeVisible();
-    await expect(page.getByRole('radio', { name: 'Day 5', exact: true })).not.toBeChecked();
     // Earlier in the month than today: the first instalment covers next month's date.
     await pickDay(page, 3);
+    await expect(dateButton(page)).toHaveText(/Monthly on 3rd/);
     await expect(page.getByText('First instalment: 5 Nov 2026 · Next instalment: 3 Jan 2027')).toBeVisible();
 
     await page.getByRole('button', { name: 'Start SIP' }).click();
@@ -491,36 +495,93 @@ test.describe('The SIP date grid', () => {
     await expect(page.getByText('3 Jan 2027')).toBeVisible();
   });
 
-  test('29, 30 and 31 are shown but can not be picked, and the note says why', async ({ page }) => {
+  test('says each day the right way', async ({ page }) => {
     await openFund(page, { amount: 1000 });
-    for (const day of [29, 30, 31]) await expect(page.getByRole('radio', { name: `Day ${day}, not available` })).toBeDisabled();
+    for (const [n, text] of [[1, '1st'], [2, '2nd'], [3, '3rd'], [4, '4th'], [11, '11th'], [12, '12th'], [13, '13th'], [21, '21st'], [22, '22nd'], [23, '23rd']] as const) {
+      await pickDay(page, n);
+      await expect(dateButton(page)).toHaveText(new RegExp(`Monthly on ${text}`));
+    }
+  });
+
+  test('29, 30 and 31 can not be picked, and the note says why', async ({ page }) => {
+    await openFund(page, { amount: 1000 });
+    await dateButton(page).click();
+    for (const n of [29, 30, 31]) await expect(page.getByRole('button', { name: `Day ${n}, not available` })).toBeDisabled();
     await expect(page.getByText('Not available, so every month has this date')).toBeVisible();
-    await page.locator('label', { hasText: /^30$/ }).click({ force: true });
-    await expect(page.getByRole('radio', { name: 'Day 5', exact: true })).toBeChecked();
+    await page.getByRole('button', { name: 'Day 30, not available' }).click({ force: true });
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(dateButton(page)).toHaveText(/Monthly on 5th/);
   });
 
-  test('works with the keyboard, and skips the days that can not be picked', async ({ page }) => {
+  test('Esc closes without changing the date, and puts focus back on the button', async ({ page }) => {
     await openFund(page, { amount: 1000 });
-    const five = page.getByRole('radio', { name: 'Day 5', exact: true });
-    await five.focus();
-    await page.keyboard.press('ArrowRight');
-    await expect(page.getByRole('radio', { name: 'Day 6', exact: true })).toBeChecked();
-    await expect(page.getByText('Next instalment: 6 Dec 2026')).toBeVisible();
-    await pickDay(page, 28);
-    await page.getByRole('radio', { name: 'Day 28', exact: true }).focus();
-    await page.keyboard.press('ArrowRight');
-    await expect(page.getByRole('radio', { name: 'Day 1', exact: true })).toBeChecked();
+    await dateButton(page).click();
+    await day(page, 5).press('ArrowRight');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(dateButton(page)).toHaveText(/Monthly on 5th/);
+    await expect(dateButton(page)).toBeFocused();
   });
 
-  test('fits a 375px screen with no sideways scroll', async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 800 });
+  test('a click outside closes it without changing the date', async ({ page }) => {
     await openFund(page, { amount: 1000 });
-    const grid = await page.locator('fieldset', { hasText: 'SIP date' }).boundingBox();
-    expect(grid!.x + grid!.width).toBeLessThanOrEqual(375);
+    await dateButton(page).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.mouse.click(8, 200);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(dateButton(page)).toHaveText(/Monthly on 5th/);
+  });
+
+  test('works from the keyboard alone', async ({ page }) => {
+    await openFund(page, { amount: 1000 });
+    await dateButton(page).focus();
+    await page.keyboard.press('Enter');
+    await expect(day(page, 5)).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(day(page, 6)).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(day(page, 13)).toBeFocused();
+    await page.keyboard.press('ArrowLeft');
+    await expect(day(page, 12)).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await expect(day(page, 5)).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    // Moving is not choosing: the button keeps its date until Enter.
+    await expect(dateButton(page)).toHaveText(/Monthly on 5th/);
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(dateButton(page)).toHaveText(/Monthly on 7th/);
+    await expect(dateButton(page)).toBeFocused();
+
+    await page.keyboard.press('Space');
+    await expect(day(page, 7)).toBeFocused();
+    await page.keyboard.press('End');
+    await expect(day(page, 28)).toBeFocused();
+    // Past the last day it wraps to the 1st, never onto a day that can't be picked.
+    await page.keyboard.press('ArrowRight');
+    await expect(day(page, 1)).toBeFocused();
+  });
+
+  test('opens as a popover on a wide screen and a bottom sheet on a narrow one', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'Sizes itself below.');
+    await openFund(page, { amount: 1000 });
+    await dateButton(page).click();
+    const popover = (await page.getByRole('dialog').boundingBox())!;
+    const button = (await dateButton(page).boundingBox())!;
+    expect(popover.width).toBeLessThan(400);
+    expect(popover.y).toBeGreaterThanOrEqual(button.y + button.height - 1);
+    await page.keyboard.press('Escape');
+
+    await page.setViewportSize({ width: 375, height: 700 });
+    await dateButton(page).click();
+    const sheet = (await page.getByRole('dialog').boundingBox())!;
+    expect(sheet.width).toBe(375);
+    expect(sheet.y + sheet.height).toBe(700);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
-    // Big enough for a thumb.
-    const square = await page.locator('label', { hasText: /^14$/ }).boundingBox();
-    expect(square!.height).toBeGreaterThanOrEqual(44);
+    // Big enough for a thumb, and the last row is on screen.
+    expect((await day(page, 14).boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await expect(page.getByRole('button', { name: 'Day 31, not available' })).toBeInViewport();
   });
 
   test('a February start shows the real next date', async ({ page, request }) => {
@@ -528,6 +589,41 @@ test.describe('The SIP date grid', () => {
     await startClean(page);
     await openFund(page, { amount: 1000, day: 1 });
     await expect(page.getByText('First instalment: 1 Feb 2027 · Next instalment: 1 Mar 2027')).toBeVisible();
+  });
+});
+
+test.describe('The extras are gone', () => {
+  const GONE = [/New fund offers/, /Compare funds/, /Import funds/, /File tax/, /Not in this demo/, /can.t be bought/, /cannot be bought/];
+
+  test('from Explore, and everything that works stays', async ({ page }) => {
+    await page.goto('/explore');
+    for (const text of GONE) await expect(page.getByText(text)).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Products and tools' })).toBeVisible();
+    for (const name of ['SIP calculator', 'Goal planner', 'SWP calculator', 'My goals']) await expect(page.getByRole('link', { name, exact: true })).toBeVisible();
+    const sections = page.getByRole('navigation', { name: 'Sections' });
+    for (const name of ['Orders', 'Watchlist']) await expect(sections.getByRole('link', { name })).toBeVisible();
+  });
+
+  test('from the menus', async ({ page }) => {
+    await page.goto('/dashboard');
+    await page.getByRole('button', { name: 'Account menu' }).click();
+    for (const text of GONE) await expect(page.getByText(text)).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: /Notifications/ }).click();
+    for (const text of GONE) await expect(page.getByText(text)).toHaveCount(0);
+  });
+
+  for (const key of ['nfo', 'compare', 'import', 'tax']) {
+    test(`/soon/${key} goes to Explore`, async ({ page }) => {
+      await page.goto(`/soon/${key}`);
+      await expect(page).toHaveURL(/\/explore$/);
+      await expect(page.getByRole('heading', { name: /Funds A–Z/ })).toBeVisible();
+    });
+  }
+
+  test('the placeholders left in for now still open', async ({ page }) => {
+    await page.goto('/soon/terminal');
+    await expect(page.getByRole('heading', { name: 'Terminal' })).toBeVisible();
   });
 });
 

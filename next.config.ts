@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // The regression suite's in-memory database: loaded at run time from node_modules, and only when E2E_PGLITE=1.
   serverExternalPackages: ['@electric-sql/pglite'],
+  // Pages that no longer exist: an old link lands on Explore, not on an error.
+  async redirects() {
+    return ['nfo', 'compare', 'import', 'tax'].map((key) => ({ source: `/soon/${key}`, destination: '/explore', permanent: false }));
+  },
   // The prototype looks like a real app, so: no search engine listing, and no other site may show it in a frame.
   async headers() {
     return [

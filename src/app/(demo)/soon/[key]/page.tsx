@@ -4,10 +4,6 @@ import { notFound } from 'next/navigation';
 
 const TOOLS: Record<string, string> = {
   terminal: 'Terminal',
-  nfo: 'New fund offers',
-  compare: 'Compare funds',
-  import: 'Import funds',
-  tax: 'File tax',
   'stock-sip': 'Stock SIP',
   screener: 'Screener',
   events: 'Events calendar',

@@ -37,10 +37,13 @@ export async function openFund(page: Page, { fund = 1, amount, day }: { fund?: n
   if (day !== undefined) await pickDay(page, day);
 }
 
-/** One day on the SIP date grid: the radio is hidden, so tap the square a person would. */
+export const dateButton = (page: Page) => page.getByRole('button', { name: /^SIP date: Monthly on/ });
+
+/** Opens the calendar and picks a day, which closes it. */
 export async function pickDay(page: Page, day: number) {
-  await page.locator('label').filter({ has: page.getByRole('radio', { name: `Day ${day}`, exact: true }) }).click();
-  await expect(page.getByRole('radio', { name: `Day ${day}`, exact: true })).toBeChecked();
+  await dateButton(page).click();
+  await page.getByRole('button', { name: `Day ${day}`, exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

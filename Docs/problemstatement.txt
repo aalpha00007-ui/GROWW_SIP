@@ -468,11 +468,11 @@ GitHub Actions runs build, API tests and the eval (20 golden-set posts with hand
 
 | Area | Groww product or feature (app and web) | Depth in GROWW_SIP | What the tester can do |
 | --- | --- | --- | --- |
-| Mutual funds | Explore by category (equity, debt, hybrid, ELSS, index, liquid), fund page, NFOs | Full | Browse made-up funds, open a fund page |
+| Mutual funds | Explore by category (equity, debt, hybrid, ELSS, index, liquid), fund page | Full | Browse made-up funds, open a fund page |
 | Mutual funds | SIP (monthly), One-time, Add to cart, Pay via mandate | Full | Start a SIP or one-time order, with the goal row (F2) |
 | Mutual funds | Daily and weekly SIP | Simple | Pick the frequency; same logic as monthly |
 | Mutual funds | SIP section: edit amount and date, step up, skip, cancel | Full | All controls on the SIP page (F5); stop goes through Before you stop (F7) |
-| Mutual funds | MF screener, compare funds | Simple | Filter by category and risk; compare two funds' made-up facts |
+| Mutual funds | MF screener | Simple | Filter by category and risk |
 | Mutual funds | Switch between funds, import external funds, MF pledge | Placeholder | See the entry |
 | Mutual funds | Privacy mode for holdings | Simple | Toggle to hide amounts |
 | Stocks | Explore (top gainers and losers, most traded, 52-week high and low, sectors), stock page, watchlist, buy and sell | Simple | Browse made-up stocks, add to watchlist, place a demo delivery order |

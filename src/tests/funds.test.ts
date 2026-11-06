@@ -56,8 +56,8 @@ describe('Explore and the fund page', () => {
     expect(await collection(db, riya, 'high-return')).toBeNull();
     expect(await collection(db, riya, 'popular-sip')).toBeNull();
     expect(await collection(db, riya, 'crypto')).toBeNull();
-    expect(explore.nfos.length).toBeGreaterThanOrEqual(4);
-    expect(explore.nfos[0]).toEqual({ name: 'Starling Multi Asset Fund', initials: 'SM', category: 'Hybrid', minAmount: 'Min. ₹500' });
+    // Explore shows only what works.
+    expect(explore).not.toHaveProperty('nfos');
   });
 
   it('shows the fund page: stats, 6 years of NAVs for the chart and an order card with no goal preselected', async () => {
@@ -78,8 +78,10 @@ describe('Explore and the fund page', () => {
     expect(fund?.box.quickAdd.map((q) => q.label)).toEqual(['+₹1,000', '+₹2,000', '+₹5,000']);
     expect(fund?.box.days).toHaveLength(28);
     // Each day says when the instalment after the first falls, from the SIP's own schedule.
-    expect(fund?.box.days[3]).toEqual({ value: 4, next: '4 Dec 2026' });
-    expect(fund?.box.days[26]).toEqual({ value: 27, next: '27 Nov 2026' });
+    expect(fund?.box.days[3]).toEqual({ value: 4, label: 'Monthly on 4th', next: '4 Dec 2026' });
+    expect(fund?.box.days[26]).toEqual({ value: 27, label: 'Monthly on 27th', next: '27 Nov 2026' });
+    // The right ordinal on every day that trips one up.
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23].map((d) => fund?.box.days[d - 1].label.replace('Monthly on ', ''))).toEqual(['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '23rd']);
     expect(fund?.box.firstInstalment).toBe('27 Oct 2026');
     expect(fund?.box.goalStep.kinds.map((k) => k.label)).toEqual([
       'Retirement', "Child's education", 'Home down payment', 'Emergency fund', 'Wedding', 'Car', 'Travel', 'Something else',
