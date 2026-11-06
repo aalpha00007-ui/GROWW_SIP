@@ -33,7 +33,7 @@ export default async function Orders({ searchParams }: { searchParams: Promise<{
             const opened = row.instalmentId !== null && String(row.instalmentId) === instalment;
             return (
               <li key={row.key} id={row.anchor ?? undefined} aria-current={opened ? 'true' : undefined} className={`scroll-mt-32 p-4 ${opened ? 'bg-primary-soft' : ''}`}>
-                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <div className="flex items-baseline justify-between gap-4">
                   <span className="min-w-0">
                     {row.sipId !== null ? (
                       <Link href={`/sips/${row.sipId}`} className="font-medium text-strong hover:text-primary">

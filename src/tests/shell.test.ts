@@ -17,9 +17,9 @@ beforeAll(async () => {
 describe('the app shell', () => {
   it('starts every investor at ₹1,00,000; a persona’s history before the demo does not count', async () => {
     const riya = await clonePersona(db, 'riya');
-    expect(await demoBalance(db, riya)).toBe(100_000);
+    expect(await demoBalance(db, riya, TODAY)).toBe(100_000);
     await db.query("INSERT INTO lumpsums (investor_id, fund_id, amount, nav, units) VALUES ($1, 1, 5000, 50, 100)", [riya]);
-    expect(await demoBalance(db, riya)).toBe(95_000);
+    expect(await demoBalance(db, riya, TODAY)).toBe(95_000);
   });
 
   it('gives a new account six notifications, no cart, and funds and stocks to search', async () => {

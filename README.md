@@ -13,6 +13,7 @@ npm run dev            # http://localhost:3000, with DATABASE_URL, MISTRAL_API_K
 npm run build          # production build (Render runs this)
 npm start              # serve the production build
 npm run e2e            # browser tests (Playwright, installed Chrome) against a running app; E2E_BASE_URL to point elsewhere
+npm run e2e:regression # the regression suite: production build, in-memory database, a demo clock the tests control, no AI keys
 ```
 
 - **Landing page (`/`, PRD F1):** one tap on Kabir, Riya or Arjun copies that persona into a fresh investor, so testers never share data. The other personas (Meera, Sana, Vikram, Dev) stay in the seed for tests and evals. The tick box "Facts only. No investment advice." was removed on 30 Oct 2026 at the product owner's request; the yellow banner on every page and the line under the demo cards carry the disclaimer.
@@ -79,9 +80,9 @@ Not used (architecture decision D3). Two plain stores hold everything: Neon Post
 - Unit tests never call Groq or Mistral: `src/tests/no-live-ai.ts` (set up in `vitest.config.ts`) stops any such request.
 
 - **The dip explainer** gets facts worked out by code: the share of the planned amount put in so far, the instalments to come, the time to go, the worst fall next to the fund's biggest demo-history fall, and the units one instalment buys at the latest NAV and at the peak NAV since the SIP started. It answers in three short sentences tied to the goal, then the options and the disclaimer.
-- **Every card shows the quality check.** An answer has its ticks. A declined or fallback card has one line in their place, such as "Quality check: advice question detected → showing facts only", "a number didn't match your SIP" or "AI unavailable", and ends with the disclaimer like an answer. The ticks and that line are in the reply's language and script (fixed translations in `src/server/checkin-card.ts`, never written by the AI). Both AI features show a confidence label: Before you stop, how sure the AI is what the reason means; the dip explainer, how much of a goal it can connect the dip to (High with a goal date, Medium without one, Low with no goal).
+- **Every card says how it was checked.** An answer has "How this answer was checked" folded under it: what was checked, and that automatic checks can miss things. A declined or fallback card has one line instead, such as "Quality check: advice question detected → showing facts only", "a number didn't match your SIP" or "AI unavailable", and ends with the disclaimer like an answer. Both are in the reply's language and script (fixed translations in `src/server/checkin-card.ts`, never written by the AI). There is no confidence label: it read like a guarantee.
 - **Market predictions** are their own intent (`asks_for_prediction`): the card first says the app can't predict whether markets will rise or fall, then shows the facts.
-- **Language:** "What I understood" and the answer come in the investor's language and script. Code double-checks Hinglish from the investor's own words. A Hindi or Hinglish answer ends with the disclaimer in that language, then in English, and the checks run on that text. The fixed card texts are in Hindi and Hinglish too. Other languages get English, since the advice and claim lists cover English, Hindi and Hinglish only.
+- **Language:** "What I understood" and the answer come in the investor's language and script. Code double-checks Hinglish from the investor's own words. A Hindi or Hinglish answer ends with the disclaimer once, in that language (the site's banner has it in English), and the checks run on that text. The fixed card texts are in Hindi and Hinglish too. Other languages get English, since the advice and claim lists cover English, Hindi and Hinglish only.
 
 Two free models share the work (architecture decision D4):
 - **Call 1, understanding the reason:** Groq `openai/gpt-oss-120b`. If Groq fails or runs out of free requests, Mistral reads the reason instead.
@@ -110,7 +111,7 @@ npm run retrieve -- fresh riya            # start over with a clean copy
 
 - **Must pass every run:**
     - the 10 must-pass cases: advice requests declined, refund misreads caught, nonsense to the fallback card, and someone who needs the money gets the cash route (s17 English, s18 Hinglish)
-    - no answer with advice, wrong numbers, a missing disclaimer or an unsupported claim (calling a fall normal, small or temporary, promising a recovery, "don't worry"; `data/raw/guardrails/claim_patterns.json`).
+    - no answer with advice, wrong numbers, a missing disclaimer, an unsupported claim (calling a fall normal, small or temporary, implying a floor or a recovery, stating an expected return, "don't worry"; `data/raw/guardrails/claim_patterns.json`) or a wrong goal detail (`src/pipeline/retrieval/goal-check.ts`).
 - **Must not regress:**
     - golden-set theme agreement at least 65% (target 75%)
     - at least 7 of the 8 routing cases.

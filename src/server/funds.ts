@@ -169,7 +169,7 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
       investorId,
       fundId,
     ]),
-    demoBalance(db, investorId),
+    demoBalance(db, investorId, today),
     tooltipDismissed(db, investorId),
     goalChoices(db, investorId),
     db.query('SELECT 1 FROM fund_watchlist WHERE investor_id = $1 AND fund_id = $2', [investorId, fundId]),
@@ -286,7 +286,7 @@ export async function investOnce(
   }
   const goal = await oneTimeGoal(db, investorId, body.goal, today);
   if (!goal.ok) return { status: 400, error: goal.error };
-  const balance = await demoBalance(db, investorId);
+  const balance = await demoBalance(db, investorId, today);
   if (amount > balance) return { status: 400, error: `That is more than your demo balance of ${inr(balance)}.` };
   const units = Math.round((amount / Number(fund.nav)) * 10_000) / 10_000;
   await db.transaction(async (tx) => {
@@ -361,7 +361,7 @@ export async function startSip(db: Db, investorId: string, input: unknown, today
   const parsed = parseGoal(body.goal, { today, firstDue });
   if (!parsed.ok) return { status: 400, error: parsed.error };
   const { goal } = parsed;
-  const balance = await demoBalance(db, investorId);
+  const balance = await demoBalance(db, investorId, today);
   if (amount > balance) return { status: 400, error: `The first instalment of ${inr(amount)} is more than your demo balance of ${inr(balance)}.` };
   const source = body.source === 'cart' ? 'cart' : 'fund_page';
 

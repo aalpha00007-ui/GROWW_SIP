@@ -23,6 +23,7 @@
     "events": "tsx src/server/events-cli.ts",
     "test": "vitest run",
     "e2e": "playwright test",
+    "e2e:regression": "next build && playwright test -c playwright.regression.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

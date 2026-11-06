@@ -218,7 +218,8 @@ function Scenarios({ title, monthly, years, rate, target }: { title: string; mon
       <dl className="tabular mt-1 divide-y divide-line text-sm">
         {returnScenarios(monthly, years, rate).map((s) => {
           const value = s.value ?? 0;
-          const short = target !== undefined && value < target - 0.5 ? `, ${inr(target - value)} below the target` : '';
+          // The amount is in whole rupees, so the chosen rate can land a few rupees off: that isn't a shortfall.
+          const short = target !== undefined && target - value > monthly ? `, ${inr(target - value)} below the target` : '';
           return (
             <div key={s.label} className="flex flex-wrap justify-between gap-x-4 py-1.5">
               <dt className="text-muted">{s.label}</dt>
@@ -239,6 +240,7 @@ function Scenarios({ title, monthly, years, rate, target }: { title: string; mon
 function Field({ spec, value, onChange }: { spec: Spec; value: number; onChange: (value: number) => void }) {
   const id = useId();
   const [draft, setDraft] = useState<string | null>(null);
+  const shown = spec.unit === 'rupees' ? GROUPED.format(value) : String(value);
   const clamp = (n: number) => Math.min(spec.max, Math.max(spec.min, n));
   const parse = (text: string) => {
     const n = Number(text.replace(/[,\s₹%]/g, ''));
@@ -265,8 +267,10 @@ function Field({ spec, value, onChange }: { spec: Spec; value: number; onChange:
           <input
             id={id}
             inputMode={spec.unit === 'percent' ? 'decimal' : 'numeric'}
-            value={draft ?? (spec.unit === 'rupees' ? GROUPED.format(value) : String(value))}
-            onFocus={() => setDraft(String(value))}
+            value={draft ?? shown}
+            // The same text, commas and all: changing it here would lose the selection Tab makes, and typing "7000"
+            // over "5,000" would then read "50007000", clamped to the maximum. The parser ignores commas.
+            onFocus={() => setDraft(shown)}
             onChange={(e) => {
               setDraft(e.target.value);
               const n = parse(e.target.value);

@@ -4,6 +4,8 @@ const nextConfig: NextConfig = {
   // The pipeline reads data/ and src/db/schema.sql at run time, from the project folder.
   outputFileTracingIncludes: { '/**': ['./data/**/*', './src/db/schema.sql'] },
   poweredByHeader: false,
+  // The regression suite's in-memory database: loaded at run time from node_modules, and only when E2E_PGLITE=1.
+  serverExternalPackages: ['@electric-sql/pglite'],
   // The prototype looks like a real app, so: no search engine listing, and no other site may show it in a frame.
   async headers() {
     return [

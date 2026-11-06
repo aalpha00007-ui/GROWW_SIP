@@ -2,14 +2,21 @@
 
 const DAY_MS = 86_400_000;
 
+/** The regression suite's demo date. Only /api/e2e/clock sets it, and only when E2E_CLOCK=1: never in production. */
+const testClock = globalThis as { growwSipTestToday?: string };
+export const setTestClock = (date: string) => {
+  testClock.growwSipTestToday = date;
+};
+
 /** Today's date in India, where the demo runs. */
-export function todayInIndia(now: Date = new Date()): string {
+export function todayInIndia(now?: Date): string {
+  if (now === undefined && testClock.growwSipTestToday) return testClock.growwSipTestToday;
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kolkata',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(now);
+  }).format(now ?? new Date());
 }
 
 export function isIsoDate(value: unknown): value is string {

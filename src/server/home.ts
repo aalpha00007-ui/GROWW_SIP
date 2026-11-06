@@ -182,7 +182,7 @@ function goalCard(id: number, group: GoalSip[], oneTime: OneTimeRow[], today: st
     putIn: inr(putIn),
     planned: plannedPutIn !== null ? inr(plannedPutIn) : null,
     target: target_amount ? inr(target_amount) : null,
-    targetProgress: target_amount ? `Value today is ${Math.round((value / target_amount) * 100)}% of your ${inr(target_amount)} target` : null,
+    targetProgress: target_amount ? `Value today is ${targetShare(value / target_amount)} of your ${inr(target_amount)} target` : null,
     value: inr(value),
     change,
     sips: group.map(({ facts: f, stopped }) => ({ id: f.sip_id, label: `${f.fund_name} · ${stopped ? 'stopped' : `${inr(f.amount)} a month`}` })),
@@ -190,6 +190,11 @@ function goalCard(id: number, group: GoalSip[], oneTime: OneTimeRow[], today: st
     // Only a goal that is down has a dip to explain, and the explainer reads a SIP's facts.
     dipSipId: change?.direction === 'down' && main ? main.sip_id : null,
   };
+}
+
+/** '12%', or 'under 1%' rather than a 0% that reads as nothing at all. */
+function targetShare(share: number): string {
+  return share > 0 && share < 0.01 ? 'under 1%' : `${Math.round(share * 100)}%`;
 }
 
 function summary(all: SipFacts[]): NonNullable<HomeView['summary']> {

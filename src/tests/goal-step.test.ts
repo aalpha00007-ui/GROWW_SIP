@@ -54,7 +54,7 @@ describe('The goal chips', () => {
 describe('Start SIP with the goal step', () => {
   it('starts with a goal: first instalment paid from the demo balance, goal saved with its target, events logged', async () => {
     const visitor = await newAccount();
-    expect(await demoBalance(db, visitor)).toBe(100_000);
+    expect(await demoBalance(db, visitor, TODAY)).toBe(100_000);
     const started = await startSip(
       db,
       visitor,
@@ -62,7 +62,7 @@ describe('Start SIP with the goal step', () => {
       TODAY,
     );
     if (started.status !== 200) throw new Error(started.error);
-    expect(await demoBalance(db, visitor)).toBe(97_000);
+    expect(await demoBalance(db, visitor, TODAY)).toBe(97_000);
     const [goal] = (await db.query<{ name: string; target_amount: string }>('SELECT g.name, g.target_amount::text FROM sips s JOIN goals g ON g.id = s.goal_id WHERE s.id = $1', [started.id])).rows;
     expect(goal).toEqual({ name: 'Retirement', target_amount: '5000000' });
     expect((await events(visitor)).map((e) => e.event)).toEqual(['sip_started', 'goal_saved']);

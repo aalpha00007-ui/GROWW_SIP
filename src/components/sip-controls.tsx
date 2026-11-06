@@ -129,7 +129,8 @@ export function SipControls({ id, controls, status, skipLabel, skipConfirm, undo
       )}
 
       {open === 'amount' && (
-        <form id="amount" onSubmit={saveAmount} className="mt-4 space-y-2 rounded-lg bg-page p-3">
+        // noValidate: the browser's own bubble would stop the form before our message, which says the range and clears itself.
+        <form id="amount" noValidate onSubmit={saveAmount} className="mt-4 space-y-2 rounded-lg bg-page p-3">
           <label htmlFor="sip-amount" className="block text-sm font-semibold">
             New amount a month (Rs)
           </label>

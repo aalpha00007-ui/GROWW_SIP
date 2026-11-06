@@ -6,16 +6,20 @@ import { DEMO_BALANCE } from './auth';
 import { homeView } from './home';
 import { inr } from './money';
 
-/** ₹1,00,000 at the start, less every instalment and one-time investment made during the demo. */
-export async function demoBalance(db: Db, investorId: string): Promise<number> {
+/**
+ * ₹1,00,000 at the start, less every instalment and one-time investment made during the demo. A persona's history
+ * from before the demo doesn't count. `today` matters only under the regression suite's clock, which can sit before the
+ * real date the account was made; anywhere else today is never before it.
+ */
+export async function demoBalance(db: Db, investorId: string, today: string): Promise<number> {
   const [row] = (
     await db.query<{ spent: number }>(
       `SELECT (
          coalesce((SELECT sum(i.amount) FROM instalments i JOIN sips s ON s.id = i.sip_id JOIN investors v ON v.id = s.investor_id
-                   WHERE s.investor_id = $1 AND i.paid_on >= (v.created_at AT TIME ZONE 'Asia/Kolkata')::date), 0)
+                   WHERE s.investor_id = $1 AND i.paid_on >= least((v.created_at AT TIME ZONE 'Asia/Kolkata')::date, $2::date)), 0)
          + coalesce((SELECT sum(amount) FROM lumpsums WHERE investor_id = $1), 0)
        )::int AS spent`,
-      [investorId],
+      [investorId, today],
     )
   ).rows;
   return DEMO_BALANCE - row.spent;
@@ -54,7 +58,7 @@ export interface ShellData {
 export async function shellData(db: Db, investorId: string, today: string): Promise<ShellData> {
   const [home, balance, cart, funds, stocks, demo, lastPaid, reads] = await Promise.all([
     homeView(db, investorId, today),
-    demoBalance(db, investorId),
+    demoBalance(db, investorId, today),
     db.query<{ n: number }>('SELECT count(*)::int AS n FROM cart_items WHERE investor_id = $1 AND removed_at IS NULL', [investorId]),
     db.query<{ id: number; name: string }>('SELECT id, name FROM funds ORDER BY id'),
     db.query<{ id: number; name: string }>("SELECT id, name FROM assets WHERE kind = 'stock' ORDER BY id"),
