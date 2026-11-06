@@ -374,6 +374,20 @@ describe('Guaranteed-return request', () => {
   });
 });
 
+describe('Goal names the goal step lets through', () => {
+  const text = 'Your {value_today} is for {goal_name}, with {time_to_goal}. You can keep, skip, pause or lower the amount. This is not investment advice.';
+
+  for (const name of ['Bike', 'घर की मरम्मत', 'Buy a flat', 'Sell my car', 'Bike 2027', '2 BHK flat', 'May wedding', 'Early retirement at 45']) {
+    it(`"${name}" still gets an AI answer`, async () => {
+      const r = await persona();
+      expect((await setGoal(db, r.id, r.sip, { kind: 'custom', name, targetMonth: '2030-03' }, TODAY)).status).toBe(200);
+      const c = await ask(fakeLlm(reading(), { text }, { text }), r.id, r.sip, 'Markets are down');
+      expect(c).toMatchObject({ outcome: 'answer' });
+      expect(c.text).toContain(name);
+    });
+  }
+});
+
 describe('Autopay trouble', () => {
   it('links to the Autopay section of Settings', async () => {
     const r = await persona();

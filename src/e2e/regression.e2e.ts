@@ -751,6 +751,54 @@ test.describe('When saving a goal goes wrong', () => {
     await expect(save(page)).toBeEnabled();
   });
 
+  test('a name the AI could not answer with is refused as it is typed', async ({ page }) => {
+    await openFund(page, { amount: 1000 });
+    await page.getByRole('button', { name: 'Start SIP' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Something else' }).click();
+    await dialog.getByLabel('Month').selectOption({ label: 'Dec' });
+    await dialog.getByLabel('Year').selectOption('2030');
+    await dialog.getByLabel('Name your goal').fill('Goa trip in December');
+    await expect(dialog.getByText('Please keep dates, amounts and promises of returns out of the goal name.', { exact: false })).toBeVisible();
+    await expect(save(page)).toBeDisabled();
+    await dialog.getByLabel('Name your goal').fill('Goa trip');
+    await expect(dialog.getByText(/about \d+ instalments/)).toBeVisible();
+    await expect(save(page)).toBeEnabled();
+  });
+
+  test('the target box takes whole rupees', async ({ page }) => {
+    await openFund(page, { amount: 1000 });
+    await page.getByRole('button', { name: 'Start SIP' }).click();
+    const target = page.getByRole('dialog').getByLabel('Target amount');
+    await target.pressSequentially('1000.50');
+    await expect(target).toHaveValue('1,000');
+    await target.press('Backspace');
+    await target.pressSequentially('5');
+    await expect(target).toHaveValue('1,005');
+    await target.fill('1,50,000.75');
+    await expect(target).toHaveValue('1,50,000');
+  });
+
+  test('a long unbroken name never makes a phone screen scroll sideways', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    const name = 'Supercalifragilisticexpialidociousabcdef';
+    await openFund(page, { amount: 1000 });
+    await page.getByRole('button', { name: 'Start SIP' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Something else' }).click();
+    await dialog.getByLabel('Name your goal').fill(name);
+    await dialog.getByLabel('Month').selectOption({ label: 'Dec' });
+    await dialog.getByLabel('Year').selectOption('2030');
+    await expect(dialog.getByText(/about \d+ instalments/)).toBeVisible();
+    await save(page).click();
+    await page.waitForURL(/started/);
+    const id = /\/sips\/(\d+)\/started/.exec(page.url())![1];
+    for (const path of [`/sips/${id}/started`, `/sips/${id}`, '/sips', '/dashboard', `/sips/${id}/goal`, `/sips/${id}/stop`]) {
+      await page.goto(path);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth), path).toBeLessThanOrEqual(375);
+    }
+  });
+
   test('a date the server refuses still blocks saving, with the reason', async ({ page }) => {
     await openFund(page, { amount: 1000, day: 3 });
     await page.getByRole('button', { name: 'Start SIP' }).click();

@@ -6,6 +6,7 @@ import { inr } from './money';
 import { addMonths, isIsoDate, monthStart } from '../pipeline/loading/dates';
 import { findPii } from '../pipeline/retrieval/pii';
 import { logEvent } from './events';
+import { goalNameFits } from './goal-name';
 import { joinAnd, loadSip, MAX_AMOUNT, type SipState } from './sip';
 
 export type ActionResult = { status: 200; message: string } | { status: 400 | 404; error: string };
@@ -165,6 +166,7 @@ export function parseGoal(
     name = typeof body.name === 'string' ? body.name.trim() : '';
     if (name.length < 1 || name.length > GOAL_NAME_MAX) return { ok: false, error: `Name the goal in 1 to ${GOAL_NAME_MAX} characters.` };
     if (findPii(name).found.length > 0) return { ok: false, error: "Please don't put personal details in a goal name." };
+    if (!goalNameFits(name)) return { ok: false, error: 'Please keep dates, amounts and promises of returns out of the goal name. The date and target have their own boxes.' };
   }
 
   let target: string | null = null;

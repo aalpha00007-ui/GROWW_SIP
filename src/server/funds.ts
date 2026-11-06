@@ -359,12 +359,13 @@ export type GoalPreview =
  * GET /api/goal-preview: "60 x ₹2,000 = ₹1,20,000 put in by Oct 2031. That is what you put in,
  * not what it will be worth." (spec §2A). Counts the due dates from the first instalment to the target month.
  */
-export async function goalPreview(db: Db, q: { fundId: number; amount: number; day: number; targetMonth: string; target?: number | null }, today: string): Promise<GoalPreview> {
+export async function goalPreview(db: Db, q: { fundId: number; amount: number; day: number; targetMonth: string; target?: number | null; name?: string | null }, today: string): Promise<GoalPreview> {
   const [fund] = (await db.query<{ min_sip: number }>('SELECT min_sip FROM funds WHERE id = $1', [Number.isInteger(q.fundId) ? q.fundId : 0])).rows;
   if (!fund) return { status: 404, error: 'We could not find that fund.' };
   const checked = checkSip(q.amount, q.day, fund.min_sip);
   if (checked) return checked;
-  const parsed = parseGoal({ kind: 'custom', name: 'preview', targetMonth: q.targetMonth }, { today, firstDue: firstDueDate(today, q.day) });
+  // A typed name is checked here too, so a problem with it shows as it is typed, not after Save.
+  const parsed = parseGoal({ kind: 'custom', name: q.name?.trim() || 'preview', targetMonth: q.targetMonth }, { today, firstDue: firstDueDate(today, q.day) });
   if (!parsed.ok) return { status: 400, error: parsed.error };
   const goalMonth = parsed.goal!.target!;
   // The same schedule the SIP will have once started, with nothing paid yet.

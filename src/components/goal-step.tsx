@@ -74,6 +74,7 @@ export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, option
     const timer = setTimeout(async () => {
       const query = new URLSearchParams({ fundId: String(fundId), amount: String(amount), day: String(day), targetMonth: `${goal.year}-${goal.month}` });
       if (goal.targetAmount && !problems.target) query.set('target', goal.targetAmount);
+      if (goal.kind === 'custom' && goal.name.trim()) query.set('name', goal.name.trim());
       const giveUp = setTimeout(() => controller.abort(), PREVIEW_TIMEOUT_MS);
       const response = await fetch(`/api/goal-preview?${query}`, { signal: controller.signal }).catch(() => null);
       const body = (await response?.json().catch(() => null)) as { instalments?: number; gap?: GoalGapLines | null; error?: string } | null;
@@ -88,7 +89,7 @@ export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, option
       clearTimeout(timer);
       controller.abort();
     };
-  }, [open, dated, once, problems.date, problems.target, fundId, amount, day, goal.month, goal.year, goal.targetAmount]);
+  }, [open, dated, once, problems.date, problems.target, fundId, amount, day, goal.month, goal.year, goal.targetAmount, goal.kind, goal.name]);
 
   if (!open) return null;
   // A goal the server refused (a date before the first instalment) can't be saved. One it couldn't preview still can.

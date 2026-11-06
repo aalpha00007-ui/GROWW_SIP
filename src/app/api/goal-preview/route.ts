@@ -13,6 +13,6 @@ export async function GET(request: Request) {
   const q = new URL(request.url).searchParams;
   const number = (key: string) => (/^\d{1,9}$/.test(q.get(key) ?? '') ? Number(q.get(key)) : NaN);
   return reply(
-    await goalPreview(getDb(), { fundId: number('fundId'), amount: number('amount'), day: number('day'), targetMonth: q.get('targetMonth') ?? '', target: validTarget(q.get('target')) }, todayInIndia()),
+    await goalPreview(getDb(), { fundId: number('fundId'), amount: number('amount'), day: number('day'), targetMonth: q.get('targetMonth') ?? '', name: q.get('name'), target: validTarget(q.get('target')) }, todayInIndia()),
   );
 }

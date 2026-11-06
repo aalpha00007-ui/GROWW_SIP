@@ -31,7 +31,7 @@ export default async function Cart() {
                     {item.fund}
                   </Link>
                   <p className="text-sm text-muted">{item.label}</p>
-                  {item.goal && <p className="text-sm font-medium text-ink">{item.goal.text}</p>}
+                  {item.goal && <p className="text-sm font-medium text-ink [overflow-wrap:anywhere]">{item.goal.text}</p>}
                 </div>
                 <p className="tabular font-semibold text-strong">{item.amount}</p>
                 <div className="flex w-full flex-wrap gap-2 sm:w-auto">

@@ -67,7 +67,7 @@ export default async function SipPage({
               <span className={`shrink-0 rounded-full px-2.5 py-1 text-sm font-semibold ${STATUS_STYLE[sip.status]}`}>{sip.statusLabel}</span>
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-soft px-3 py-2">
-              <p className="font-semibold text-ink">{sip.goalHeader}</p>
+              <p className="min-w-0 font-semibold text-ink [overflow-wrap:anywhere]">{sip.goalHeader}</p>
               <Link href={`/sips/${sip.id}/goal`} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline">
                 {sip.hasGoal ? 'Edit goal' : 'Add one'}
               </Link>

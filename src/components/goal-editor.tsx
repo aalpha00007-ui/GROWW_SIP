@@ -3,6 +3,7 @@
 // fields whether a goal is being created (the goal step, on the fund page and in the cart) or edited (the goal
 // page), so the two can't drift apart. Every problem is said next to its field, as soon as it appears and gone as
 // soon as it is fixed; Save stays disabled until goalProblems finds none. The server checks everything again.
+import { useRef } from 'react';
 
 export interface GoalEditorOptions {
   kinds: { kind: string; label: string }[];
@@ -118,6 +119,8 @@ export function GoalEditor({
   showWhen?: boolean;
 }) {
   const problems = goalProblems(value, options, { dateRequired });
+  // The target is whole rupees. Without this the point would vanish and "1000.50" would become ₹1,00,050.
+  const afterPoint = useRef(false);
   return (
     <div className="space-y-6">
       <fieldset>
@@ -194,7 +197,18 @@ export function GoalEditor({
                 id={`${idPrefix}-target`}
                 inputMode="numeric"
                 value={value.targetAmount ? INR.format(Number(value.targetAmount)) : ''}
-                onChange={(e) => onChange({ ...value, targetAmount: e.target.value.replace(/\D/g, '').slice(0, 9) })}
+                onBeforeInput={(e) => {
+                  const typed = (e as unknown as InputEvent).data;
+                  if (typed === '.') afterPoint.current = true;
+                  if (typed === '.' || (afterPoint.current && /^\d$/.test(typed ?? ''))) e.preventDefault();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Backspace' || e.key === 'Delete') afterPoint.current = false;
+                }}
+                onBlur={() => {
+                  afterPoint.current = false;
+                }}
+                onChange={(e) => onChange({ ...value, targetAmount: e.target.value.split('.')[0].replace(/\D/g, '').slice(0, 9) })}
                 placeholder="10,00,000"
                 aria-invalid={problems.target !== null}
                 aria-describedby={problems.target ? `${idPrefix}-target-problem` : undefined}

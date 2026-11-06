@@ -8,8 +8,8 @@ export function GoalCard({ goal }: { goal: Card }) {
   return (
     <article className="flex flex-col rounded-xl border border-line bg-surface p-5">
       <header className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold">{goal.name}</h3>
+        <div className="min-w-0">
+          <h3 className="text-base font-semibold [overflow-wrap:anywhere]">{goal.name}</h3>
           <p className="text-sm text-muted">{goal.timeToGo}</p>
         </div>
         {goal.targetMonth && <span className="shrink-0 rounded-full bg-primary-soft px-2.5 py-1 text-sm font-medium text-ink">{goal.targetMonth}</span>}

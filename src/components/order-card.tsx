@@ -312,7 +312,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
             ))}
           {goal ? (
             <div className="flex min-h-12 items-center justify-between gap-2 rounded-lg border border-primary bg-primary-soft px-3">
-              <span className="text-sm font-semibold text-ink">{goalLabel(goal, goalStep)}</span>
+              <span className="min-w-0 text-sm font-semibold text-ink [overflow-wrap:anywhere]">{goalLabel(goal, goalStep)}</span>
               <button
                 type="button"
                 onClick={() => setStep('edit')}

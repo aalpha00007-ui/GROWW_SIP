@@ -25,6 +25,20 @@ async function riya() {
   return { id, sip: sip.id };
 }
 
+describe('The monthly hint', () => {
+  const base = { plannedPutIn: 13_000, putIn: 0, remaining: 13, goalMonth: '2027-11-01' };
+
+  it('shows no lower figure once the plan covers the target', () => {
+    expect(goalGap({ ...base, target: 5_000 }).monthly).toBeNull();
+    expect(goalGap({ ...base, target: 13_000 }).monthly).toBeNull();
+  });
+
+  it('shows no amount a SIP can not be set to', () => {
+    expect(goalGap({ plannedPutIn: 6_000, putIn: 1_000, remaining: 3, target: 100_000_000, goalMonth: '2027-01-01' }).monthly).toBeNull();
+    expect(goalGap({ plannedPutIn: 6_000, putIn: 0, remaining: 3, target: 300_000, goalMonth: '2027-01-01' }).monthly).toContain('about ₹1,00,000');
+  });
+});
+
 describe('One-time money for the goal', () => {
   it('counts in the gap, and says so', () => {
     const gap = goalGap({ plannedPutIn: 13_000, putIn: 1_000, oneTime: 50_000, remaining: 12, target: 100_000, goalMonth: '2027-10-01' });

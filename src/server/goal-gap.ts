@@ -6,13 +6,16 @@ import type { Db } from '../db/client';
 import { monthYear } from '../pipeline/chunking/format';
 import { sipSchedule, type PaidInstalment, type MarkedDate } from '../pipeline/chunking/schedule';
 import { inr } from './money';
-import { loadSip } from './sip';
+import { loadSip, MAX_AMOUNT } from './sip';
 import { parseGoal, TARGET_MAX, TARGET_MIN } from './sip-actions';
 
 export interface GoalGap {
   /** "Your planned instalments add up to ₹X by Mar 2031. That's ₹Y short of your ₹Z target (instalments only, no returns included)." */
   line: string;
-  /** "To reach ₹Z from instalments alone, the monthly amount would be about ₹M."; null when no instalment is left to change. */
+  /**
+   * "To reach ₹Z from instalments alone, the monthly amount would be about ₹M." Only when the plan falls short and that
+   * amount could be set: a covered goal shows no lower figure, which would read as a nudge to cut the SIP.
+   */
   monthly: string | null;
 }
 
@@ -41,7 +44,8 @@ export function goalGap(p: {
   // Rounded up: "about ₹M" should reach the target, not fall a few rupees under it.
   const needed = target - putIn;
   const reach = oneTime > 0 ? `To reach ${inr(target)}` : `To reach ${inr(target)} from instalments alone`;
-  const monthly = remaining > 0 && needed > 0 ? `${reach}, the monthly amount would be about ${inr(Math.ceil(needed / remaining))}.` : null;
+  const each = remaining > 0 && needed > 0 ? Math.ceil(needed / remaining) : null;
+  const monthly = !covered && each !== null && each <= MAX_AMOUNT ? `${reach}, the monthly amount would be about ${inr(each)}.` : null;
   return { line, monthly };
 }
 
