@@ -1,8 +1,9 @@
 'use client';
 // The header on the landing page and the public pages (calculators and Learn): the logo, Stocks · F&O · Mutual
-// Funds, More, search and Log in / Sign up. Signed out, the tabs, search and Log in / Sign up open the sign-up /
-// log-in modal on this page; signed in, they go to Mutual Funds. More only ever opens its own menu.
-// A demo account shows its name. A demo persona copy shows a neutral "Continue demo": this is where a demo is
+// Funds, More, search and Log in / Sign up. Signed out, the tabs and search open the sign-up / log-in modal on this
+// page; signed in, they go to Mutual Funds. More only ever opens its own menu.
+// Log in / Sign up always shows, so someone opening the site can always switch account; logging in replaces the session.
+// Beside it, a demo account shows its name. A demo persona copy shows a neutral "Continue demo": this is where a demo is
 // picked, so no persona's name shows before the visitor picks one (a copy started earlier is still open).
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -32,35 +33,51 @@ export function SiteHeader({ signedIn }: { signedIn: { accountName: string | nul
           ))}
           <MoreMenu />
         </nav>
-        <div className="ml-auto flex shrink-0 items-center gap-3">
+        <div className="ml-auto flex shrink-0 items-center gap-2 md:gap-3">
           <Link
             href={enter}
             scroll={false}
-            // Narrower from 1024px to 1280px, so the tabs and More keep one line each.
-            className="hidden min-h-11 w-56 items-center gap-2 rounded-full border border-line px-4 text-sm text-muted hover:border-primary lg:flex xl:w-64"
+            // Narrower from 1024px to 1280px, so the tabs and More keep one line each. Signed in, the account needs that room.
+            className={`hidden min-h-11 w-56 items-center gap-2 rounded-full border border-line px-4 text-sm text-muted hover:border-primary xl:w-64 ${signedIn ? 'xl:flex' : 'lg:flex'}`}
           >
             <Icon name="search" size={18} />
             Search mutual funds
           </Link>
+          {/* Below 1024px there's only room for the avatar or the Demo tag, and for "Log in". */}
           {signedIn?.accountName ? (
-            <Link href="/explore" className="flex min-h-11 items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-semibold text-strong hover:bg-hover-neutral">
+            <Link
+              href="/explore"
+              aria-label={`Continue as ${signedIn.accountName}`}
+              className="flex min-h-11 items-center gap-2 rounded-full py-1 text-sm font-semibold text-strong hover:bg-hover-neutral lg:pl-1 lg:pr-3"
+            >
               <Avatar name={signedIn.accountName} />
-              {signedIn.accountName}
+              <span className="hidden max-w-32 truncate lg:inline">{signedIn.accountName}</span>
             </Link>
           ) : signedIn ? (
-            <Link href="/dashboard" className="flex min-h-11 items-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-strong hover:border-primary">
-              <span className="rounded bg-accent-tint px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent-ink">Demo</span>
-              Continue demo
-            </Link>
-          ) : (
             <Link
-              href={`${path}?auth=login`}
-              scroll={false}
-              className="flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover"
+              href="/dashboard"
+              aria-label="Continue demo"
+              className="flex min-h-11 items-center gap-2 rounded-full border border-line px-3 text-sm font-semibold text-strong hover:border-primary lg:px-4"
             >
-              Log in / Sign up
+              <span className="rounded bg-accent-tint px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent-ink">Demo</span>
+              <span className="hidden lg:inline">Continue demo</span>
             </Link>
-          )}
+          ) : null}
+          <Link
+            href={`${path}?auth=login`}
+            scroll={false}
+            aria-label="Log in / Sign up"
+            className="flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover"
+          >
+            {signedIn ? (
+              <>
+                <span className="lg:hidden">Log in</span>
+                <span className="hidden lg:inline">Log in / Sign up</span>
+              </>
+            ) : (
+              'Log in / Sign up'
+            )}
+          </Link>
         </div>
       </div>
     </header>

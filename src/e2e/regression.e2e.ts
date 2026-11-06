@@ -670,6 +670,47 @@ test.describe('Autopay in Settings', () => {
   });
 });
 
+test.describe('Opening the site while signed in', () => {
+  const logIn = (page: Page) => page.getByRole('link', { name: 'Log in / Sign up' });
+
+  test('a demo keeps Log in / Sign up beside Continue demo', async ({ page }) => {
+    await page.goto('/');
+    await expect(logIn(page)).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Continue demo' })).toBeVisible();
+    await logIn(page).click();
+    await expect(page.getByRole('dialog').getByLabel('Demo username')).toBeVisible();
+  });
+
+  test('an account can log in to another one from the landing page', async ({ page }) => {
+    const first = await signUp(page);
+    const second = await signUp(page);
+    await page.goto('/');
+    await expect(page.getByRole('link', { name: `Continue as ${second.username}` })).toBeVisible();
+    await logIn(page).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Demo username').fill(first.username);
+    await dialog.getByRole('button', { name: 'Continue' }).click();
+    await dialog.getByLabel('Enter your 4-digit PIN').fill(first.pin);
+    await dialog.getByRole('button', { name: 'Log in' }).click();
+    await expect(page).toHaveURL(/\/explore$/);
+    await page.goto('/');
+    await expect(page.getByRole('link', { name: `Continue as ${first.username}` })).toBeVisible();
+  });
+
+  for (const width of [375, 768, 1024, 1280]) {
+    test(`the header fits at ${width}px, for a demo and for an account`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      for (const account of [false, true]) {
+        if (account) await signUp(page);
+        await page.goto('/');
+        await expect(logIn(page)).toBeInViewport();
+        await expect(page.getByRole('link', { name: account ? /^Continue as / : 'Continue demo' })).toBeInViewport();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      }
+    });
+  }
+});
+
 test.describe('The gap to the target', () => {
   const short = "Your planned instalments add up to ₹13,000 by Nov 2027. That's ₹37,000 short of your ₹50,000 target (instalments only, no returns included).";
   const covered = 'Your planned instalments add up to ₹13,000, which covers your ₹5,000 target (instalments only, no returns included).';
