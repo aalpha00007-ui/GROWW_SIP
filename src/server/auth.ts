@@ -209,8 +209,12 @@ export async function deleteInvestor(db: Db, investorId: string): Promise<void> 
   await db.query('DELETE FROM investors WHERE id = $1', [investorId]);
 }
 
-/** A salted hash of the caller's IP, for the sign-up rate limit; the IP itself is never stored. */
+/**
+ * A salted hash of the caller's IP, for the sign-up and username-check limits; the IP itself is never stored.
+ * Cloudflare sits in front of Render and sets cf-connecting-ip itself, so a caller can't choose it. A caller can write
+ * anything into x-forwarded-for, but proxies only add to its end, so without Cloudflare only the last entry is trusted.
+ */
 export function ipHash(request: Request): string {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || request.headers.get('x-real-ip') || 'unknown';
+  const ip = request.headers.get('cf-connecting-ip')?.trim() || request.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim() || 'unknown';
   return sha256(`${process.env.AUTH_SALT ?? 'groww-sip-demo'}:${ip}`);
 }

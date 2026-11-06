@@ -20,6 +20,7 @@ let accounts = 0;
 /**
  * A real account, signed in. A persona copy can't sign back in, so login tests need one. Each comes from its own made-up
  * address: the suite makes more than the 5 sign-ups an hour one network is allowed, and that limit is real, so it stays.
+ * This only works here, with no proxy in front: on the live site Cloudflare's own header decides the network.
  */
 export async function signUp(page: Page): Promise<{ username: string; pin: string }> {
   accounts += 1;

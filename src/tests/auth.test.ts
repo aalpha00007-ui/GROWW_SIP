@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import type { Db } from '../db/client';
 import { TEMPLATE_IDS } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
-import { allowUsernameCheck, checkUsername, contactDetailsIn, createSession, deleteInvestor, endSession, logIn, sessionInvestor, setDisplayName, signUp, startPersona, verifyPin } from '../server/auth';
+import { allowUsernameCheck, checkUsername, contactDetailsIn, createSession, deleteInvestor, endSession, ipHash, logIn, sessionInvestor, setDisplayName, signUp, startPersona, verifyPin } from '../server/auth';
 import { overHttps } from '../server/api';
 import { DEMOS, FEATURE_TRIES } from '../server/demos';
 import { fundPage } from '../server/funds';
@@ -123,6 +123,25 @@ describe('Create demo account', () => {
     for (let i = 0; i < 5; i++) expect((await signUp(db, account(), ip)).status).toBe(200);
     expect((await signUp(db, account(), ip)).status).toBe(429);
     expect((await signUp(db, account(), freshIp())).status).toBe(200);
+  });
+});
+
+describe('Which network a request comes from', () => {
+  const from = (headers: Record<string, string>) => ipHash(new Request('https://example.test/api/auth/signup', { method: 'POST', headers }));
+
+  it('trusts the address Cloudflare sets, whatever else the caller sends', () => {
+    const real = from({ 'cf-connecting-ip': '203.0.113.9' });
+    expect(from({ 'cf-connecting-ip': '203.0.113.9', 'x-forwarded-for': '198.51.100.1, 203.0.113.9', 'x-real-ip': '198.51.100.2' })).toBe(real);
+    expect(from({ 'cf-connecting-ip': '203.0.113.10' })).not.toBe(real);
+  });
+
+  it('can not be changed by writing a new address at the front of x-forwarded-for', () => {
+    expect(from({ 'x-forwarded-for': '198.51.100.1, 203.0.113.9' })).toBe(from({ 'x-forwarded-for': '198.51.100.2, 203.0.113.9' }));
+    expect(from({ 'x-forwarded-for': '198.51.100.1, 203.0.113.9' })).toBe(from({ 'x-forwarded-for': '203.0.113.9' }));
+  });
+
+  it('ignores x-real-ip, which a caller can set too', () => {
+    expect(from({ 'x-real-ip': '198.51.100.1' })).toBe(from({ 'x-real-ip': '198.51.100.2' }));
   });
 });
 
