@@ -27,6 +27,27 @@ export default function About() {
       </section>
 
       <section>
+        <h2 className={H2}>Where this differs from Groww today</h2>
+        <p className="mt-3">Some controls here are proposals this case study tests. They aren&apos;t how the Groww app works today:</p>
+        <ul className={LIST}>
+          <li>
+            <b>Pause for 1 to 3 instalments</b> is a proposed experience. Groww&apos;s help pages describe skipping one instalment at a time, and say that
+            three skips in a row cancel a SIP. Here, skips and pauses never cancel a SIP.
+          </li>
+          <li>
+            <b>Undo a scheduled skip</b> and <b>Resume now</b> are proposed too.
+          </li>
+          <li>
+            <b>A goal on each SIP, the dip shown next to it, and the Before you stop check-in</b> are the features this case study proposes.
+          </li>
+          <li>
+            <b>Instalments aren&apos;t collected on their own.</b> Only the first one is paid, when a SIP starts. A later due date passes as &ldquo;Not
+            collected&rdquo;, and fund prices stop at a fixed date, so the demo date and the price date can differ.
+          </li>
+        </ul>
+      </section>
+
+      <section>
         <h2 className={H2}>What we store</h2>
         <ul className={LIST}>
           <li>

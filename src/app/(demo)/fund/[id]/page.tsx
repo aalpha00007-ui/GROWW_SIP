@@ -61,9 +61,7 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
             ))}
           </dl>
 
-          {fund.rate3y !== null && fund.rate3yText && (
-            <ReturnCalculator rate={fund.rate3y} rateText={fund.rate3yText} defaultAmount={fund.box.defaultAmount} minAmount={fund.box.minAmount} />
-          )}
+          <ReturnCalculator defaultAmount={fund.box.defaultAmount} minAmount={fund.box.minAmount} />
 
           <section className="rounded-xl border border-line bg-surface p-5">
             <h2 className="text-lg font-semibold">Fund facts</h2>

@@ -2,6 +2,13 @@
 // prediction. The monthly rate is i = annual % / 12 / 100, and every instalment goes in at the start of its month.
 
 export const INFLATION_PCT = 6;
+/** The downside shown next to every estimate: an illustration of a bad stretch, not a floor. */
+export const DOWNSIDE_PCT = -5;
+/** What a typed rate may be, on the fund page's return calculator. */
+export const RATE_LIMITS = { min: -30, max: 30 };
+/** What every estimate here assumes, said wherever one is shown. */
+export const ASSUMPTIONS =
+  'Each instalment goes in at the start of its month. The yearly rate is divided by 12 and compounds monthly, at the same rate every month. No fees, exit load or tax are taken off.';
 
 export const monthlyRate = (annualPct: number) => annualPct / 12 / 100;
 
@@ -9,6 +16,22 @@ export const monthlyRate = (annualPct: number) => annualPct / 12 / 100;
 export function sipFutureValue(monthly: number, months: number, annualPct: number): number {
   const i = monthlyRate(annualPct);
   return i === 0 ? monthly * months : monthly * (((1 + i) ** months - 1) / i) * (1 + i);
+}
+
+export interface Scenario {
+  label: string;
+  /** The value at that return; null until a rate is chosen. */
+  value: number | null;
+}
+
+/** The same plan at a rate the investor chose, at 0% and at the downside. `rate` null: not chosen yet. */
+export function returnScenarios(monthly: number, years: number, rate: number | null): Scenario[] {
+  const at = (pct: number) => sipFutureValue(monthly, years * 12, pct);
+  return [
+    { label: rate === null ? 'Your rate: pick one' : `${rate}% a year, your rate`, value: rate === null ? null : at(rate) },
+    { label: '0% a year', value: at(0) },
+    { label: `${DOWNSIDE_PCT}% a year, a downside`, value: at(DOWNSIDE_PCT) },
+  ];
 }
 
 export interface YearPoint {

@@ -60,7 +60,7 @@ describe('Explore and the fund page', () => {
     expect(explore.nfos[0]).toEqual({ name: 'Starling Multi Asset Fund', initials: 'SM', category: 'Hybrid', minAmount: 'Min. ₹500' });
   });
 
-  it('shows the fund page: stats, 6 years of NAVs for the chart, the demo 3Y return and an order card with no goal preselected', async () => {
+  it('shows the fund page: stats, 6 years of NAVs for the chart and an order card with no goal preselected', async () => {
     const fund = await fundPage(db, riya, 1, TODAY);
     expect(fund).toMatchObject({ name: 'Banyan Flexi Cap Fund', initials: 'BF', navDate: 'Fund prices as of 27 Oct 2026 · demo price series' });
     expect(fund?.stats.map((s) => [s.label, s.value])).toEqual([
@@ -69,7 +69,9 @@ describe('Explore and the fund page', () => {
     expect(fund!.chart[0][0] <= '2020-11-03').toBe(true);
     expect(fund!.chart.at(-1)![0]).toBe('2026-10-27');
     expect(fund!.chart.at(-1)![1]).toBeCloseTo(Number(fund!.nav.replace(/[₹,]/g, '')), 2);
-    expect(fund?.rate3yText).toBe(`${fund!.rate3y! > 0 ? '+' : ''}${(fund!.rate3y! * 100).toFixed(1)}%`);
+    // The return calculator takes a rate the investor picks: the fund's past return never reaches it.
+    expect(fund).not.toHaveProperty('rate3y');
+    expect(fund).not.toHaveProperty('rate3yText');
     expect(fund?.box).toMatchObject({
       minAmount: 500, defaultAmount: 1000, defaultDay: 27, mandate: 'Pay via mandate · Demo Bank ····0000', balance: 'Pay from demo balance · ₹1,00,000',
     });

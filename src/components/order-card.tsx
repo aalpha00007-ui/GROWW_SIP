@@ -7,11 +7,12 @@
 // the investor has minimised it before. Demo orders: no real money.
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { EMPTY_GOAL, goalApiBody, goalLabel, type GoalDraft } from './goal-editor';
 import { GoalStep, type GoalStepOptions } from './goal-step';
 import { Icon } from './icons';
 import { postJson } from './post-json';
+import { clearSipDraft, readSipDraft } from './sip-draft';
 
 export interface OrderCardProps {
   fundId: number;
@@ -50,6 +51,24 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
   // After a one-time investment: what was done, in place of the order buttons until "Invest again".
   const [done, setDone] = useState<{ amount: string; text: string } | null>(null);
   const doneTitle = useRef<HTMLHeadingElement>(null);
+
+  // What a calculator handed over: the amount fills in now, the target and date when the goal step opens.
+  const [fromCalculator, setFromCalculator] = useState<GoalDraft | null>(null);
+  const [draftNote, setDraftNote] = useState<string | null>(null);
+  useEffect(() => {
+    const draft = readSipDraft();
+    if (!draft) return;
+    const filled = Math.min(maxAmount, Math.max(minAmount, Math.round(draft.amount)));
+    setAmount(String(filled));
+    if (draft.target || draft.month) {
+      setFromCalculator({ ...EMPTY_GOAL, month: draft.month ?? '', year: draft.year ?? '', targetAmount: draft.target ? String(draft.target) : '' });
+    }
+    setDraftNote(
+      filled === draft.amount
+        ? 'Filled in from your calculator.'
+        : `Your calculator said ₹${WHOLE.format(draft.amount)}; this fund takes ${amountRange.replace('From', 'from')}, so we used ₹${WHOLE.format(filled)}.`,
+    );
+  }, [minAmount, maxAmount, amountRange]);
 
   const value = Number(amount);
   const amountOk = Number.isInteger(value) && value >= minAmount && value <= maxAmount;
@@ -100,6 +119,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
       source: 'fund_page',
     });
     if (result.ok) {
+      clearSipDraft();
       router.push(`/sips/${result.data.id}/started`);
       return;
     }
@@ -215,6 +235,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
           ))}
         </div>
         <p className={`mt-2 text-xs ${amountOk ? 'text-muted' : 'text-loss-strong'}`}>{amountRange}</p>
+        {draftNote && <p className="mt-1 text-xs text-primary">{draftNote}</p>}
       </div>
 
       {mode === 'sip' && (
@@ -377,7 +398,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
         amount={amountOk ? value : minAmount}
         day={day}
         options={goalStep}
-        initial={goal ?? EMPTY_GOAL}
+        initial={goal ?? fromCalculator ?? EMPTY_GOAL}
         busy={busy}
         error={stepError}
         onSave={saveGoal}

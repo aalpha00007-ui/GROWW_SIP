@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { CalculatorTabs, GoalPlanner } from '@/components/calculators';
+import { todayInIndia } from '@/pipeline/loading/dates';
 import { currentVisitor } from '@/server/visitor';
 
 export const metadata: Metadata = { title: 'Goal planner · Groww prototype' };
@@ -20,7 +21,7 @@ export default async function GoalPlannerPage({ searchParams }: { searchParams: 
           <p className="mt-1 text-muted">Find the monthly SIP for a goal and a date.</p>
         </div>
       </div>
-      <GoalPlanner signedIn={visitor !== null} initialGoal={initialGoal} initialYears={initialYears} />
+      <GoalPlanner signedIn={visitor !== null} thisMonth={todayInIndia().slice(0, 7)} initialGoal={initialGoal} initialYears={initialYears} />
     </div>
   );
 }

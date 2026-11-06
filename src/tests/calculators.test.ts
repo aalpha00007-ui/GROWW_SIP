@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { goalPlan, monthlyRate, sipFutureValue, sipPlan, swpPlan, yearsAndMonths } from '../server/calculators';
+import { ASSUMPTIONS, DOWNSIDE_PCT, goalPlan, monthlyRate, returnScenarios, sipFutureValue, sipPlan, swpPlan, yearsAndMonths } from '../server/calculators';
 import { inr } from '../server/money';
 
 describe('SIP calculator', () => {
@@ -17,6 +17,31 @@ describe('SIP calculator', () => {
     expect(plan.byYear[0]).toEqual({ year: 0, invested: 0, value: 0 });
     expect(plan.byYear[3].value).toBe(plan.value);
     expect(sipFutureValue(1000, 24, 0)).toBe(24_000);
+  });
+});
+
+describe('Scenarios next to every estimate', () => {
+  it('shows the chosen rate, 0% and a downside', () => {
+    const [mine, zero, down] = returnScenarios(5000, 10, 12);
+    expect(mine).toEqual({ label: '12% a year, your rate', value: sipPlan(5000, 10, 12).value });
+    expect(zero).toEqual({ label: '0% a year', value: 6_00_000 });
+    expect(down.label).toBe('-5% a year, a downside');
+    // A downside loses money against what was put in.
+    expect(down.value!).toBeLessThan(6_00_000);
+    expect(down.value!).toBeGreaterThan(0);
+  });
+
+  it('has no estimate until a rate is chosen, and 0% and the downside still show', () => {
+    const [mine, zero, down] = returnScenarios(1000, 5, null);
+    expect(mine).toEqual({ label: 'Your rate: pick one', value: null });
+    expect(zero.value).toBe(60_000);
+    expect(down.value).not.toBeNull();
+  });
+
+  it('the downside is below zero, and the assumptions name timing and compounding', () => {
+    expect(DOWNSIDE_PCT).toBeLessThan(0);
+    expect(ASSUMPTIONS).toContain('start of its month');
+    expect(ASSUMPTIONS).toContain('compounds monthly');
   });
 });
 

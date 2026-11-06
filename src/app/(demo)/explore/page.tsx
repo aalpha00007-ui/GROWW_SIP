@@ -9,6 +9,7 @@ import { InvestmentsCard } from '@/components/investments-card';
 import { MarketFallButton } from '@/components/market-fall-button';
 import { SectionTitle } from '@/components/section-title';
 import { Signed } from '@/components/signed';
+import { SipDraftNote } from '@/components/sip-draft';
 import { getDb } from '@/db/pool';
 import { exploreFunds } from '@/server/funds';
 import { investmentsView } from '@/server/investments';
@@ -22,21 +23,25 @@ export default async function Explore() {
   if (!visitor) redirect(NO_DEMO);
   const db = getDb();
   const [funds, investments] = await Promise.all([exploreFunds(db, visitor.id), investmentsView(db, visitor.id)]);
-  const tools: { label: string; href: string; icon: IconName; pill?: string }[] = [
-    { label: 'NFO live', href: '/soon/nfo', icon: 'nfo' },
+  const tools: { label: string; href: string; icon: IconName }[] = [
     { label: 'SIP calculator', href: '/calculators/sip', icon: 'calculator' },
     { label: 'Goal planner', href: '/calculators/goal', icon: 'calculator' },
     { label: 'SWP calculator', href: '/calculators/swp', icon: 'calculator' },
-    { label: 'Compare funds', href: '/soon/compare', icon: 'compare' },
-    { label: 'Import funds', href: '/soon/import', icon: 'import' },
-    { label: 'File tax', href: '/soon/tax', icon: 'tax' },
     { label: 'My goals', href: '/dashboard#your-goals', icon: 'goals' },
+  ];
+  // Said up front, and not links: there is nothing behind them to click through to.
+  const notHere: { label: string; icon: IconName }[] = [
+    { label: 'New fund offers', icon: 'nfo' },
+    { label: 'Compare funds', icon: 'compare' },
+    { label: 'Import funds', icon: 'import' },
+    { label: 'File tax', icon: 'tax' },
   ];
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,65fr)_minmax(0,35fr)] lg:items-start">
       {/* A container: the card rows follow this column's width, so 1024px (a narrow left column) wraps them. */}
       <div className="@container space-y-8">
+        <SipDraftNote />
         <section>
           <SectionTitle title="Funds A–Z (demo)" link={{ label: 'All mutual funds', href: '/funds' }} />
           <ul className="grid grid-cols-2 gap-4 @2xl:grid-cols-4">
@@ -72,7 +77,7 @@ export default async function Explore() {
         </section>
 
         <section>
-          <SectionTitle title="New fund offers (demo)" link={{ label: 'See all', href: '/soon/nfo' }} />
+          <SectionTitle title="New fund offers · Not in this demo" />
           <ul className="grid gap-4 @lg:grid-cols-2 @3xl:grid-cols-3">
             {funds.nfos.map((nfo) => (
               <li key={nfo.name} className={`${CARD} flex items-start gap-3`}>
@@ -102,9 +107,15 @@ export default async function Explore() {
                 <Link href={tool.href} className="flex min-h-12 items-center gap-3 py-3 text-[15px] text-ink hover:text-primary">
                   <Icon name={tool.icon} className="text-primary" />
                   <span className="flex-1">{tool.label}</span>
-                  {tool.pill && <span className="rounded-full bg-primary-soft px-2.5 py-0.5 text-xs font-semibold text-primary">{tool.pill}</span>}
                   <Icon name="chevron" size={16} className="text-muted" />
                 </Link>
+              </li>
+            ))}
+            {notHere.map((tool) => (
+              <li key={tool.label} className="flex min-h-12 items-center gap-3 py-3 text-[15px] text-muted">
+                <Icon name={tool.icon} />
+                <span className="flex-1">{tool.label}</span>
+                <span className="rounded-full bg-page px-2.5 py-0.5 text-xs font-semibold">Not in this demo</span>
               </li>
             ))}
           </ul>

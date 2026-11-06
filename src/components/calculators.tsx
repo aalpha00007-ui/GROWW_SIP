@@ -1,12 +1,14 @@
 'use client';
 // The public calculators (no login): SIP, goal planner and SWP. Inputs on the left, each a number box and a
 // slider; results on the right, the big numbers over a simple chart. The maths is in server/calculators.ts.
-// "Start this SIP" is the only place a calculator asks for sign-up.
+// "Start this SIP" is the only place a calculator asks for sign-up; it carries the amount, and the Goal planner's
+// target and date, into the SIP setup (sip-draft.ts). Every estimate sits next to 0% and a downside.
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useId, useRef, useState } from 'react';
-import { goalPlan, INFLATION_PCT, sipPlan, swpPlan, yearsAndMonths } from '@/server/calculators';
+import { ASSUMPTIONS, goalPlan, INFLATION_PCT, returnScenarios, sipPlan, swpPlan, yearsAndMonths } from '@/server/calculators';
 import { inr } from '@/server/money';
+import { saveSipDraft, type SipDraft } from './sip-draft';
 
 type Unit = 'rupees' | 'years' | 'percent';
 
@@ -25,11 +27,11 @@ const GOAL: Spec = { label: 'Goal amount', min: 10_000, max: 10_00_00_000, unit:
 const START: Spec = { label: 'Starting amount', min: 10_000, max: 10_00_00_000, unit: 'rupees', log: true };
 const WITHDRAWAL: Spec = { label: 'Monthly withdrawal', min: 500, max: 10_00_000, unit: 'rupees', log: true };
 const YEARS: Spec = { label: 'Time period', min: 1, max: 40, unit: 'years' };
-const RETURN: Spec = { label: 'Expected return (p.a.)', min: 1, max: 30, unit: 'percent', step: 0.5 };
+const RETURN: Spec = { label: 'Assumed return (p.a.)', min: 1, max: 30, unit: 'percent', step: 0.5 };
 // SWP has no division by the rate, so 0% works there.
 const SWP_RETURN: Spec = { ...RETURN, min: 0 };
 
-const NOTE = 'Uses an assumed return, not a prediction. Demo tool, not investment advice.';
+const NOTE = 'Uses a return you assume, not a prediction. Past returns don\u2019t predict future returns. Demo tool, not investment advice.';
 const SLIDER_STEPS = 1000;
 const GROUPED = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
 
@@ -72,14 +74,27 @@ export function SipCalculator({ signedIn }: { signedIn: boolean }) {
         <>
           <Figures hero={{ label: 'Total value', value: inr(plan.value) }} rest={[{ label: 'Invested', value: inr(plan.invested) }, { label: 'Estimated gains', value: inr(plan.gains) }]} />
           <GrowthChart points={plan.byYear} />
-          <StartSip signedIn={signedIn} />
+          <Scenarios title="The same SIP at other returns" monthly={monthly} years={years} rate={rate} />
+          <StartSip signedIn={signedIn} draft={{ amount: monthly }} />
         </>
       }
+      assumptions
     />
   );
 }
 
-export function GoalPlanner({ signedIn, initialGoal = 10_00_000, initialYears = 10 }: { signedIn: boolean; initialGoal?: number; initialYears?: number }) {
+/** `thisMonth` is 'YYYY-MM': the goal date is that many years from it. */
+export function GoalPlanner({
+  signedIn,
+  thisMonth,
+  initialGoal = 10_00_000,
+  initialYears = 10,
+}: {
+  signedIn: boolean;
+  thisMonth: string;
+  initialGoal?: number;
+  initialYears?: number;
+}) {
   const [goal, setGoal] = useState(initialGoal);
   const [years, setYears] = useState(initialYears);
   const [rate, setRate] = useState(12);
@@ -113,9 +128,11 @@ export function GoalPlanner({ signedIn, initialGoal = 10_00_000, initialYears = 
             ]}
           />
           <GrowthChart points={plan.byYear} />
-          <StartSip signedIn={signedIn} />
+          <Scenarios title={`${inr(plan.monthly)} a month at other returns`} monthly={plan.monthly} years={years} rate={rate} target={plan.target} />
+          <StartSip signedIn={signedIn} draft={{ amount: plan.monthly, target: Math.round(Math.min(plan.target, 100_000_000)), month: thisMonth.slice(5), year: String(Number(thisMonth.slice(0, 4)) + years) }} />
         </>
       }
+      assumptions
     />
   );
 }
@@ -180,7 +197,7 @@ export function CalculatorTabs() {
   );
 }
 
-function Calculator({ inputs, results }: { inputs: React.ReactNode; results: React.ReactNode }) {
+function Calculator({ inputs, results, assumptions = false }: { inputs: React.ReactNode; results: React.ReactNode; assumptions?: boolean }) {
   return (
     <div>
       <div className="grid gap-8 rounded-2xl border border-line bg-surface p-5 sm:p-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-12">
@@ -188,7 +205,33 @@ function Calculator({ inputs, results }: { inputs: React.ReactNode; results: Rea
         <div className="min-w-0 space-y-6 lg:border-l lg:border-line lg:pl-12">{results}</div>
       </div>
       <p className="mt-3 text-sm text-muted">{NOTE}</p>
+      {assumptions && <p className="mt-1 text-sm text-muted">Assumes: {ASSUMPTIONS}</p>}
     </div>
+  );
+}
+
+/** The estimate next to 0% and a downside, so one rate never stands alone. `target`: how each sits against a goal. */
+function Scenarios({ title, monthly, years, rate, target }: { title: string; monthly: number; years: number; rate: number; target?: number }) {
+  return (
+    <section aria-label={title}>
+      <h3 className="text-[15px] font-medium text-strong">{title}</h3>
+      <dl className="tabular mt-1 divide-y divide-line text-sm">
+        {returnScenarios(monthly, years, rate).map((s) => {
+          const value = s.value ?? 0;
+          const short = target !== undefined && value < target - 0.5 ? `, ${inr(target - value)} below the target` : '';
+          return (
+            <div key={s.label} className="flex flex-wrap justify-between gap-x-4 py-1.5">
+              <dt className="text-muted">{s.label}</dt>
+              <dd className="font-medium text-strong">
+                {inr(value)}
+                {short}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+      <p className="mt-1 text-xs text-muted">The real result could be better or worse than any of these.</p>
+    </section>
   );
 }
 
@@ -284,11 +327,12 @@ function Figures({ hero, rest }: { hero: { label: string; value: string }; rest:
   );
 }
 
-function StartSip({ signedIn }: { signedIn: boolean }) {
+function StartSip({ signedIn, draft }: { signedIn: boolean; draft: SipDraft }) {
   const path = usePathname();
   return (
     <Link
-      href={signedIn ? '/explore' : `${path}?auth=signup`}
+      href={signedIn ? '/funds' : `${path}?auth=signup`}
+      onClick={() => saveSipDraft(draft)}
       scroll={false}
       className="flex min-h-12 w-full items-center justify-center rounded-lg bg-primary px-10 font-semibold text-white hover:bg-primary-hover sm:w-fit"
     >

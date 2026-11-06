@@ -1,6 +1,7 @@
 // Explore, the fund page and its order card (PRD F2, F13), starting a SIP and a one-time investment.
 // Funds are made up and shown as simulated. The goal line says what will be put in, never what it will be
-// worth; only the fund page's return calculator estimates a value, from the fund's demo 3Y return, and says so.
+// worth; only the fund page's return calculator estimates a value, from a rate the investor chooses, never the
+// fund's past return.
 import type { Db } from '../db/client';
 import { dayMonthYear, monthYear, ordinal, percent, pricesAsOf } from '../pipeline/chunking/format';
 import { inr } from './money';
@@ -158,7 +159,7 @@ export async function fundList(db: Db, investorId: string, filters: { category?:
   };
 }
 
-/** The fund page: facts, the NAV chart, the return calculator's rate and the order card. Null for a fund that does not exist. */
+/** The fund page: facts, the NAV chart and the order card. Null for a fund that does not exist. */
 export async function fundPage(db: Db, investorId: string, fundId: number, today: string) {
   if (!Number.isInteger(fundId)) return null;
   const fund = (await funds(db, investorId)).find((f) => f.id === fundId);
@@ -173,7 +174,6 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
     goalChoices(db, investorId),
     db.query('SELECT 1 FROM fund_watchlist WHERE investor_id = $1 AND fund_id = $2', [investorId, fundId]),
   ]);
-  const rate = return3y(fund);
   return {
     id: fund.id,
     name: fund.name,
@@ -196,9 +196,6 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
     ],
     /** [date, NAV] from the oldest: weekly before the last 30 months, then daily, then any demo market-fall days. */
     chart: history.rows.map((r) => [r.d, Number(r.nav)] as [string, number]),
-    /** The demo 3Y return a year at a time, for the return calculator: 0.142 is 14.2%. */
-    rate3y: rate === null ? null : Math.round(rate * 10_000) / 10_000,
-    rate3yText: rate === null ? null : percent(rate * 100, true),
     /** In Mutual Funds -> Watchlist. */
     watched: watching.rows.length > 0,
     box: {

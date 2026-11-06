@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { FundRows } from '@/components/fund-rows';
+import { SipDraftNote } from '@/components/sip-draft';
 import { getDb } from '@/db/pool';
 import { fundList } from '@/server/funds';
 import { currentVisitor, NO_DEMO } from '@/server/visitor';
@@ -32,6 +33,7 @@ export default async function AllFunds({ searchParams }: { searchParams: Promise
         <h1 className="text-2xl font-bold">All mutual funds</h1>
         <p className="text-sm text-muted">{list.funds.length} made-up funds · Demo data</p>
       </div>
+      <SipDraftNote />
 
       <div className="space-y-3">
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]" aria-label="Category">
