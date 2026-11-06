@@ -99,6 +99,8 @@ export default async function SipPage({
             </dl>
             <ul className="tabular mt-4 space-y-1 border-t border-line pt-3 text-sm text-muted">
               <li>{sip.paidLabel}</li>
+              <li>{sip.skipsLabel}</li>
+              {sip.contribution && <li>Contribution progress: {sip.contribution}</li>}
               {sip.worstFall && (
                 <li>
                   Worst fall since you started: <Signed value={sip.worstFall} />
@@ -132,12 +134,14 @@ export default async function SipPage({
           )}
           <section className="rounded-xl border border-line bg-surface p-4">
             <h2 className="font-bold">Instalments</h2>
+            <p className="tabular mt-1 text-sm text-muted">{sip.paidLabel}</p>
+            <p className="tabular text-sm text-muted">{sip.skipsLabel}</p>
             {sip.history.length ? (
               <ul className="mt-2 divide-y divide-line text-sm">
                 {sip.history.map((row) => (
                   <li key={`${row.date}-${row.label}`} className="tabular flex justify-between gap-3 py-2">
                     <span>{row.date}</span>
-                    <span className={row.label === 'Paid' ? 'text-muted' : 'font-semibold text-accent-ink'}>
+                    <span className={row.state === 'paid' ? 'text-muted' : 'font-semibold text-accent-ink'}>
                       {row.amount ? `${row.amount} · ${row.label}` : row.label}
                     </span>
                   </li>

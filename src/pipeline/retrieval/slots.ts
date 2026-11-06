@@ -4,7 +4,7 @@
 // meaning it doesn't have ("53 instalments planned", "a goal of Rs 85,500"): wherever the model puts it, it
 // carries its own meaning. A reply with a digit or number word of the model's own, or a placeholder this SIP
 // doesn't have, is not shown (checkin.ts falls back to the facts-only card).
-import { plannedPutIn, type SipFacts } from '../chunking/facts';
+import type { SipFacts } from '../chunking/facts';
 import { dayMonthYear, duration, monthsBetween, monthYear, months, percent, rupees, signedRupees } from '../chunking/format';
 import type { Language } from './prompts';
 
@@ -98,7 +98,7 @@ interface SlotDef {
 
 const paid = (c: Context) => c.facts.instalments_paid > 0;
 const planned = (c: Context) => c.left !== null && c.left >= 0 && c.facts.instalments_planned !== null;
-const toGo = (c: Context) => Math.max(0, c.facts.instalments_planned! - c.facts.instalments_paid - c.facts.instalments_skipped);
+const toGo = (c: Context) => c.facts.instalments_to_go ?? 0;
 
 const DEFS: SlotDef[] = [
   {
@@ -131,6 +131,14 @@ const DEFS: SlotDef[] = [
       const n = c.facts.instalments_skipped;
       if (n === 0) return pick(f, 'no instalments skipped', 'koi kisht skip nahi ki', 'कोई किस्त नहीं छोड़ी');
       return pick(f, `${f.num(n)} ${plural(n, 'instalment', 'instalments')} skipped`, `${f.num(n)} ${plural(n, 'kisht', 'kishtein')} skip ki`, `${f.num(n)} ${plural(n, 'किस्त छोड़ी', 'किस्तें छोड़ीं')}`);
+    },
+  },
+  {
+    name: 'scheduled_skips',
+    available: (c) => c.facts.scheduled_skips > 0,
+    phrase: (f, c) => {
+      const n = c.facts.scheduled_skips;
+      return pick(f, `${f.num(n)} ${plural(n, 'instalment', 'instalments')} set to be skipped`, `${f.num(n)} ${plural(n, 'kisht', 'kishtein')} skip hone wali hain`, `${f.num(n)} ${plural(n, 'किस्त', 'किस्तें')} आगे छोड़ी जानी हैं`);
     },
   },
   {
@@ -247,15 +255,15 @@ const DEFS: SlotDef[] = [
     name: 'planned_total',
     available: planned,
     phrase: (f, c) => {
-      const rs = f.rs(plannedPutIn(c.facts)!);
+      const rs = f.rs(c.facts.planned_put_in!);
       return pick(f, `${rs} planned to be put in by the goal date`, `goal ki date tak ${rs} lagane ka plan`, `लक्ष्य की तारीख तक ${rs} लगाने की योजना`);
     },
   },
   {
     name: 'share_put_in_pct',
-    available: (c) => planned(c) && c.facts.invested > 0 && (plannedPutIn(c.facts) ?? 0) > 0,
+    available: (c) => planned(c) && c.facts.invested > 0 && (c.facts.planned_put_in ?? 0) > 0,
     phrase: (f, c) => {
-      const share = `${f.num(Math.round((c.facts.invested / plannedPutIn(c.facts)!) * 100))}%`;
+      const share = `${f.num(Math.round((c.facts.invested / c.facts.planned_put_in!) * 100))}%`;
       return pick(f, `${share} of the planned amount put in so far`, `plan ki rakam ka ${share} ab tak lagaya`, `योजना की रकम का ${share} अब तक लगाया`);
     },
   },
@@ -494,6 +502,7 @@ export function situation(facts: SipFacts): string[] {
     const change = Math.round(facts.current_value) - Math.round(facts.invested);
     lines.push(`The value today is ${change < 0 ? 'below' : change > 0 ? 'above' : 'the same as'} what was put in.`);
     lines.push(facts.instalments_skipped > 0 ? 'Some instalments have been skipped.' : 'No instalment has been skipped.');
+    if (facts.scheduled_skips > 0) lines.push('Some instalments ahead are set to be skipped.');
   }
   const { goal } = facts;
   if (!goal) lines.push('No goal is set for this SIP.');

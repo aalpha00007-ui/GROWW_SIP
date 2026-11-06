@@ -4,7 +4,8 @@
 import type { Db } from '../db/client';
 import { dayMonthYear, monthYear, ordinal, percent } from '../pipeline/chunking/format';
 import { inr } from './money';
-import { addDays, addMonths, firstDueDate, monthlyDueDates } from '../pipeline/loading/dates';
+import { sipSchedule } from '../pipeline/chunking/schedule';
+import { addMonths, firstDueDate } from '../pipeline/loading/dates';
 import { loadMarket } from '../pipeline/loading/raw';
 import { logEvent, tooltipDismissed } from './events';
 import { demoBalance } from './shell';
@@ -318,13 +319,16 @@ export async function goalPreview(db: Db, q: { fundId: number; amount: number; d
   const parsed = parseGoal({ kind: 'custom', name: 'preview', targetMonth: q.targetMonth }, { today, firstDue: firstDueDate(today, q.day) });
   if (!parsed.ok) return { status: 400, error: parsed.error };
   const target = parsed.goal!.target!;
-  const instalments = monthlyDueDates(today, q.day, addDays(addMonths(target, 1), -1)).length;
-  const putInTotal = inr(instalments * q.amount);
+  // The same schedule the SIP will have once started, with nothing paid yet.
+  const plan = sipSchedule({ startedOn: today, dayOfMonth: q.day, today, amount: q.amount, stopped: false, goalMonth: target, paid: [], marked: [] });
+  const instalments = plan.plannedPayable!;
+  const plannedPutIn = plan.plannedPutIn!;
+  const putInTotal = inr(plannedPutIn);
   return {
     status: 200,
     instalments,
     /** What will be put in by the target month (instalments x amount): never what it will be worth. */
-    plannedPutIn: instalments * q.amount,
+    plannedPutIn,
     putInTotal,
     line: `${instalments} x ${inr(q.amount)} = ${putInTotal} put in by ${monthYear(target)}. That is what you put in, not what it will be worth.`,
   };

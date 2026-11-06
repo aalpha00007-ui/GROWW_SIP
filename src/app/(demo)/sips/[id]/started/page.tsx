@@ -22,7 +22,7 @@ export default async function StartedPage({ params }: { params: Promise<{ id: st
   const [goalRow] = (
     await db.query<{ target_amount: string | null }>('SELECT g.target_amount::text FROM sips s JOIN goals g ON g.id = s.goal_id WHERE s.id = $1', [facts.sip_id])
   ).rows;
-  const first = state.paid[0];
+  const first = state.schedule.firstPaid;
 
   const rows: { label: string; value: string }[] = [
     { label: 'Amount', value: `${inr(facts.amount)} a month` },
@@ -32,7 +32,7 @@ export default async function StartedPage({ params }: { params: Promise<{ id: st
       ? [
           {
             label: 'First instalment',
-            value: `${inr(first.amount)} paid from demo balance on ${dayMonthYear(first.paidOn)}${first.date !== first.paidOn ? `, for the ${dayMonthYear(first.date)} date` : ''}`,
+            value: `${inr(first.amount)} paid from demo balance on ${dayMonthYear(first.paidOn)}${first.due !== first.paidOn ? `, for the ${dayMonthYear(first.due)} date` : ''}`,
           },
         ]
       : []),

@@ -11,7 +11,7 @@ const facts: SipFacts = {
   sip_id: 1, today: '2026-10-27', as_of: '2026-10-27', fund_name: 'Banyan Flexi Cap Fund', fund_category: 'Equity',
   amount: 2000, months_invested: 7, instalments_paid: 7, instalments_skipped: 0, invested: 14000, current_value: 12086,
   worst_fall_since_start_pct: -14.2, fund_biggest_fall: { pct: -18.43, date: '2025-03-14' }, latest_nav: 45.21, peak_nav_since_start: 48.1,
-  next_due_date: '2026-11-02', goal: { name: 'Home down payment', target_month: '2031-03-01' }, instalments_planned: 60,
+  next_due_date: '2026-11-02', goal: { name: 'Home down payment', target_month: '2031-03-01' }, instalments_planned: 60, instalments_to_go: 53, planned_put_in: 120000, scheduled_skips: 0,
 };
 const unit = buildFactsUnit(facts);
 const pauseNumbers = numberTokens(loadExplainers().pause.text);

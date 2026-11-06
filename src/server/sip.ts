@@ -2,7 +2,8 @@
 // retrieveFacts; the SIP's status is computed from sip_events, never stored (build spec §5).
 import type { Db } from '../db/client';
 import type { FactsUnit, SipFacts } from '../pipeline/chunking/facts';
-import { dayMonthYear, monthsBetween, monthYear, ordinal, percent } from '../pipeline/chunking/format';
+import { dayMonthYear, monthYear, ordinal, percent } from '../pipeline/chunking/format';
+import { paidLabel, skipsLabel, toGoLabel, type RowState, type SipSchedule } from '../pipeline/chunking/schedule';
 import { inr } from './money';
 import { addMonths, monthStart } from '../pipeline/loading/dates';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
@@ -19,12 +20,8 @@ export interface SipState {
   status: SipStatus;
   stoppedOn: string | null;
   minSip: number;
-  /** Due dates already paid, skipped or paused. */
-  handled: Set<string>;
-  /** Skipped and paused due dates, oldest first, with how they were marked. */
-  marked: { date: string; kind: 'skipped' | 'paused' }[];
-  /** `date` is the due date it covers; `paidOn` is when it was paid (the first one is paid at the start). */
-  paid: { date: string; paidOn: string; amount: number }[];
+  /** The one source of every count, date and history row (pipeline/chunking/schedule.ts). */
+  schedule: SipSchedule;
 }
 
 /** This investor's SIP, or null when it does not exist or is someone else's. */
@@ -34,54 +31,23 @@ export async function loadSip(db: Db, investorId: string, sipId: number, today: 
   if (lookup.status === 'not_found') return null;
 
   const [row] = (
-    await db.query<{ min_sip: number; goal_kind: string | null; stopped_on: string | null }>(
-      `SELECT f.min_sip, g.kind AS goal_kind,
-         (SELECT (e.created_at AT TIME ZONE 'Asia/Kolkata')::date::text FROM sip_events e
-          WHERE e.sip_id = s.id AND e.kind = 'cancelled' ORDER BY e.id LIMIT 1) AS stopped_on
+    await db.query<{ min_sip: number; goal_kind: string | null }>(
+      `SELECT f.min_sip, g.kind AS goal_kind
        FROM sips s JOIN funds f ON f.id = s.fund_id LEFT JOIN goals g ON g.id = s.goal_id
        WHERE s.id = $1 AND s.investor_id = $2`,
       [sipId, investorId],
     )
   ).rows;
-  const marked = (
-    await db.query<{ kind: 'skipped' | 'paused'; detail: { due_on?: string; due_dates?: string[] } }>(
-      "SELECT kind, detail FROM sip_events WHERE sip_id = $1 AND kind IN ('skipped', 'paused') ORDER BY id",
-      [sipId],
-    )
-  ).rows
-    .flatMap((e) => (e.kind === 'paused' ? (e.detail.due_dates ?? []) : e.detail.due_on ? [e.detail.due_on] : []).map((date) => ({ date, kind: e.kind })))
-    .sort((a, b) => a.date.localeCompare(b.date));
-  const paid = (
-    await db.query<{ date: string; paidOn: string; amount: number }>(
-      'SELECT due_on::text AS date, paid_on::text AS "paidOn", amount FROM instalments WHERE sip_id = $1 AND paid_on IS NOT NULL ORDER BY due_on',
-      [sipId],
-    )
-  ).rows;
-
-  const pausedAhead = marked.some((m) => m.kind === 'paused' && m.date >= today);
   return {
     facts: lookup.facts,
     unit: lookup.unit,
     goalLine: lookup.goalLine,
     goalKind: row.goal_kind,
-    status: lookup.status === 'stopped' ? 'stopped' : pausedAhead ? 'paused' : 'active',
-    stoppedOn: row.stopped_on,
+    status: lookup.status === 'stopped' ? 'stopped' : lookup.schedule.paused ? 'paused' : 'active',
+    stoppedOn: lookup.stoppedOn,
     minSip: row.min_sip,
-    handled: new Set([...paid.map((p) => p.date), ...marked.map((m) => m.date)]),
-    marked,
-    paid,
+    schedule: lookup.schedule,
   };
-}
-
-/** The next `count` instalment dates still to be taken, from the next one on. */
-export function upcomingDueDates(state: SipState, count: number): string[] {
-  const dates: string[] = [];
-  let date = state.facts.next_due_date;
-  while (date && dates.length < count) {
-    if (!state.handled.has(date)) dates.push(date);
-    date = addMonths(date, 1);
-  }
-  return dates;
 }
 
 export interface SipView {
@@ -102,8 +68,12 @@ export interface SipView {
   putIn: string;
   value: string;
   change: Change | null;
-  /** '7 instalments paid · 1 skipped' */
+  /** '1 of 10 instalments paid · 9 instalments to go', the same words as the goal card. */
   paidLabel: string;
+  /** '0 past skips · 3 scheduled skips' */
+  skipsLabel: string;
+  /** '₹1,000 of ₹5,500 planned': contribution progress, which says nothing about reaching a target. Null without a plan. */
+  contribution: string | null;
   worstFall: string | null;
   nextDue: string | null;
   controls: { skip: boolean; pause: boolean; amount: boolean; stop: boolean };
@@ -122,14 +92,22 @@ export interface SipView {
   maxAmount: number;
   /** 'From ₹500 to ₹1,00,000' */
   amountRange: string;
-  history: { date: string; amount: string; label: string }[];
+  history: { date: string; amount: string; label: string; state: RowState }[];
 }
 
 export const MAX_AMOUNT = 100_000;
 
+/** The same words in a SIP's history and on the Orders page. */
+export const ROW_LABELS: Record<RowState, string> = {
+  paid: 'Paid',
+  skipped: 'Skipped',
+  scheduled_skip: 'Scheduled skip',
+  not_collected: 'Not collected',
+};
+
 export function sipView(state: SipState, today: string): SipView {
-  const { facts } = state;
-  const ahead = upcomingDueDates(state, 3);
+  const { facts, schedule } = state;
+  const ahead = schedule.upcoming.slice(0, 3);
   const active = state.status === 'active';
   const notes: string[] = [];
   if (state.status === 'stopped') {
@@ -137,8 +115,9 @@ export function sipView(state: SipState, today: string): SipView {
       `Stopped${state.stoppedOn ? ` on ${dayMonthYear(state.stoppedOn)}` : ''}. No more instalments will be taken. Your units stay invested until you redeem them.`,
     );
   } else {
-    const paused = state.marked.filter((m) => m.kind === 'paused' && m.date >= today).map((m) => dayMonthYear(m.date));
-    const skipped = state.marked.filter((m) => m.kind === 'skipped' && m.date >= today).map((m) => dayMonthYear(m.date));
+    const scheduled = schedule.rows.filter((r) => r.state === 'scheduled_skip').reverse();
+    const paused = scheduled.filter((r) => r.paused).map((r) => dayMonthYear(r.due));
+    const skipped = scheduled.filter((r) => !r.paused).map((r) => dayMonthYear(r.due));
     if (paused.length) notes.push(`Paused: ${joinAnd(paused)} will be skipped.${facts.next_due_date ? ` Instalments start again on ${dayMonthYear(facts.next_due_date)}.` : ''}`);
     if (skipped.length) notes.push(`${joinAnd(skipped)} will be skipped.`);
   }
@@ -151,14 +130,16 @@ export function sipView(state: SipState, today: string): SipView {
     status: state.status,
     statusLabel: { active: 'Active', paused: 'Paused', stopped: 'Stopped' }[state.status],
     notes,
-    goalHeader: goalHeader(facts, today),
+    goalHeader: goalHeader(facts, schedule),
     hasGoal: facts.goal !== null,
     goalLine: state.goalLine,
     asOf: `Numbers as of ${dayMonthYear(facts.as_of)}`,
     putIn: inr(facts.invested),
     value: inr(facts.current_value),
     change: changeOf([facts]),
-    paidLabel: `${facts.instalments_paid} ${facts.instalments_paid === 1 ? 'instalment' : 'instalments'} paid · ${facts.instalments_skipped} skipped`,
+    paidLabel: [paidLabel(schedule), toGoLabel(schedule)].filter(Boolean).join(' · '),
+    skipsLabel: skipsLabel(schedule),
+    contribution: schedule.hasPlan && schedule.plannedPutIn !== null ? `${inr(schedule.putIn)} of ${inr(schedule.plannedPutIn)} planned` : null,
     worstFall: facts.worst_fall_since_start_pct !== null ? percent(facts.worst_fall_since_start_pct) : null,
     nextDue: facts.next_due_date ? dayMonthYear(facts.next_due_date) : null,
     controls: { skip: active && ahead.length > 0, pause: active && ahead.length > 0, amount: state.status !== 'stopped', stop: state.status !== 'stopped' },
@@ -182,16 +163,12 @@ export function sipView(state: SipState, today: string): SipView {
     minAmount: state.minSip,
     maxAmount: MAX_AMOUNT,
     amountRange: `From ${inr(state.minSip)} to ${inr(MAX_AMOUNT)}`,
-    history: [
-      ...state.paid.map((p) => ({ date: p.paidOn, amount: inr(p.amount), label: 'Paid' })),
-      ...state.marked.map((m) => ({
-        date: m.date,
-        amount: '',
-        label: `${m.date >= today ? 'Will be skipped' : 'Skipped'}${m.kind === 'paused' ? ' (paused)' : ''}`,
-      })),
-    ]
-      .sort((a, b) => b.date.localeCompare(a.date))
-      .map((h) => ({ ...h, date: dayMonthYear(h.date) })),
+    history: schedule.rows.map((r) => ({
+      date: dayMonthYear(r.date),
+      amount: r.state === 'paid' && r.amount !== null ? inr(r.amount) : '',
+      label: `${ROW_LABELS[r.state]}${r.paused ? ' (paused)' : ''}`,
+      state: r.state,
+    })),
   };
 }
 
@@ -235,17 +212,15 @@ export async function sipList(db: Db, investorId: string, today: string) {
   });
 }
 
-function goalHeader(facts: SipFacts, today: string): string {
+function goalHeader(facts: SipFacts, schedule: SipSchedule): string {
   if (!facts.goal) return 'No goal yet';
   const parts = [`This SIP is for ${facts.goal.name}`];
   const target = facts.goal.target_amount ? [`target ${inr(facts.goal.target_amount)}`] : [];
   if (!facts.goal.target_month) return [...parts, 'no target date', ...target].join(' · ');
   parts.push(`by ${monthYear(facts.goal.target_month)}`);
-  if (monthsBetween(today, facts.goal.target_month) < 0) parts.push('goal date reached');
-  else if (facts.instalments_planned !== null && facts.next_due_date) {
-    const toGo = Math.max(0, facts.instalments_planned - facts.instalments_paid - facts.instalments_skipped);
-    parts.push(`${toGo} ${toGo === 1 ? 'instalment' : 'instalments'} to go`);
-  }
+  if (schedule.goalDatePassed) parts.push('goal date reached');
+  const toGo = toGoLabel(schedule);
+  if (toGo) parts.push(toGo);
   return [...parts, ...target].join(' · ');
 }
 

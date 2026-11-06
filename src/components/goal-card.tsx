@@ -1,4 +1,4 @@
-// The Home goal card (PRD F4): goal, target month, time to go, instalments paid of planned, put in,
+// The Home goal card (PRD F4): goal, target month, time to go, contribution progress, instalments paid, put in,
 // value today and change, the SIPs and one-time investments for it, plus "What does this dip mean for my goal?".
 import Link from 'next/link';
 import type { GoalCard as Card } from '@/server/home';
@@ -22,15 +22,14 @@ export function GoalCard({ goal }: { goal: Card }) {
           </div>
         )}
         <p className="tabular mt-1.5 text-sm font-medium">{goal.paidLabel}</p>
+        {goal.skipsLabel && <p className="tabular text-sm text-muted">{goal.skipsLabel}</p>}
       </div>
 
       <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-4">
         <div>
           <dt className="text-sm text-muted">Put in</dt>
           <dd className="tabular text-base font-medium text-strong">{goal.putIn}</dd>
-          {(goal.planned || goal.target) && (
-            <dd className="tabular text-sm text-muted">{[goal.planned && `${goal.planned} planned`, goal.target && `target ${goal.target}`].filter(Boolean).join(' · ')}</dd>
-          )}
+          {goal.planned && <dd className="tabular text-sm text-muted">of {goal.planned} planned</dd>}
         </div>
         <div>
           <dt className="text-sm text-muted">Value today</dt>
@@ -42,6 +41,13 @@ export function GoalCard({ goal }: { goal: Card }) {
             <dd>
               <ChangePill change={goal.change} />
             </dd>
+          </div>
+        )}
+        {/* Apart from the bar: the bar counts money put in, this sets today's value next to the target. */}
+        {goal.targetProgress && (
+          <div className="col-span-2">
+            <dt className="sr-only">Target</dt>
+            <dd className="tabular text-sm text-ink">{goal.targetProgress}</dd>
           </div>
         )}
       </dl>

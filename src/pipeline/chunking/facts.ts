@@ -19,8 +19,12 @@ export interface SipFacts {
   /** Rupees per instalment. */
   amount: number;
   months_invested: number;
+  // Every count below comes from sipSchedule (schedule.ts): nothing here or elsewhere works one out on its own.
   instalments_paid: number;
+  /** Past skips only: a skip still ahead is a scheduled skip, never one already made. */
   instalments_skipped: number;
+  /** Skips still ahead. */
+  scheduled_skips: number;
   /** Rupees put in so far. */
   invested: number;
   /** Units held x latest NAV, in rupees. */
@@ -34,8 +38,12 @@ export interface SipFacts {
   next_due_date: string | null;
   /** target_amount: whole rupees the investor aims for; null or absent when none was given. */
   goal: { name: string; target_month: string | null; target_amount?: number | null } | null;
-  /** Instalments due from the start to the goal's target month; null without a target month. */
+  /** Instalments this plan really pays, paid and still to come; null without a target month. */
   instalments_planned: number | null;
+  /** Payable instalments left up to the goal date; null without a target month. */
+  instalments_to_go: number | null;
+  /** Put in so far plus the instalments still to come by the goal date; null without a plan. Never a value. */
+  planned_put_in: number | null;
 }
 
 export interface FactLine {
@@ -73,13 +81,6 @@ export function factsProblem(facts: SipFacts): string | null {
   return `change vs put in is ${change.toFixed(2)}% but the worst fall since start is ${worst === null ? 'missing' : `${worst}%`}`;
 }
 
-/** Put in so far plus the instalments still to come by the goal date; null without a plan. Never a value. */
-export function plannedPutIn(facts: SipFacts): number | null {
-  if (facts.instalments_planned === null) return null;
-  const toGo = facts.next_due_date ? Math.max(0, facts.instalments_planned - facts.instalments_paid - facts.instalments_skipped) : 0;
-  return facts.invested + toGo * facts.amount;
-}
-
 export function buildFactsUnit(facts: SipFacts): FactsUnit {
   const lines: FactLine[] = [
     { label: 'Fund', value: `${facts.fund_name} (${facts.fund_category})` },
@@ -97,6 +98,7 @@ export function buildFactsUnit(facts: SipFacts): FactsUnit {
       { label: 'Months invested', value: months(facts.months_invested) },
       { label: 'Instalments paid', value: String(facts.instalments_paid) },
       { label: 'Instalments skipped', value: String(facts.instalments_skipped) },
+      ...(facts.scheduled_skips > 0 ? [{ label: 'Scheduled skips', value: String(facts.scheduled_skips) }] : []),
       { label: 'Put in so far', value: rupees(facts.invested) },
       { label: 'Value today', value: rupees(facts.current_value) },
       { label: 'Change vs put in', value: `${signedRupees(change)} (${percent((change / facts.invested) * 100, true)})` },
@@ -130,7 +132,7 @@ export function buildFactsUnit(facts: SipFacts): FactsUnit {
   return {
     kind: 'facts', sip_id: facts.sip_id, as_of: asOf, lines, text, numbers: numberTokens(text),
     kinds: {
-      instalments: numbersIn('Instalments paid', 'Instalments skipped', 'Instalments planned'),
+      instalments: numbersIn('Instalments paid', 'Instalments skipped', 'Scheduled skips', 'Instalments planned'),
       units: numbersIn('One instalment at the latest NAV buys'),
       dates: [...new Set([...text.matchAll(/\b(\d{1,2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/g)].map((m) => `${m[1]} ${m[2]}`))],
     },
@@ -151,11 +153,10 @@ function goalLines(facts: SipFacts): FactLine[] {
 
   lines.push({ label: 'Time to go', value: left === 0 ? 'this month' : duration(left) });
   if (facts.instalments_planned !== null) {
-    const toGo = Math.max(0, facts.instalments_planned - facts.instalments_paid - facts.instalments_skipped);
-    lines.push({ label: 'Instalments planned', value: `${facts.instalments_planned} (${toGo} to go)` });
+    lines.push({ label: 'Instalments planned', value: `${facts.instalments_planned} (${facts.instalments_to_go ?? 0} to go)` });
     lines.push(...target);
     // What will have been put in by the goal date if the SIP carries on (a stopped SIP adds nothing more).
-    const planned = plannedPutIn(facts)!;
+    const planned = facts.planned_put_in ?? facts.invested;
     lines.push({ label: 'Planned put in by goal date', value: rupees(planned) });
     // How far into the plan the money is: most of a young plan's money is still to be put in.
     if (facts.invested > 0 && planned > 0) {

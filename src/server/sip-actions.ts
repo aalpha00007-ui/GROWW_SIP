@@ -6,7 +6,7 @@ import { inr } from './money';
 import { addMonths, isIsoDate, monthStart } from '../pipeline/loading/dates';
 import { findPii } from '../pipeline/retrieval/pii';
 import { logEvent } from './events';
-import { goalYearChoices, joinAnd, loadSip, MAX_AMOUNT, upcomingDueDates, type SipState } from './sip';
+import { goalYearChoices, joinAnd, loadSip, MAX_AMOUNT, type SipState } from './sip';
 
 export type ActionResult = { status: 200; message: string } | { status: 400 | 404; error: string };
 
@@ -20,7 +20,7 @@ export async function skipNext(db: Db, investorId: string, sipId: number, today:
   if (!sip) return NOT_FOUND;
   const blocked = notActive(sip);
   if (blocked) return blocked;
-  const [skip, after] = upcomingDueDates(sip, 2);
+  const [skip, after] = sip.schedule.upcoming;
   await db.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'skipped', $2)", [sipId, { due_on: skip }]);
   return { status: 200, message: `Skipped the ${dayMonthYear(skip)} instalment.${after ? ` The next one is on ${dayMonthYear(after)}.` : ''}` };
 }
@@ -32,7 +32,7 @@ export async function pauseSip(db: Db, investorId: string, sipId: number, count:
   if (!sip) return NOT_FOUND;
   const blocked = notActive(sip);
   if (blocked) return blocked;
-  const dates = upcomingDueDates(sip, count + 1);
+  const dates = sip.schedule.upcoming;
   const paused = dates.slice(0, count);
   await db.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'paused', $2)", [sipId, { count, due_dates: paused }]);
   const restart = dates[count];
@@ -69,7 +69,8 @@ export async function stopSip(db: Db, investorId: string, sipId: number, aiCheck
   if (!sip) return NOT_FOUND;
   if (sip.status === 'stopped') return STOPPED;
   await db.transaction(async (tx) => {
-    await tx.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'cancelled', $2)", [sipId, aiCheckId ? { ai_check_id: aiCheckId } : {}]);
+    // `on` is the demo date: the schedule works from it, not from the clock time the row was written.
+    await tx.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'cancelled', $2)", [sipId, { on: today, ...(aiCheckId ? { ai_check_id: aiCheckId } : {}) }]);
     if (aiCheckId) {
       await tx.query("UPDATE ai_checks SET user_choice = 'cancel' WHERE id = $1 AND investor_id = $2 AND sip_id = $3", [aiCheckId, investorId, sipId]);
     }
@@ -166,7 +167,7 @@ export async function setGoal(db: Db, investorId: string, sipId: number, input: 
   const sip = await loadSip(db, investorId, sipId, today);
   if (!sip) return NOT_FOUND;
   const keep = sip.goalKind && sip.facts.goal ? { kind: sip.goalKind, name: sip.facts.goal.name } : null;
-  const parsed = parseGoal(input ?? {}, { today, firstDue: sip.paid[0]?.date ?? sip.facts.next_due_date ?? today, keep });
+  const parsed = parseGoal(input ?? {}, { today, firstDue: sip.schedule.firstPaid?.due ?? sip.facts.next_due_date ?? today, keep });
   if (!parsed.ok) return { status: 400, error: parsed.error };
   const { goal } = parsed;
   const before = (await db.query<{ goal_id: number | null }>('SELECT goal_id FROM sips WHERE id = $1', [sipId])).rows[0].goal_id;
@@ -232,6 +233,6 @@ export async function insertGoal(db: Db, investorId: string, goal: GoalInput): P
 function notActive(sip: SipState): ActionResult | null {
   if (sip.status === 'stopped') return STOPPED;
   if (sip.status === 'paused') return PAUSED;
-  if (upcomingDueDates(sip, 1).length === 0) return { status: 400, error: 'There is no instalment ahead to skip.' };
+  if (sip.schedule.upcoming.length === 0) return { status: 400, error: 'There is no instalment ahead to skip.' };
   return null;
 }

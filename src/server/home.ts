@@ -5,6 +5,7 @@
 import type { Db } from '../db/client';
 import type { SipFacts } from '../pipeline/chunking/facts';
 import { dayMonthYear, duration, monthsBetween, monthYear, percent } from '../pipeline/chunking/format';
+import { combineSchedules, paidLabel, skipsLabel, toGoLabel, type SipSchedule } from '../pipeline/chunking/schedule';
 import { inr, signedInr } from './money';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
 
@@ -23,9 +24,11 @@ export interface GoalCard {
   targetMonth: string | null;
   /** '4 years 5 months to go', 'This month', 'Goal date reached' or 'No target date'. */
   timeToGo: string;
-  /** '7 of 60 instalments paid', '4 instalments paid' without a target month, or '1 one-time investment'. */
+  /** '1 of 10 instalments paid · 9 instalments to go', '4 instalments paid' without a plan, or '1 one-time investment'. */
   paidLabel: string;
-  /** Width of the paid-of-planned bar, 0-100; null without a target month. */
+  /** '0 past skips · 3 scheduled skips'; null when no instalment has been or is set to be skipped. */
+  skipsLabel: string | null;
+  /** Width of the contribution bar, 0-100: rupees put in of rupees planned. Null without a plan. Never "target achieved". */
   barPct: number | null;
   /** '₹14,000' */
   putIn: string;
@@ -33,6 +36,8 @@ export interface GoalCard {
   planned: string | null;
   /** The target the investor gave: '₹5,00,000'; null when none. */
   target: string | null;
+  /** 'Value today is 2% of your ₹5,00,000 target': apart from contribution progress, which only counts money put in. */
+  targetProgress: string | null;
   value: string;
   /** Null before the first instalment is paid. */
   change: Change | null;
@@ -87,7 +92,7 @@ export async function homeView(db: Db, investorId: string, today: string): Promi
   // A stopped SIP stays: its units are still invested, so they count in the goal and the summary.
   const sips = rows.flatMap((row, i) => {
     const lookup = lookups[i];
-    return lookup.status === 'not_found' ? [] : [{ row, facts: lookup.facts, stopped: lookup.status === 'stopped' }];
+    return lookup.status === 'not_found' ? [] : [{ row, facts: lookup.facts, schedule: lookup.schedule, stopped: lookup.status === 'stopped' }];
   });
 
   const [demo] = (
@@ -138,24 +143,19 @@ export async function homeView(db: Db, investorId: string, today: string): Promi
 interface GoalSip {
   row: SipRow;
   facts: SipFacts;
+  schedule: SipSchedule;
   stopped: boolean;
 }
 
 function goalCard(id: number, group: GoalSip[], oneTime: OneTimeRow[], today: string): GoalCard {
   const { goal_name, target_month, target_amount } = group[0]?.row ?? oneTime[0];
   const all = group.map((g) => g.facts);
-  const paid = sum(all, (f) => f.instalments_paid);
+  // Every count is the schedule's, so this card and the SIP page can't disagree.
+  const plan = combineSchedules(group.map((g) => g.schedule));
   const oneTimeIn = sum(oneTime, (o) => o.amount);
-  // A stopped SIP plans nothing more: it counts what was paid. With every SIP stopped there is no plan to show.
-  const planning = target_month !== null && group.some((g) => !g.stopped);
-  const planned = planning ? sum(group, (g) => (g.stopped ? g.facts.instalments_paid : (g.facts.instalments_planned ?? 0))) : null;
-  // Instalments still to come, counted the way the facts unit counts them, plus the one-time money already in.
-  const plannedPutIn = planning
-    ? oneTimeIn +
-      sum(group, ({ facts: f, stopped }) => f.invested + (stopped ? 0 : Math.max(0, (f.instalments_planned ?? 0) - f.instalments_paid - f.instalments_skipped) * f.amount))
-    : null;
+  const plannedPutIn = plan.plannedPutIn !== null ? plan.plannedPutIn + oneTimeIn : null;
   const main = [...all].sort((a, b) => b.invested - a.invested || a.sip_id - b.sip_id)[0];
-  const putIn = sum(all, (f) => f.invested) + oneTimeIn;
+  const putIn = plan.putIn + oneTimeIn;
   const value = sum(all, (f) => f.current_value) + sum(oneTime, (o) => o.value);
   const change = changeBetween(putIn, value);
 
@@ -167,13 +167,13 @@ function goalCard(id: number, group: GoalSip[], oneTime: OneTimeRow[], today: st
     paidLabel:
       group.length === 0
         ? `${oneTime.length} one-time ${oneTime.length === 1 ? 'investment' : 'investments'}`
-        : planned !== null
-          ? `${paid} of ${planned} instalments paid`
-          : `${paid} ${paid === 1 ? 'instalment' : 'instalments'} paid`,
-    barPct: planned ? Math.min(100, Math.round((paid / planned) * 1000) / 10) : null,
+        : [paidLabel(plan), toGoLabel(plan)].filter(Boolean).join(' · '),
+    skipsLabel: plan.pastSkipped + plan.scheduledSkips > 0 ? skipsLabel(plan) : null,
+    barPct: plannedPutIn ? Math.min(100, Math.round((putIn / plannedPutIn) * 1000) / 10) : null,
     putIn: inr(putIn),
     planned: plannedPutIn !== null ? inr(plannedPutIn) : null,
     target: target_amount ? inr(target_amount) : null,
+    targetProgress: target_amount ? `Value today is ${Math.round((value / target_amount) * 100)}% of your ${inr(target_amount)} target` : null,
     value: inr(value),
     change,
     sips: group.map(({ facts: f, stopped }) => ({ id: f.sip_id, label: `${f.fund_name} · ${stopped ? 'stopped' : `${inr(f.amount)} a month`}` })),

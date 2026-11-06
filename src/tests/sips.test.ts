@@ -75,7 +75,9 @@ describe('the SIP page (PRD F5)', () => {
       amount: '₹2,000 a month',
       status: 'active',
       goalHeader: 'This SIP is for Home down payment · by Mar 2031 · 53 instalments to go',
-      paidLabel: '7 instalments paid · 0 skipped',
+      paidLabel: '7 of 60 instalments paid · 53 instalments to go',
+      skipsLabel: '0 past skips · 0 scheduled skips',
+      contribution: '₹14,000 of ₹1,20,000 planned',
       nextDue: '2 Nov 2026',
       skipLabel: 'Skip the 2 Nov 2026 instalment',
       amountRange: 'From ₹500 to ₹1,00,000',
@@ -87,7 +89,7 @@ describe('the SIP page (PRD F5)', () => {
       '3 instalments (2 Nov 2026 to 2 Jan 2027)',
     ]);
     expect(sip.history).toHaveLength(7);
-    expect(sip.history[0]).toEqual({ date: '2 Oct 2026', amount: '₹2,000', label: 'Paid' });
+    expect(sip.history[0]).toEqual({ date: '2 Oct 2026', amount: '₹2,000', label: 'Paid', state: 'paid' });
     expect((await view(r.id, r.harbor)).goalHeader).toBe('This SIP is for Emergency fund · no target date');
     expect((await view(r.id, r.kestrel)).goalHeader).toBe('No goal yet');
   });
@@ -111,9 +113,15 @@ describe('Skip, pause and change amount', () => {
     const r = await riya();
     expect(await skipNext(db, r.id, r.banyan, TODAY)).toEqual({ status: 200, message: 'Skipped the 2 Nov 2026 instalment. The next one is on 2 Dec 2026.' });
     const sip = await view(r.id, r.banyan);
-    expect(sip).toMatchObject({ status: 'active', nextDue: '2 Dec 2026', paidLabel: '7 instalments paid · 1 skipped', notes: ['2 Nov 2026 will be skipped.'] });
+    expect(sip).toMatchObject({
+      status: 'active',
+      nextDue: '2 Dec 2026',
+      paidLabel: '7 of 59 instalments paid · 52 instalments to go',
+      skipsLabel: '0 past skips · 1 scheduled skip',
+      notes: ['2 Nov 2026 will be skipped.'],
+    });
     expect(sip.goalHeader).toContain('52 instalments to go');
-    expect(sip.history[0]).toEqual({ date: '2 Nov 2026', amount: '', label: 'Will be skipped' });
+    expect(sip.history[0]).toEqual({ date: '2 Nov 2026', amount: '', label: 'Scheduled skip', state: 'scheduled_skip' });
   });
 
   it('pauses 1 to 3 instalments, and blocks skip and pause while paused', async () => {
@@ -130,9 +138,9 @@ describe('Skip, pause and change amount', () => {
     expect((await skipNext(db, r.id, r.banyan, TODAY)).status).toBe(400);
     expect((await pauseSip(db, r.id, r.banyan, 1, TODAY)).status).toBe(400);
 
-    // The AI's facts and Home see the paused instalments as skipped: 7 paid, 2 paused, 51 to go at ₹2,000.
+    // The AI's facts and Home see the paused instalments as scheduled skips, not past ones: 7 paid, 2 paused, 51 to go at ₹2,000.
     const lookup = await retrieveFacts(db, r.id, r.banyan, TODAY);
-    expect(lookup.status === 'ok' && lookup.facts).toMatchObject({ instalments_skipped: 2, next_due_date: '2027-01-02' });
+    expect(lookup.status === 'ok' && lookup.facts).toMatchObject({ instalments_skipped: 0, scheduled_skips: 2, instalments_to_go: 51, next_due_date: '2027-01-02' });
     expect((await homeView(db, r.id, TODAY)).goals[0].planned).toBe('₹1,16,000');
   });
 

@@ -33,7 +33,8 @@ describe('Home (PRD F4)', () => {
     expect(downPayment).toMatchObject({
       targetMonth: 'by Mar 2031',
       timeToGo: '4 years 5 months to go',
-      paidLabel: '7 of 60 instalments paid',
+      paidLabel: '7 of 60 instalments paid · 53 instalments to go',
+      skipsLabel: null,
       barPct: 11.7,
       putIn: '₹14,000',
       // 7 paid + 53 to go, at ₹2,000: what will have been put in, not what it will be worth.
@@ -77,8 +78,8 @@ describe('Home (PRD F4)', () => {
   it('counts a skipped month as not paid and not to come', async () => {
     const arjun = await clonePersona(db, 'arjun');
     const [card] = (await homeView(db, arjun, TODAY)).goals;
-    // 58 due dates from Mar 2026 to Dec 2030: 7 paid, 1 skipped, 50 to go at ₹1,500.
-    expect(card).toMatchObject({ paidLabel: '7 of 58 instalments paid', putIn: '₹10,500' });
+    // 58 due dates from Mar 2026 to Dec 2030: 7 paid, 1 skipped, 50 to go at ₹1,500. The skip is not part of the plan.
+    expect(card).toMatchObject({ paidLabel: '7 of 57 instalments paid · 50 instalments to go', skipsLabel: '1 past skip · 0 scheduled skips', putIn: '₹10,500' });
     expect(card.planned).toBe('₹85,500');
   });
 });

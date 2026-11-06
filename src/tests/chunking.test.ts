@@ -83,6 +83,9 @@ describe('SIP facts unit', () => {
     next_due_date: '2026-11-02',
     goal: { name: 'Home down payment', target_month: '2031-03-01' },
     instalments_planned: 60,
+    instalments_to_go: 53,
+    planned_put_in: 120000,
+    scheduled_skips: 0,
   };
 
   it('formats every fact once and keeps the bundle whole', () => {
@@ -124,7 +127,7 @@ describe('SIP facts unit', () => {
     ]);
     expect(unit.numbers).toEqual(expect.arrayContaining(['Rs 5,00,000', 'Rs 1,20,000', '12%']));
     // A stopped SIP adds nothing more: what is planned is what was put in.
-    expect(buildFactsUnit({ ...riya, next_due_date: null }).lines.slice(-2)).toEqual([
+    expect(buildFactsUnit({ ...riya, next_due_date: null, instalments_to_go: 0, planned_put_in: 14000 }).lines.slice(-2)).toEqual([
       { label: 'Planned put in by goal date', value: 'Rs 14,000' },
       { label: 'Share of the planned amount put in so far', value: 'Rs 14,000 of Rs 14,000 (100%)' },
     ]);
@@ -159,7 +162,7 @@ describe('SIP facts unit', () => {
 
   it('shows no returns before the first instalment', () => {
     const unit = buildFactsUnit({
-      ...riya, months_invested: 0, instalments_paid: 0, invested: 0, current_value: 0, worst_fall_since_start_pct: null,
+      ...riya, months_invested: 0, instalments_paid: 0, invested: 0, current_value: 0, worst_fall_since_start_pct: null, instalments_to_go: 60,
     });
     expect(unit.text).toContain('- First instalment: due on 2 Nov 2026');
     expect(unit.text).not.toMatch(/Value today|Change vs put in|Worst fall/);

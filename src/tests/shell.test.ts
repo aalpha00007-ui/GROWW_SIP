@@ -40,6 +40,6 @@ describe('the app shell', () => {
       'Instalment due', 'Try a market fall', 'Instalment paid', 'Goal milestone', 'New: goals on your SIPs', 'Welcome to the Groww prototype',
     ]);
     expect(shell.notifications[0].text).toBe('₹2,000 for Banyan Flexi Cap Fund on 2 Nov 2026.');
-    expect(shell.notifications[3].text).toBe('Home down payment: 7 of 60 instalments paid.');
+    expect(shell.notifications[3].text).toBe('Home down payment: 7 of 60 instalments paid · 53 instalments to go.');
   });
 });

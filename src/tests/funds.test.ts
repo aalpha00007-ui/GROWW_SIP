@@ -277,11 +277,11 @@ describe('Start SIP (PRD F2)', () => {
     // The first instalment covers the 2 Nov due date and is paid today, so the next one is 2 Dec.
     expect(sip).toMatchObject({ fund: 'Monsoon Midcap Fund', amount: '₹2,000 a month', nextDue: '2 Dec 2026', hasGoal: true, putIn: '₹2,000' });
     expect(sip.goalHeader).toBe("This SIP is for Child's education · by Oct 2031 · 59 instalments to go");
-    expect(state!.paid).toEqual([{ date: '2026-11-02', paidOn: TODAY, amount: 2000 }]);
+    expect(state!.schedule.firstPaid).toMatchObject({ due: '2026-11-02', paidOn: TODAY, amount: 2000 });
     expect(sip.history[0]).toMatchObject({ date: '27 Oct 2026', label: 'Paid' });
 
     const card = (await homeView(db, visitor, TODAY)).goals.find((g) => g.name === "Child's education");
-    expect(card).toMatchObject({ paidLabel: '1 of 60 instalments paid', putIn: '₹2,000', planned: '₹1,20,000' });
+    expect(card).toMatchObject({ paidLabel: '1 of 60 instalments paid · 59 instalments to go', putIn: '₹2,000', planned: '₹1,20,000' });
     // Worth what was put in, so no dip to explain yet.
     expect(card?.dipSipId).toBeNull();
     expect(sip.explainDip).toBe(false);
