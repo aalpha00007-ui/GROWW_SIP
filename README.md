@@ -25,7 +25,7 @@ npm run e2e:regression # the regression suite: production build, in-memory datab
 - **Sign-in:** an httpOnly cookie `groww_sip_session` holds a random token for 7 days; only its SHA-256 is stored. The cookie is secure whenever the page is on HTTPS (always on Render).
 - **On a phone:** with `npm start` running, open `http://<this computer's Wi-Fi address>:3000` (shown as "Network" when the server starts) on a phone on the same Wi-Fi. `localhost` on a phone means the phone itself.
 - **Public pages, no login:** the header's More menu opens the calculators (`/calculators/sip`, `/goal`, `/swp`), `/about/ai`, `/about` and `/learn/sip-basics`. Everything else sits in the `(demo)` route group. A page opened there with no demo in the browser goes to `/?demo=none`, which says why and offers the demos; a SIP id from someone else's demo shows "This SIP isn't in your demo".
-- **Starting a demo** (or logging in or out) loads the next page in full, so the new session cookie is always read. A start that takes more than 8 s gives up with "Couldn't start the demo, try again". On the landing page, a demo already open in the browser shows as "Continue demo", with no persona's name.
+- **Starting a demo** (or logging in or out) loads the next page in full, so the new session cookie is always read. A start that takes more than 8 s gives up with "Couldn't start the demo, try again". On the landing page, a demo already open in the browser shows as "Continue demo", with no persona's name, and a logged-in account shows its name. Log in / Sign up always shows beside them, so anyone can switch account without logging out first.
 - **Every page's footer** links to `/quality` ("How we check the AI") and the SEBI and AMFI sites.
 
 ## Deploy on Render
