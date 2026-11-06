@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { EMPTY_GOAL, goalApiBody, type GoalDraft } from './goal-editor';
 import { GoalStep, type GoalStepOptions } from './goal-step';
-import { postJson } from './post-json';
+import { postJson, SAVE } from './post-json';
 
 interface Props {
   item: { id: number; fundId: number; kind: 'sip' | 'one_time'; amountValue: number; day: number | null; goal: { body: unknown } | null };
@@ -31,7 +31,7 @@ export function CartCheckout({ item, options }: Props) {
       goalStep,
       source: 'cart',
       cartItemId: item.id,
-    });
+    }, SAVE);
     if (result.ok) {
       router.push(`/sips/${result.data.id}/started`);
       return;
@@ -48,7 +48,7 @@ export function CartCheckout({ item, options }: Props) {
     }
     setBusy(true);
     setError(null);
-    const result = await postJson('/api/invest', { fundId: item.fundId, amount: item.amountValue, cartItemId: item.id, goal: item.goal?.body });
+    const result = await postJson('/api/invest', { fundId: item.fundId, amount: item.amountValue, cartItemId: item.id, goal: item.goal?.body }, SAVE);
     if (result.ok) {
       // The Dashboard shows the money, under its goal: a clear sign it went through.
       router.push('/dashboard');

@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { EMPTY_GOAL, goalApiBody, goalLabel, type GoalDraft } from './goal-editor';
 import { GoalStep, type GoalStepOptions } from './goal-step';
 import { Icon } from './icons';
-import { postJson } from './post-json';
+import { postJson, SAVE } from './post-json';
 import { clearSipDraft, readSipDraft } from './sip-draft';
 import { SipDayPicker } from './sip-day-picker';
 
@@ -119,7 +119,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
       goal: withGoal ? goalApiBody(withGoal) : null,
       goalStep: goalStepChoice,
       source: 'fund_page',
-    });
+    }, SAVE);
     if (result.ok) {
       clearSipDraft();
       router.push(`/sips/${result.data.id}/started`);
@@ -135,7 +135,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
     setBusy(true);
     setStepError(null);
     setMessage(null);
-    const result = await postJson('/api/invest', { fundId, amount: value, goal: withGoal ? goalApiBody(withGoal) : undefined });
+    const result = await postJson('/api/invest', { fundId, amount: value, goal: withGoal ? goalApiBody(withGoal) : undefined }, SAVE);
     setBusy(false);
     if (result.ok) {
       setStep(null);

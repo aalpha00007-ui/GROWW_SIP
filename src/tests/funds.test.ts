@@ -6,6 +6,7 @@ import { addToCart, cartView, removeFromCart } from '../server/cart';
 import { collection, exploreFunds, fundList, fundPage, goalPreview, investOnce, setWatch, startSip, watchedFunds } from '../server/funds';
 import { homeView } from '../server/home';
 import { investmentsView, xirr } from '../server/investments';
+import { demoBalance } from '../server/shell';
 import { loadSip, sipList, sipView } from '../server/sip';
 import { goalChoices } from '../server/sip-actions';
 import { pgliteDb } from './pglite-db';
@@ -25,6 +26,71 @@ beforeAll(async () => {
   await setupDatabase(db, { today: TODAY });
   riya = await clonePersona(db, 'riya');
 }, 120_000);
+
+describe('A save that arrives twice', () => {
+  const sip = { fundId: 1, amount: 1_000, frequency: 'monthly', day: 27, goal: { kind: 'home', targetMonth: '2030-03' } };
+  const rowsOf = async (id: string) => ({
+    sips: (await db.query('SELECT 1 FROM sips WHERE investor_id = $1', [id])).rows.length,
+    goals: (await db.query('SELECT 1 FROM goals WHERE investor_id = $1', [id])).rows.length,
+    started: (await db.query("SELECT 1 FROM app_events WHERE investor_id = $1 AND event = 'sip_started'", [id])).rows.length,
+    balance: await demoBalance(db, id, TODAY),
+  });
+
+  it('starts one SIP when the reply was lost and the person tries again', async () => {
+    const id = await clonePersona(db, 'kabir');
+    const first = await startSip(db, id, sip, TODAY);
+    expect(await startSip(db, id, sip, TODAY)).toEqual(first);
+    expect(await rowsOf(id)).toEqual({ sips: 1, goals: 1, started: 1, balance: 99_000 });
+  });
+
+  it('starts one SIP when two copies of a request land together', async () => {
+    const id = await clonePersona(db, 'kabir');
+    const [a, b] = await Promise.all([startSip(db, id, sip, TODAY), startSip(db, id, sip, TODAY)]);
+    expect(a).toEqual(b);
+    expect(await rowsOf(id)).toMatchObject({ sips: 1, goals: 1 });
+  });
+
+  it('answers a repeat of the save that took the last of the balance as done, not as too little balance', async () => {
+    const id = await clonePersona(db, 'kabir');
+    const all = { ...sip, amount: 100_000 };
+    const first = await startSip(db, id, all, TODAY);
+    expect(first.status).toBe(200);
+    expect(await startSip(db, id, all, TODAY)).toEqual(first);
+  });
+
+  it('a SIP that differs in any way is a new SIP', async () => {
+    const id = await clonePersona(db, 'kabir');
+    const first = await startSip(db, id, sip, TODAY);
+    for (const change of [{ amount: 2_000 }, { day: 15 }, { fundId: 2 }, { goal: { kind: 'education', targetMonth: '2030-03' } }, { goal: { kind: 'home', targetMonth: '2031-03' } }, { goal: { kind: 'home', targetMonth: '2030-03', targetAmount: 500_000 } }, { goal: null }]) {
+      const next = await startSip(db, id, { ...sip, ...change }, TODAY);
+      expect(next).not.toEqual(first);
+    }
+    expect((await rowsOf(id)).sips).toBe(8);
+  });
+
+  it('takes a repeated one-time investment once, and says so', async () => {
+    const id = await clonePersona(db, 'kabir');
+    const once = { fundId: 2, amount: 5_000, goal: { kind: 'travel', targetMonth: '2030-03' } };
+    expect((await investOnce(db, id, once, TODAY)).status).toBe(200);
+    expect(await investOnce(db, id, once, TODAY)).toMatchObject({ status: 200, message: expect.stringContaining("already went through a moment ago, so it wasn't taken again") });
+    expect((await db.query('SELECT 1 FROM lumpsums WHERE investor_id = $1', [id])).rows).toHaveLength(1);
+    expect(await demoBalance(db, id, TODAY)).toBe(95_000);
+    expect((await investOnce(db, id, { ...once, amount: 6_000 }, TODAY)).status).toBe(200);
+    expect((await db.query('SELECT 1 FROM lumpsums WHERE investor_id = $1', [id])).rows).toHaveLength(2);
+  });
+
+  it('takes a repeat into one of their goals once, and into another goal again', async () => {
+    const id = await clonePersona(db, 'kabir');
+    const [one, two] = [await startSip(db, id, sip, TODAY), await startSip(db, id, { ...sip, fundId: 2, goal: { kind: 'education', targetMonth: '2031-03' } }, TODAY)];
+    if (one.status !== 200 || two.status !== 200) throw new Error('not started');
+    const goalOf = async (s: number) => (await db.query<{ goal_id: number }>('SELECT goal_id FROM sips WHERE id = $1', [s])).rows[0].goal_id;
+    const into = async (s: number) => investOnce(db, id, { fundId: 3, amount: 2_000, goal: { goalId: await goalOf(s) } }, TODAY);
+    await into(one.id);
+    await into(one.id);
+    await into(two.id);
+    expect((await db.query('SELECT 1 FROM lumpsums WHERE investor_id = $1', [id])).rows).toHaveLength(2);
+  });
+});
 
 describe('Explore and the fund page', () => {
   it('lists every fund and filters by category and risk, ignoring unknown filters', async () => {

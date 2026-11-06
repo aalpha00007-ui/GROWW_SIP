@@ -5,7 +5,7 @@ import { applyMarketFall } from '../pipeline/loading/market-fall';
 import { clonePersona } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
 import { clearSimulations, countSimulations } from '../server/clear-simulations';
-import { goalPreview } from '../server/funds';
+import { goalPreview, investOnce, startSip } from '../server/funds';
 import { goalGap, sipGoalPreview, validTarget } from '../server/goal-gap';
 import { homeView } from '../server/home';
 import { changeAmount, pauseSip, skipNext, stopSip } from '../server/sip-actions';
@@ -24,6 +24,32 @@ async function riya() {
   const [sip] = (await db.query<{ id: number }>('SELECT id FROM sips WHERE investor_id = $1 ORDER BY id LIMIT 1', [id])).rows;
   return { id, sip: sip.id };
 }
+
+describe('One-time money for the goal', () => {
+  it('counts in the gap, and says so', () => {
+    const gap = goalGap({ plannedPutIn: 13_000, putIn: 1_000, oneTime: 50_000, remaining: 12, target: 100_000, goalMonth: '2027-10-01' });
+    expect(gap.line).toBe("Your planned instalments and one-time investments add up to ₹63,000 by Oct 2027. That's ₹37,000 short of your ₹1,00,000 target (no returns included).");
+    expect(gap.monthly).toBe('To reach ₹1,00,000, the monthly amount would be about ₹4,084.');
+  });
+
+  it('can cover the target on its own', () => {
+    const gap = goalGap({ plannedPutIn: 13_000, putIn: 1_000, oneTime: 90_000, remaining: 12, target: 100_000, goalMonth: '2027-10-01' });
+    expect(gap.line).toContain('add up to ₹1,03,000, which covers your ₹1,00,000 target');
+  });
+
+  it('Edit goal agrees with the Dashboard once money is added to the goal', async () => {
+    const id = await clonePersona(db, 'kabir');
+    const sip = await startSip(db, id, { fundId: 1, amount: 1_000, frequency: 'monthly', day: 27, goal: { kind: 'home', targetMonth: '2027-10', targetAmount: 100_000 } }, TODAY);
+    if (sip.status !== 200) throw new Error(sip.error);
+    const preview = () => sipGoalPreview(db, id, sip.id, { targetMonth: '2027-10', target: 100_000 }, TODAY);
+    expect(await preview()).toMatchObject({ gap: { line: expect.stringContaining("That's ₹87,000 short") } });
+    const [{ goal_id: goalId }] = (await db.query<{ goal_id: number }>('SELECT goal_id FROM sips WHERE id = $1', [sip.id])).rows;
+    expect((await investOnce(db, id, { fundId: 1, amount: 50_000, goal: { goalId } }, TODAY)).status).toBe(200);
+    expect(await preview()).toMatchObject({ gap: { line: expect.stringContaining("add up to ₹63,000 by Oct 2027. That's ₹37,000 short") } });
+    const [card] = (await homeView(db, id, TODAY)).goals;
+    expect(card.planned).toBe('₹63,000');
+  });
+});
 
 describe('goalGap', () => {
   const base = { plannedPutIn: 13_000, putIn: 0, remaining: 13, goalMonth: '2027-11-01' };

@@ -11,7 +11,7 @@ import { addMonths, firstDueDate, monthStart } from '../pipeline/loading/dates';
 import { logEvent, tooltipDismissed } from './events';
 import { goalGap, type GoalGap } from './goal-gap';
 import { demoBalance } from './shell';
-import { GOAL_KINDS, GOAL_NAME_MAX, goalChoices, insertGoal, oneTimeGoal, parseGoal, TARGET_MAX, TARGET_MIN } from './sip-actions';
+import { GOAL_KINDS, GOAL_NAME_MAX, goalChoices, insertGoal, type GoalInput, oneTimeGoal, parseGoal, TARGET_MAX, TARGET_MIN } from './sip-actions';
 import { MAX_AMOUNT } from './sip';
 
 interface FundRow {
@@ -263,9 +263,46 @@ export function goalStepOptions(today: string, existing: { id: number; label: st
   };
 }
 
+/** A save that arrives again this soon with the same details is the same save: its reply was lost, not the intent. */
+const SAME_SAVE = "interval '5 minutes'";
+
+/** One save at a time per investor, so two copies of one request can't both pass the check for a save already made. */
+const oneSaveAtATime = (tx: Db, investorId: string) => tx.query('SELECT pg_advisory_xact_lock(hashtext($1::text))', [investorId]);
+
+/** The SIP this same request already started, if it came a moment ago. */
+async function sameSip(tx: Db, investorId: string, s: { fundId: number; amount: number; day: number; goal: GoalInput | null }): Promise<number | null> {
+  const { rows } = await tx.query<{ id: number }>(
+    `SELECT s.id FROM sips s LEFT JOIN goals g ON g.id = s.goal_id
+     WHERE s.investor_id = $1 AND s.fund_id = $2 AND s.amount = $3 AND s.day_of_month = $4 AND s.created_at > now() - ${SAME_SAVE}
+       AND g.name IS NOT DISTINCT FROM $5::text AND g.target_month IS NOT DISTINCT FROM $6::date AND g.target_amount IS NOT DISTINCT FROM $7::bigint
+     ORDER BY s.id DESC LIMIT 1`,
+    [investorId, s.fundId, s.amount, s.day, s.goal?.name ?? null, s.goal?.target ?? null, s.goal?.targetAmount ?? null],
+  );
+  return rows[0]?.id ?? null;
+}
+
+/** Whether this same one-time investment was already made a moment ago. */
+async function sameInvestment(tx: Db, investorId: string, s: { fundId: number; amount: number; goalId: number | null; create: GoalInput | null }): Promise<boolean> {
+  const goal =
+    s.goalId !== null
+      ? { sql: 'l.goal_id = $4', params: [s.goalId] }
+      : {
+          sql: 'g.name IS NOT DISTINCT FROM $4::text AND g.target_month IS NOT DISTINCT FROM $5::date AND g.target_amount IS NOT DISTINCT FROM $6::bigint',
+          params: [s.create?.name ?? null, s.create?.target ?? null, s.create?.targetAmount ?? null],
+        };
+  const { rows } = await tx.query(
+    `SELECT 1 FROM lumpsums l LEFT JOIN goals g ON g.id = l.goal_id
+     WHERE l.investor_id = $1 AND l.fund_id = $2 AND l.amount = $3 AND l.created_at > now() - ${SAME_SAVE} AND ${goal.sql}
+     LIMIT 1`,
+    [investorId, s.fundId, s.amount, ...goal.params],
+  );
+  return rows.length > 0;
+}
+
 /**
  * POST /api/invest {fundId, amount, goal?, cartItemId?}: a one-time investment at the latest NAV this visitor sees,
  * paid from the demo balance. The goal is one of the investor's goals ({goalId}) or a new one from the goal step.
+ * The same request again a moment later takes nothing more: see SAME_SAVE.
  */
 export async function investOnce(
   db: Db,
@@ -288,10 +325,16 @@ export async function investOnce(
   }
   const goal = await oneTimeGoal(db, investorId, body.goal, today);
   if (!goal.ok) return { status: 400, error: goal.error };
-  const balance = await demoBalance(db, investorId, today);
-  if (amount > balance) return { status: 400, error: `That is more than your demo balance of ${inr(balance)}.` };
   const units = Math.round((amount / Number(fund.nav)) * 10_000) / 10_000;
-  await db.transaction(async (tx) => {
+  const forGoal = goal.name ? ` for ${goal.name}` : '';
+  return db.transaction(async (tx) => {
+    await oneSaveAtATime(tx, investorId);
+    if (await sameInvestment(tx, investorId, { fundId: fund.id, amount, goalId: goal.goalId, create: goal.create })) {
+      return { status: 200, message: `${inr(amount)} in ${fund.name}${forGoal} already went through a moment ago, so it wasn't taken again.` };
+    }
+    // After the check above: a repeat that took the last of the balance must not read as too little balance.
+    const balance = await demoBalance(tx, investorId, today);
+    if (amount > balance) return { status: 400, error: `That is more than your demo balance of ${inr(balance)}.` };
     const goalId = goal.goalId ?? (goal.create ? await insertGoal(tx, investorId, goal.create) : null);
     await tx.query('INSERT INTO lumpsums (investor_id, fund_id, goal_id, amount, nav, units) VALUES ($1, $2, $3, $4, $5, $6)', [
       investorId,
@@ -304,9 +347,8 @@ export async function investOnce(
     if (Number.isInteger(body.cartItemId)) {
       await tx.query('UPDATE cart_items SET removed_at = now() WHERE id = $1 AND investor_id = $2 AND removed_at IS NULL', [body.cartItemId, investorId]);
     }
+    return { status: 200, message: `${inr(amount)} invested in ${fund.name}${forGoal} at ${nav(fund.nav)} a unit. Demo order, no real money.` };
   });
-  const forGoal = goal.name ? ` for ${goal.name}` : '';
-  return { status: 200, message: `${inr(amount)} invested in ${fund.name}${forGoal} at ${nav(fund.nav)} a unit. Demo order, no real money.` };
 }
 
 export type GoalPreview =
@@ -345,7 +387,8 @@ export async function goalPreview(db: Db, q: { fundId: number; amount: number; d
  * POST /api/sips {fundId, amount, frequency, day, goal?, goalStep?, source?, cartItemId?}: start a monthly SIP
  * from today (PRD F2, brief phase 4). The first instalment is paid at once from the demo balance at the latest
  * NAV this visitor sees, as the SIP's first due date. Logs
- * sip_started, and goal_saved or goal_skipped. A demo order: no real money moves.
+ * sip_started, and goal_saved or goal_skipped. A demo order: no real money moves. The same request again a moment later
+ * gets the same SIP back: see SAME_SAVE.
  */
 export async function startSip(db: Db, investorId: string, input: unknown, today: string): Promise<{ status: 200; id: number } | { status: 400 | 404; error: string }> {
   const body = (input ?? {}) as { fundId?: unknown; amount?: unknown; frequency?: unknown; day?: unknown; goal?: unknown; goalStep?: unknown; source?: unknown; cartItemId?: unknown };
@@ -366,11 +409,15 @@ export async function startSip(db: Db, investorId: string, input: unknown, today
   const parsed = parseGoal(body.goal, { today, firstDue });
   if (!parsed.ok) return { status: 400, error: parsed.error };
   const { goal } = parsed;
-  const balance = await demoBalance(db, investorId, today);
-  if (amount > balance) return { status: 400, error: `The first instalment of ${inr(amount)} is more than your demo balance of ${inr(balance)}.` };
   const source = body.source === 'cart' ? 'cart' : 'fund_page';
 
-  const id = await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
+    await oneSaveAtATime(tx, investorId);
+    const already = await sameSip(tx, investorId, { fundId: fund.id, amount, day, goal });
+    if (already !== null) return { status: 200, id: already };
+    // After the check above: a repeat that took the last of the balance must not read as too little balance.
+    const balance = await demoBalance(tx, investorId, today);
+    if (amount > balance) return { status: 400, error: `The first instalment of ${inr(amount)} is more than your demo balance of ${inr(balance)}.` };
     const goalId = goal ? await insertGoal(tx, investorId, goal) : null;
     const { rows } = await tx.query<{ id: number }>(
       'INSERT INTO sips (investor_id, fund_id, goal_id, amount, day_of_month, started_on) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
@@ -391,9 +438,8 @@ export async function startSip(db: Db, investorId: string, input: unknown, today
     await logEvent(tx, investorId, 'sip_started', { sip_id: sipId, fund_id: fund.id, with_goal: goal !== null, source });
     if (goal) await logEvent(tx, investorId, 'goal_saved', { sip_id: sipId, where: 'start', kind: goal.kind });
     else if (body.goalStep === 'skipped') await logEvent(tx, investorId, 'goal_skipped', { sip_id: sipId });
-    return sipId;
+    return { status: 200, id: sipId };
   });
-  return { status: 200, id };
 }
 
 export function checkSip(amount: unknown, day: unknown, minSip: number): { status: 400; error: string } | null {

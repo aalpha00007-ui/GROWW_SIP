@@ -1,5 +1,6 @@
 // The gap between what a plan puts in and a goal's target amount, for goal setup and Edit goal. Plain arithmetic on
-// instalments: it never includes a return, assumed or expected, and it says what the numbers are, never what to do.
+// instalments and any one-time money for the goal, as on the Dashboard's goal card: it never includes a return, assumed
+// or expected, and it says what the numbers are, never what to do.
 // The planned amount always comes from the shared schedule (pipeline/chunking/schedule.ts), so it matches every screen.
 import type { Db } from '../db/client';
 import { monthYear } from '../pipeline/chunking/format';
@@ -20,20 +21,27 @@ export function goalGap(p: {
   plannedPutIn: number;
   /** Already put in, which doesn't change with the monthly amount. */
   putIn: number;
+  /** One-time money for this goal, on top of plannedPutIn and putIn. */
+  oneTime?: number;
   /** The instalments still to come. */
   remaining: number;
   target: number;
   /** 'YYYY-MM-01' */
   goalMonth: string;
 }): GoalGap {
-  const { plannedPutIn: planned, putIn, remaining, target } = p;
+  const { remaining, target, oneTime = 0 } = p;
+  const planned = p.plannedPutIn + oneTime;
+  const putIn = p.putIn + oneTime;
+  const what = oneTime > 0 ? 'Your planned instalments and one-time investments' : 'Your planned instalments';
+  const counted = oneTime > 0 ? 'no returns included' : 'instalments only, no returns included';
   const covered = planned >= target;
   const line = covered
-    ? `Your planned instalments add up to ${inr(planned)}, which covers your ${inr(target)} target (instalments only, no returns included).`
-    : `Your planned instalments add up to ${inr(planned)} by ${monthYear(p.goalMonth)}. That's ${inr(target - planned)} short of your ${inr(target)} target (instalments only, no returns included).`;
+    ? `${what} add up to ${inr(planned)}, which covers your ${inr(target)} target (${counted}).`
+    : `${what} add up to ${inr(planned)} by ${monthYear(p.goalMonth)}. That's ${inr(target - planned)} short of your ${inr(target)} target (${counted}).`;
   // Rounded up: "about ₹M" should reach the target, not fall a few rupees under it.
   const needed = target - putIn;
-  const monthly = remaining > 0 && needed > 0 ? `To reach ${inr(target)} from instalments alone, the monthly amount would be about ${inr(Math.ceil(needed / remaining))}.` : null;
+  const reach = oneTime > 0 ? `To reach ${inr(target)}` : `To reach ${inr(target)} from instalments alone`;
+  const monthly = remaining > 0 && needed > 0 ? `${reach}, the monthly amount would be about ${inr(Math.ceil(needed / remaining))}.` : null;
   return { line, monthly };
 }
 
@@ -58,7 +66,14 @@ export async function sipGoalPreview(db: Db, investorId: string, sipId: number, 
   const goalMonth = parsed.goal?.target ?? null;
   if (goalMonth === null || q.target === null) return { status: 200, gap: null };
 
-  const [row] = (await db.query<{ started_on: string; day_of_month: number }>('SELECT started_on::text, day_of_month FROM sips WHERE id = $1', [sipId])).rows;
+  const [row] = (
+    await db.query<{ started_on: string; day_of_month: number; one_time: number }>(
+      `SELECT s.started_on::text, s.day_of_month,
+         (SELECT coalesce(sum(l.amount), 0)::int FROM lumpsums l WHERE l.goal_id = s.goal_id AND l.investor_id = s.investor_id) AS one_time
+       FROM sips s WHERE s.id = $1`,
+      [sipId],
+    )
+  ).rows;
   const paid: PaidInstalment[] = sip.schedule.rows.flatMap((r) => (r.state === 'paid' ? [{ id: r.id, due: r.due, paidOn: r.date, amount: r.amount ?? 0 }] : []));
   const marked: MarkedDate[] = sip.schedule.rows.flatMap((r) =>
     r.state === 'skipped' || r.state === 'scheduled_skip' ? [{ date: r.due, kind: r.paused ? ('paused' as const) : ('skipped' as const) }] : [],
@@ -74,5 +89,5 @@ export async function sipGoalPreview(db: Db, investorId: string, sipId: number, 
     paid,
     marked,
   });
-  return { status: 200, gap: goalGap({ plannedPutIn: plan.plannedPutIn!, putIn: plan.putIn, remaining: plan.remaining!, target: q.target, goalMonth }) };
+  return { status: 200, gap: goalGap({ plannedPutIn: plan.plannedPutIn!, putIn: plan.putIn, oneTime: row.one_time, remaining: plan.remaining!, target: q.target, goalMonth }) };
 }

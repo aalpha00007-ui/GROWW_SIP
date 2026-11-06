@@ -1,5 +1,5 @@
 // The regression suite: every journey the QA review covered, on the real production build (npm run e2e:regression).
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 import { balance, changeAmount, dateButton, DEMO_DAY, openFund, pause, pickDay, setClock, signUp, skipNext, startClean, startSipNoGoal, startSipWithGoal } from './regression-helpers';
 
 test.beforeEach(async ({ page, request }) => {
@@ -709,6 +709,103 @@ test.describe('Opening the site while signed in', () => {
       }
     });
   }
+});
+
+test.describe('When saving a goal goes wrong', () => {
+  const openStep = async (page: Page) => {
+    await openFund(page, { amount: 1000 });
+    await page.getByRole('button', { name: 'Start SIP' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Retirement' }).click();
+    await dialog.getByLabel('Month').selectOption({ label: 'Dec' });
+    await dialog.getByLabel('Year').selectOption('2030');
+    return dialog;
+  };
+  const save = (page: Page) => page.getByRole('dialog').getByRole('button', { name: 'Save goal & start SIP' });
+  const sipsListed = async (page: Page) => {
+    await page.goto('/sips');
+    return page.locator('a[href^="/sips/"]').evaluateAll((links) => new Set(links.map((a) => a.getAttribute('href')!.split('/')[2]).filter((id) => /^\d+$/.test(id))).size);
+  };
+
+  for (const [how, fail] of [
+    ['an error', (r: Route) => r.fulfill({ status: 500, body: 'oops' })],
+    ['a dropped connection', (r: Route) => r.abort()],
+  ] as const) {
+    test(`a preview that ends in ${how} can't stop the goal being saved`, async ({ page }) => {
+      await page.route('**/api/goal-preview*', fail);
+      const dialog = await openStep(page);
+      await expect(dialog.getByText('We couldn’t work out the instalments just now. You can still save this goal.')).toBeVisible();
+      await save(page).click();
+      await expect(page.getByRole('heading', { name: 'SIP started' })).toBeVisible();
+      await expect(page.getByText('Retirement').first()).toBeVisible();
+    });
+  }
+
+  test('a preview that never answers stops holding Save back', async ({ page }) => {
+    await page.clock.install();
+    await page.route('**/api/goal-preview*', () => new Promise(() => {}));
+    const dialog = await openStep(page);
+    await expect(save(page)).toBeDisabled();
+    await page.clock.fastForward(6_000);
+    await expect(dialog.getByText('We couldn’t work out the instalments just now.')).toBeVisible();
+    await expect(save(page)).toBeEnabled();
+  });
+
+  test('a date the server refuses still blocks saving, with the reason', async ({ page }) => {
+    await openFund(page, { amount: 1000, day: 3 });
+    await page.getByRole('button', { name: 'Start SIP' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Retirement' }).click();
+    await dialog.getByLabel('Month').selectOption({ label: 'Dec' });
+    await dialog.getByLabel('Year').selectOption('2026');
+    await expect(dialog.getByText('Pick a month after your first instalment in Dec 2026.')).toBeVisible();
+    await expect(save(page)).toBeDisabled();
+  });
+
+  test('a lost reply and a second try make one SIP, charged once', async ({ page }) => {
+    let lost = false;
+    await page.route('**/api/sips', async (route) => {
+      if (route.request().method() === 'POST' && !lost) {
+        lost = true;
+        await route.fetch();
+        await route.abort();
+      } else await route.continue();
+    });
+    const dialog = await openStep(page);
+    await expect(dialog.getByText(/about \d+ instalments/)).toBeVisible();
+    await save(page).click();
+    await expect(dialog.getByRole('alert')).toHaveText("We didn't get a reply, so this may or may not have gone through. It's safe to try again.");
+    await save(page).click();
+    await expect(page.getByRole('heading', { name: 'SIP started' })).toBeVisible();
+    expect(await sipsListed(page)).toBe(1);
+    expect(await balance(page)).toBe('₹99,000');
+  });
+
+  test('a save that never answers stops waiting and says what to do', async ({ page }) => {
+    await page.clock.install();
+    await page.route('**/api/sips', (route) => (route.request().method() === 'POST' ? new Promise(() => {}) : route.continue()));
+    const dialog = await openStep(page);
+    await expect(dialog.getByText(/about \d+ instalments/)).toBeVisible();
+    await save(page).click();
+    await expect(dialog.getByRole('button', { name: 'Starting…' })).toBeVisible();
+    await page.clock.fastForward(21_000);
+    await expect(dialog.getByRole('alert')).toContainText("It's safe to try again.");
+    await expect(save(page)).toBeEnabled();
+  });
+
+  test('Edit goal counts one-time money, as the Dashboard does', async ({ page }) => {
+    const id = await startSipWithGoal(page, { amount: 1000, day: 15, month: '2027-11', target: 100000 });
+    await page.goto('/fund/2');
+    await page.getByRole('button', { name: 'One-time' }).click();
+    await page.getByLabel('Amount', { exact: true }).fill('50000');
+    await page.getByRole('button', { name: 'Invest now' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: /Home down payment · by Nov 2027/ }).click();
+    await dialog.getByRole('button', { name: 'Save goal & invest' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.goto(`/sips/${id}/goal`);
+    await expect(page.getByText(/Your planned instalments and one-time investments add up to ₹63,000 by Nov 2027\. That's ₹37,000 short/)).toBeVisible();
+  });
 });
 
 test.describe('The gap to the target', () => {

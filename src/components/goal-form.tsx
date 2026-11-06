@@ -4,7 +4,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { GoalEditor, goalApiBody, GoalGapNote, goalProblems, type GoalDraft, type GoalEditorOptions, type GoalGapLines } from './goal-editor';
-import { postJson } from './post-json';
+import { postJson, SAVE } from './post-json';
 
 interface Props {
   sipId: number;
@@ -44,7 +44,7 @@ export function GoalForm({ sipId, options, current }: Props) {
   async function send(body: unknown, action: 'save' | 'remove') {
     setSaving(action);
     setError(null);
-    const result = await postJson(`/api/sips/${sipId}/goal`, body);
+    const result = await postJson(`/api/sips/${sipId}/goal`, body, SAVE);
     if (result.ok) {
       router.push(`/sips/${sipId}?did=${action === 'save' ? 'goal' : 'goal_removed'}`);
       router.refresh();

@@ -32,12 +32,15 @@ interface Props {
   onClose: () => void;
 }
 
+/** The instalment line is a help, not a gate: past this, saving goes ahead without it. The server checks the goal on save. */
+const PREVIEW_TIMEOUT_MS = 5_000;
+
 const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 text-sm font-medium ${on ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-surface hover:border-primary'}`;
 
 export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, options, initial, busy = false, error = null, onSave, onSkip, onClose }: Props) {
   const [goal, setGoal] = useState<GoalDraft>(initial);
-  const [count, setCount] = useState<{ instalments: number; gap: GoalGapLines | null } | { error: string } | null>(null);
+  const [count, setCount] = useState<{ instalments: number; gap: GoalGapLines | null } | { error: string } | { unavailable: true } | null>(null);
   const [pressed, setPressed] = useState<'save' | 'skip' | null>(null);
   const panel = useRef<HTMLDivElement>(null);
 
@@ -67,22 +70,29 @@ export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, option
       return;
     }
     const controller = new AbortController();
+    let replaced = false;
     const timer = setTimeout(async () => {
       const query = new URLSearchParams({ fundId: String(fundId), amount: String(amount), day: String(day), targetMonth: `${goal.year}-${goal.month}` });
       if (goal.targetAmount && !problems.target) query.set('target', goal.targetAmount);
+      const giveUp = setTimeout(() => controller.abort(), PREVIEW_TIMEOUT_MS);
       const response = await fetch(`/api/goal-preview?${query}`, { signal: controller.signal }).catch(() => null);
       const body = (await response?.json().catch(() => null)) as { instalments?: number; gap?: GoalGapLines | null; error?: string } | null;
+      clearTimeout(giveUp);
+      if (replaced) return;
       if (body?.instalments !== undefined) setCount({ instalments: body.instalments, gap: body.gap ?? null });
       else if (body?.error) setCount({ error: body.error });
+      else setCount({ unavailable: true });
     }, 200);
     return () => {
+      replaced = true;
       clearTimeout(timer);
       controller.abort();
     };
   }, [open, dated, once, problems.date, problems.target, fundId, amount, day, goal.month, goal.year, goal.targetAmount]);
 
   if (!open) return null;
-  const valid = picked || (problems.ok && (once || (count !== null && 'instalments' in count)));
+  // A goal the server refused (a date before the first instalment) can't be saved. One it couldn't preview still can.
+  const valid = picked || (problems.ok && (once || (count !== null && !('error' in count))));
   // The plan next to the target: what will be put in, never what it will be worth. Saving is allowed either way.
   const gap = count && 'gap' in count ? count.gap : null;
   const showGap = !picked && problems.ok && target !== null && (once || gap !== null);
@@ -157,6 +167,8 @@ export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, option
               </p>
             ) : count && 'error' in count ? (
               <p className="text-loss-strong">{count.error}</p>
+            ) : count && 'unavailable' in count ? (
+              <p className="text-ink">We couldn’t work out the instalments just now. You can still save this goal.</p>
             ) : (
               <p className="text-ink">Pick a goal and a month to see how many instalments that is.</p>
             )}
