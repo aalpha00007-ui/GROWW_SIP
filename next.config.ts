@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['@electric-sql/pglite'],
   // Pages that no longer exist: an old link lands on Explore, not on an error.
   async redirects() {
-    return [{ source: '/soon/:path*', destination: '/explore', permanent: false }];
+    return ['/soon/:path*', '/reports'].map((source) => ({ source, destination: '/explore', permanent: false }));
   },
   // The prototype looks like a real app, so: no search engine listing, and no other site may show it in a frame.
   async headers() {

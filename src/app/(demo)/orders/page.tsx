@@ -66,7 +66,6 @@ export default async function Orders({ searchParams }: { searchParams: Promise<{
           Not collected: the demo doesn&apos;t collect instalments on its own, so a due date can pass with no payment. Nothing was charged.
         </p>
       )}
-      <p className="text-sm text-muted">Downloadable reports are coming later.</p>
     </div>
   );
 }

@@ -140,7 +140,6 @@ export function AvatarMenu({ name, handle, balance }: { name: string; handle: st
     { label: 'My goals', href: '/dashboard#your-goals', icon: 'goals' },
     { label: 'All orders', href: '/orders', icon: 'orders' },
     { label: 'SIPs', href: '/sips', icon: 'sips' },
-    { label: 'Reports · coming later', href: '/reports', icon: 'report' },
     { label: 'Help & about this prototype', href: '/help', icon: 'help' },
     { label: 'Switch demo persona', href: '/#personas', icon: 'switch' },
   ];

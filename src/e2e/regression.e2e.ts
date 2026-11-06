@@ -366,17 +366,18 @@ test.describe('Records', () => {
     await expect(page.getByRole('button', { name: 'Notifications', exact: true })).toBeVisible();
   });
 
-  test('Reports says "coming later" before the click, and Orders is one tab away', async ({ page }) => {
+  test('the account menu has no Reports, and Orders is one tab away', async ({ page }) => {
     await page.goto('/explore');
     await page.getByRole('button', { name: 'Account menu' }).click();
-    await expect(page.getByRole('link', { name: /Reports · coming later/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'All orders' })).toBeVisible();
+    await expect(page.getByText(/Reports/)).toHaveCount(0);
     await page.keyboard.press('Escape');
     await page.getByRole('navigation', { name: 'Sections' }).getByRole('link', { name: 'Orders' }).click();
     await expect(page.getByRole('heading', { name: 'All orders' })).toBeVisible();
   });
 });
 
-test.describe('Calculators and placeholders', () => {
+test.describe('Calculators', () => {
   test('the fund page never uses the past return, and starts with no rate', async ({ page }) => {
     await page.goto('/fund/1');
     const calculator = page.getByRole('region', { name: 'Return calculator' });
@@ -620,6 +621,14 @@ test.describe('The extras are gone', () => {
       await expect(page.getByRole('heading', { name: /Funds A–Z/ })).toBeVisible();
     });
   }
+
+  test('/reports goes to Explore, and Orders no longer promises it', async ({ page }) => {
+    await page.goto('/reports');
+    await expect(page).toHaveURL(/\/explore$/);
+    await page.goto('/orders');
+    await expect(page.getByRole('heading', { name: 'All orders' })).toBeVisible();
+    await expect(page.getByText(/coming later/i)).toHaveCount(0);
+  });
 
   test('Stocks and F&O stay, with nothing that leads to a page that has gone', async ({ page }) => {
     for (const [path, heading] of [['/stocks', 'Stocks (demo)'], ['/fo', 'Contracts (demo)']]) {
