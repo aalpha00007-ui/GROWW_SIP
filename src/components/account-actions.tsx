@@ -95,7 +95,7 @@ export function DisplayNameForm({ current }: { current: string }) {
       </div>
       <p className="text-xs text-muted">Doesn&apos;t need to be your real name.</p>
       {message && (
-        <p role={message.ok ? 'status' : 'alert'} className={message.ok ? 'text-sm text-primary' : 'rounded-lg bg-loss-soft px-3 py-2 text-sm text-loss-strong'}>
+        <p role={message.ok ? 'status' : 'alert'} className={message.ok ? 'text-sm text-ink' : 'rounded-lg bg-loss-soft px-3 py-2 text-sm text-loss-strong'}>
           {message.text}
         </p>
       )}

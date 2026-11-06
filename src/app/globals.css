@@ -9,9 +9,12 @@
   --primary: #0b7a4b; /* buttons, links, active tab, checkbox, focus ring, selected chips, progress */
   --primary-hover: #08603b;
   --primary-soft: #e7f5ee; /* selected cards, tags, info chips */
-  --text-strong: #0b3d2e; /* headings, key numbers, wordmark */
-  --text: #1f4a3c; /* body text */
-  --text-muted: #4f6f63; /* secondary text, captions, helper text */
+  /* All main text is black. Gains, losses, errors, links and text on buttons have their own colours below. */
+  --text-strong: #000000; /* headings, key numbers, wordmark */
+  --text: #000000; /* body text */
+  --text-muted: #000000; /* secondary text, captions, helper text */
+  --placeholder: #5f5f5f; /* a hint in an empty box: in black it would read as a value already filled in */
+  --disabled: #767676; /* days and options that can't be picked */
   --blue: #1e3a8a; /* secondary accents */
   --logo-navy: #172554; /* logo circle, above the zig-zag */
   --logo-green: #065f46; /* logo, below the zig-zag */
@@ -31,7 +34,7 @@
   /* The demo amber, unchanged: the top banner, the Prototype badge and demo-only notes. */
   --accent: #d97706;
   --accent-tint: #fef3c7;
-  --accent-ink: #92400e;
+  --accent-ink: #000000;
 }
 
 @theme inline {
@@ -41,6 +44,7 @@
   --color-strong: var(--text-strong);
   --color-ink: var(--text);
   --color-muted: var(--text-muted);
+  --color-disabled: var(--disabled);
   --color-blue: var(--blue);
   --color-logo-navy: var(--logo-navy);
   --color-logo-green: var(--logo-green);
@@ -73,6 +77,11 @@
   h2,
   h3 {
     color: var(--text-strong);
+  }
+
+  ::placeholder {
+    color: var(--placeholder);
+    opacity: 1;
   }
 }
 

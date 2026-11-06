@@ -23,7 +23,7 @@ const DONE: Record<string, string> = {
   goal_removed: 'Goal removed. You can add one any time.',
 };
 
-const STATUS_STYLE = { active: 'bg-primary-soft text-gain', paused: 'bg-accent-tint text-accent-ink', stopped: 'bg-page text-muted' } as const;
+const STATUS_STYLE = { active: 'bg-primary-soft text-ink', paused: 'bg-accent-tint text-accent-ink', stopped: 'bg-page text-muted' } as const;
 
 export default async function SipPage({
   params,
@@ -49,7 +49,7 @@ export default async function SipPage({
       {/* The dip seen next to its goal, counted once a day. */}
       {sip.hasGoal && sip.change?.direction === 'down' && <LogEvent event="dip_context_viewed" sipId={sip.id} where="sip_page" />}
       {done && (
-        <p role="status" className="rounded-lg bg-primary-soft px-4 py-3 text-sm font-semibold text-primary">
+        <p role="status" className="rounded-lg bg-primary-soft px-4 py-3 text-sm font-semibold text-ink">
           {done}
         </p>
       )}
@@ -67,7 +67,7 @@ export default async function SipPage({
               <span className={`shrink-0 rounded-full px-2.5 py-1 text-sm font-semibold ${STATUS_STYLE[sip.status]}`}>{sip.statusLabel}</span>
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-soft px-3 py-2">
-              <p className="font-semibold text-primary">{sip.goalHeader}</p>
+              <p className="font-semibold text-ink">{sip.goalHeader}</p>
               <Link href={`/sips/${sip.id}/goal`} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline">
                 {sip.hasGoal ? 'Edit goal' : 'Add one'}
               </Link>

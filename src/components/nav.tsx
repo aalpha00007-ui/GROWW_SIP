@@ -52,7 +52,7 @@ export function ProductTabs() {
           key={p.key}
           href={p.href}
           aria-current={active === p.key ? 'page' : undefined}
-          className={`flex min-h-11 shrink-0 items-center text-base font-medium sm:text-xl ${active === p.key ? 'text-strong' : 'text-muted hover:text-ink'}`}
+          className={`flex min-h-11 shrink-0 items-center text-base font-medium sm:text-xl ${active === p.key ? 'font-bold underline decoration-[3px] underline-offset-8' : ''}`}
         >
           {p.label}
         </Link>

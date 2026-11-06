@@ -15,7 +15,7 @@ export function InvestmentsCard({ view, link }: { view: InvestmentsView | null; 
           <p className="text-sm text-muted">Current value</p>
           <p className="tabular mt-0.5 text-[28px] font-bold leading-tight text-strong">{view.current}</p>
           {view.goals.length > 0 && (
-            <ul className="mt-1.5 space-y-0.5 text-sm font-medium text-primary">
+            <ul className="mt-1.5 space-y-0.5 text-sm font-medium text-ink">
               {view.goals.map((goal) => (
                 <li key={goal}>{goal}</li>
               ))}

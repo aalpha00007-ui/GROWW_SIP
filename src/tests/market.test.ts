@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { Db } from '../db/client';
-import { applyMarketFall } from '../pipeline/loading/market-fall';
 import { clonePersona } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
 import { homeView } from '../server/home';
@@ -27,22 +26,13 @@ describe('day changes', () => {
 });
 
 describe('the market strip (demo data only)', () => {
-  it('shows the made-up levels on the seed day and drops by the same 6% as the simulated fall', async () => {
+  it('shows the made-up levels on the seed day', async () => {
     const visitor = await clonePersona(db, 'riya');
     const before = await marketStrip(db, visitor);
     expect(before.indices.map((i) => i.name)).toEqual(['NIFTY 50', 'SENSEX', 'BANK NIFTY', 'NIFTY MIDCAP', 'FIN NIFTY', 'NIFTY NEXT 50', 'NIFTY SMALLCAP', 'NIFTY IT']);
     expect(before.indices[0].value).toBe('24,800.00');
     expect(before.indices.every((i) => i.change !== null && /^[+-]?[\d,]+\.\d\d \(\d+\.\d\d%\)$/.test(i.change))).toBe(true);
     expect(before.note).toBe('Demo prices as of 27 Oct 2026 · Demo data');
-
-    await applyMarketFall(db, visitor, '2026-10-28');
-    const after = await marketStrip(db, visitor);
-    // 24,800 x 0.94, give or take the fund NAV's 4-decimal rounding: the strip follows the same NAV as the goal cards.
-    expect(Number(after.indices[0].value.replace(/,/g, ''))).toBeCloseTo(23_312, 0);
-    expect(after.indices.every((i) => i.change?.startsWith('-') && i.change.endsWith('(6.00%)'))).toBe(true);
-    expect(after.note).toBe('Demo prices as of 28 Oct 2026 · Includes 1 simulated market fall · Demo data');
-    // Another visitor's strip is untouched.
-    expect((await marketStrip(db, await clonePersona(db, 'riya'))).indices[0].value).toBe('24,800.00');
   });
 });
 

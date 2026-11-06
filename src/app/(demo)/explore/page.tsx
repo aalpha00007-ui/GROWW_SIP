@@ -1,12 +1,11 @@
 // Mutual Funds -> Explore, laid out after the reference in two columns. Left: Funds A–Z (demo), Collections and
-// the new fund offers. Right: Your investments, the demo control and Products and tools. One column below
+// the new fund offers. Right: Your investments and Products and tools. One column below
 // 1024px, the right column under the left. Every fund, return and offer is made up.
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { fundLinkLabel, Initials } from '@/components/fund-rows';
 import { Icon, type IconName } from '@/components/icons';
 import { InvestmentsCard } from '@/components/investments-card';
-import { MarketFallButton } from '@/components/market-fall-button';
 import { SectionTitle } from '@/components/section-title';
 import { Signed } from '@/components/signed';
 import { SipDraftNote } from '@/components/sip-draft';
@@ -98,7 +97,6 @@ export default async function Explore() {
 
       <div className="space-y-6">
         <InvestmentsCard view={investments} link={{ label: 'Dashboard', href: '/dashboard' }} />
-        <MarketFallButton />
         <section>
           <SectionTitle title="Products and tools" />
           <ul className={`${CARD} divide-y divide-line py-1`}>

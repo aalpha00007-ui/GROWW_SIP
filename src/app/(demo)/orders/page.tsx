@@ -36,7 +36,7 @@ export default async function Orders({ searchParams }: { searchParams: Promise<{
                 <div className="flex items-baseline justify-between gap-4">
                   <span className="min-w-0">
                     {row.sipId !== null ? (
-                      <Link href={`/sips/${row.sipId}`} className="font-medium text-strong hover:text-primary">
+                      <Link href={`/sips/${row.sipId}`} className="font-medium text-strong underline underline-offset-2 hover:text-primary">
                         {row.fund}
                       </Link>
                     ) : (

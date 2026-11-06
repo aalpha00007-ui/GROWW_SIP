@@ -120,7 +120,7 @@ function TryKabir() {
 
   return (
     <div className="mt-6 border-t border-line pt-4">
-      <button type="button" onClick={start} disabled={busy} className="flex min-h-11 items-center text-sm font-semibold text-primary underline-offset-2 hover:underline disabled:cursor-wait">
+      <button type="button" onClick={start} disabled={busy} className="flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-2 disabled:cursor-wait">
         {busy ? 'Starting Kabir’s demo…' : 'Try as Kabir instead'}
       </button>
       {error && (
@@ -202,7 +202,7 @@ function AccountSteps() {
             <button
               type="button"
               onClick={() => changeUsername(`${pick(ADJECTIVES)}-${pick(ANIMALS)}-${10 + Math.floor(Math.random() * 90)}`)}
-              className="min-h-11 text-sm font-semibold text-primary underline-offset-2 hover:underline"
+              className="min-h-11 text-sm font-semibold text-primary underline underline-offset-2"
             >
               Suggest one
             </button>
@@ -243,7 +243,7 @@ function AccountSteps() {
           setError(null);
           setStep({ kind: 'username' });
         }}
-        className="-mt-2 flex min-h-11 items-center text-sm font-semibold text-primary underline-offset-2 hover:underline"
+        className="-mt-2 flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-2"
       >
         ← Change username
       </button>
@@ -258,7 +258,7 @@ function AccountSteps() {
       <div>
         <div className="flex flex-wrap items-center gap-3">
           <PinBoxes value={pin} onChange={setPin} inputRef={pinBox} creating={creating} shown={showPin} />
-          <button type="button" onClick={() => setShowPin(!showPin)} className="min-h-11 text-sm font-semibold text-primary underline-offset-2 hover:underline">
+          <button type="button" onClick={() => setShowPin(!showPin)} className="min-h-11 text-sm font-semibold text-primary underline underline-offset-2">
             {showPin ? 'Hide PIN' : 'Show PIN'}
           </button>
         </div>

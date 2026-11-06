@@ -13,6 +13,7 @@ import { GoalStep, type GoalStepOptions } from './goal-step';
 import { Icon } from './icons';
 import { postJson } from './post-json';
 import { clearSipDraft, readSipDraft } from './sip-draft';
+import { SipDayPicker } from './sip-day-picker';
 
 export interface OrderCardProps {
   fundId: number;
@@ -21,8 +22,9 @@ export interface OrderCardProps {
   amountRange: string;
   defaultAmount: number;
   quickAdd: { value: number; label: string }[];
-  days: { value: number; label: string }[];
+  days: { value: number; next: string }[];
   defaultDay: number;
+  firstInstalment: string;
   mandate: string;
   balance: string;
   goalStep: GoalStepOptions;
@@ -33,7 +35,7 @@ type Mode = 'sip' | 'once';
 
 const WHOLE = new Intl.NumberFormat('en-IN');
 
-export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAmount, quickAdd, days, defaultDay, mandate, balance, goalStep, showGoalTip }: OrderCardProps) {
+export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAmount, quickAdd, days, defaultDay, firstInstalment, mandate, balance, goalStep, showGoalTip }: OrderCardProps) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('sip');
   const [amount, setAmount] = useState(String(defaultAmount));
@@ -235,22 +237,11 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
           ))}
         </div>
         <p className={`mt-2 text-xs ${amountOk ? 'text-muted' : 'text-loss-strong'}`}>{amountRange}</p>
-        {draftNote && <p className="mt-1 text-xs text-primary">{draftNote}</p>}
+        {draftNote && <p className="mt-1 text-xs text-ink">{draftNote}</p>}
       </div>
 
       {mode === 'sip' && (
-        <div>
-          <label htmlFor="order-day" className="block text-sm font-medium text-muted">
-            SIP date
-          </label>
-          <select id="order-day" value={day} onChange={(e) => setDay(Number(e.target.value))} className="mt-1 min-h-11 w-full rounded-lg border border-line bg-surface px-3">
-            {days.map((d) => (
-              <option key={d.value} value={d.value}>
-                {d.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SipDayPicker days={days} value={day} onChange={setDay} firstInstalment={firstInstalment} />
       )}
 
       <p className="flex items-center gap-2 text-sm text-muted">
@@ -313,7 +304,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
                 onClick={openTip}
                 aria-expanded={false}
                 aria-controls="goal-tip"
-                className="mb-1 flex min-h-9 items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                className="mb-1 flex min-h-9 items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-2"
               >
                 <Icon name="help" size={16} />
                 Why add a goal?
@@ -321,7 +312,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
             ))}
           {goal ? (
             <div className="flex min-h-12 items-center justify-between gap-2 rounded-lg border border-primary bg-primary-soft px-3">
-              <span className="text-sm font-semibold text-primary">{goalLabel(goal, goalStep)}</span>
+              <span className="text-sm font-semibold text-ink">{goalLabel(goal, goalStep)}</span>
               <button
                 type="button"
                 onClick={() => setStep('edit')}
@@ -351,7 +342,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
         </div>
 
         {message && (
-          <p role={message.error ? 'alert' : 'status'} className={`rounded-lg px-3 py-2 text-sm ${message.error ? 'bg-loss-soft text-loss-strong' : 'bg-primary-soft text-primary'}`}>
+          <p role={message.error ? 'alert' : 'status'} className={`rounded-lg px-3 py-2 text-sm ${message.error ? 'bg-loss-soft text-loss-strong' : 'bg-primary-soft text-ink'}`}>
             {message.text}{' '}
             {message.cart && (
               <Link href="/cart" className="font-semibold underline">

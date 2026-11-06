@@ -62,7 +62,7 @@ export function SipDraftNote() {
   if (!draft) return null;
   const goal = draft.target ? ` for your ₹${INR.format(draft.target)} goal` : '';
   return (
-    <p role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-soft px-4 py-2 text-sm text-primary">
+    <p role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary-soft px-4 py-2 text-sm text-ink">
       <span>
         From your calculator: ₹{INR.format(draft.amount)} a month{goal}. Pick a fund and it will be filled in.
       </span>

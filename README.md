@@ -38,6 +38,7 @@ npm run e2e:regression # the regression suite: production build, in-memory datab
 - Type in the secrets when Render asks: `DATABASE_URL`, `MISTRAL_API_KEY`, `GROQ_API_KEY`. Render generates `AUTH_SALT`.
 - A free service sleeps after 15 idle minutes; the first visit after that takes about a minute. Open the link a minute before a demo.
 - On demo day, `npm run db:setup` reloads the seed so the dates look current. It replaces the NAV and price history and the persona templates; it keeps visitors and eval runs (`npm run db:reset` is the only command that drops them). /quality reads the committed `eval/results.json` either way, so reseeding never empties it.
+- Saved simulated prices from the old demo control: `npx tsx src/server/clear-simulations-cli.ts` counts them, and `--yes` deletes them. Run it once after the deploy that removes the control. It can't be undone, and seeded persona data isn't touched.
 - Render never runs `db:setup`: its build is `npm ci --include=dev && npm run build` and its start is `npm run db:migrate && npm start`. `db:migrate` adds missing tables and columns, and seeds only an empty database.
 
 ## Phase 1 · data loading
@@ -47,7 +48,7 @@ Needs Node 22 or later.
 ```
 npm install
 npm run data:check     # validate everything under data/, no database needed
-npm test               # seed, copy and market-fall tests on an in-memory Postgres
+npm test               # seed, copy and schedule tests on an in-memory Postgres
 npm run db:setup       # load Neon: set DATABASE_URL in .env or .env.local first
 npm run db:verify      # confirm Neon holds everything the seed should have stored
 npm run db:reset       # drop every table
@@ -98,7 +99,6 @@ Try it against Neon (each persona gets a reusable test visitor tagged "CLI test"
 npm run retrieve -- facts riya            # facts unit and goal card; add 2 or 3 for Riya's other SIPs
 npm run retrieve -- ask riya "Market crash ho gaya, mera SIP red mein hai. Band kar du?"
 npm run retrieve -- normal riya           # "What does this dip mean for my goal?"
-npm run retrieve -- fall riya             # simulate a market fall for the test visitor
 npm run retrieve -- log riya              # last 5 ai_checks rows, with the models that read and wrote
 npm run retrieve -- fresh riya            # start over with a clean copy
 ```
@@ -156,7 +156,7 @@ groww-sip-mvp/
     │   └── quality/           /quality page (F11)
     ├── components/            header, More menu, sign-up modal, goal card, check-in cards, calculators
     ├── pipeline/
-    │   ├── loading/           Phase 1 · seed, per-visitor copy, demo market fall
+    │   ├── loading/           Phase 1 · seed, per-visitor copy
     │   ├── chunking/          Phase 2 · explainers from data/raw to data/chunks
     │   └── retrieval/         Phase 5 · validate, PII guard, SQL facts, understand, route, context, quality check
     ├── llm/                   Groq and Mistral clients (server only)

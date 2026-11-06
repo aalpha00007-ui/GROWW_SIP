@@ -1,6 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { Db } from '../db/client';
-import { applyMarketFall } from '../pipeline/loading/market-fall';
 import { clonePersona } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
 import { addToCart, cartView } from '../server/cart';
@@ -86,20 +85,12 @@ describe('Start SIP with the goal step', () => {
     });
   });
 
-  it('shows a dip next to the goal for a brand-new account after a market fall', async () => {
+  it('shows no dip on a brand-new SIP: it is worth what was put in', async () => {
     const visitor = await newAccount();
     const started = await startSip(db, visitor, { fundId: 1, amount: 3000, day: 4, goal: { kind: 'home', targetMonth: '2031-03' } }, TODAY);
     if (started.status !== 200) throw new Error(started.error);
-    // Before the fall the SIP is worth what was put in: no dip button.
     expect((await homeView(db, visitor, TODAY)).goals[0].dipSipId).toBeNull();
-    await applyMarketFall(db, visitor, TODAY);
-    const card = (await homeView(db, visitor, TODAY)).goals[0];
-    expect(card.change?.direction).toBe('down');
-    expect(card.dipSipId).toBe(started.id);
-    expect(card.change?.text).toMatch(/^-₹180 \(-6\.0%\)$/);
-    const sip = sipView((await loadSip(db, visitor, started.id, TODAY))!, TODAY);
-    expect(sip.explainDip).toBe(true);
-    expect(sip.worstFall).toBe('-6.0%');
+    expect(sipView((await loadSip(db, visitor, started.id, TODAY))!, TODAY).explainDip).toBe(false);
   });
 
   it('starts a SIP from the cart with the goal saved on the item, and takes the item out of the cart', async () => {

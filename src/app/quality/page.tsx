@@ -9,7 +9,7 @@ import { HOLDOUT_FRESHNESS, qualityView } from '@/server/quality';
 
 export const dynamic = 'force-dynamic';
 
-const MARK = { true: { text: 'Pass', style: 'bg-primary-soft text-gain' }, false: { text: 'Fail', style: 'bg-loss-soft text-loss-strong' } } as const;
+const MARK = { true: { text: 'Pass', style: 'bg-primary-soft text-ink' }, false: { text: 'Fail', style: 'bg-loss-soft text-loss-strong' } } as const;
 
 export default async function Quality() {
   const { run, holdout, live, promptVersion } = await qualityView(getDb(), process.env.RENDER_GIT_COMMIT);

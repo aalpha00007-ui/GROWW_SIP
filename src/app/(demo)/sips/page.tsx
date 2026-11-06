@@ -9,7 +9,7 @@ import { sipList } from '@/server/sip';
 import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 const ACTION = 'flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 text-sm font-semibold sm:flex-none';
-const STATUS = { active: 'bg-primary-soft text-primary', paused: 'bg-accent-tint text-accent-ink', stopped: 'bg-page text-muted' } as const;
+const STATUS = { active: 'bg-primary-soft text-ink', paused: 'bg-accent-tint text-accent-ink', stopped: 'bg-page text-muted' } as const;
 
 export default async function Sips() {
   const visitor = await currentVisitor();
@@ -23,7 +23,7 @@ export default async function Sips() {
           <h1 className="text-2xl font-bold">SIPs</h1>
           <p className="text-sm text-muted">{sips.length === 1 ? '1 SIP' : `${sips.length} SIPs`} · Demo orders</p>
         </div>
-        <Link href="/funds" className="inline-flex min-h-11 items-center gap-0.5 text-sm font-semibold text-primary hover:text-primary-hover">
+        <Link href="/funds" className="inline-flex min-h-11 items-center gap-0.5 text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary-hover">
           Start a new SIP
           <Icon name="chevron" size={16} />
         </Link>
@@ -34,7 +34,7 @@ export default async function Sips() {
             <li key={sip.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <Link href={`/sips/${sip.id}`} className="inline-flex min-h-11 items-center font-semibold text-strong hover:text-primary">
+                  <Link href={`/sips/${sip.id}`} className="inline-flex min-h-11 items-center font-semibold text-strong underline underline-offset-2 hover:text-primary">
                     {sip.fund}
                   </Link>
                   <p className="tabular text-sm text-muted">
@@ -52,11 +52,11 @@ export default async function Sips() {
                   <dt className="text-muted">Goal</dt>
                   <dd>
                     {sip.goal ? (
-                      <span className="font-medium text-primary">{sip.goal}</span>
+                      <span className="font-medium text-ink">{sip.goal}</span>
                     ) : sip.status === 'stopped' ? (
                       <span className="text-muted">No goal</span>
                     ) : (
-                      <Link href={`/sips/${sip.id}/goal`} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-primary hover:text-primary-hover">
+                      <Link href={`/sips/${sip.id}/goal`} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-primary underline underline-offset-2 hover:text-primary-hover">
                         <span className="rounded bg-accent-tint px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-accent-ink">New</span>
                         Add a goal
                         <Icon name="chevron" size={14} />

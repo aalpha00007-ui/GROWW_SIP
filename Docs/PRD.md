@@ -79,7 +79,7 @@ Ten of the 13 features are P0: the stop flow and its checks, the goal anchor, an
 | F9 | Safe fallback | "I couldn't give a reliable answer here." with a facts table, the options and the SEBI and AMFI links | P0 |
 | F10 | Declined card | Fixed, facts-only decline for a fund pick or a return prediction | P0 |
 | F11 | Quality page | /quality shows the eval result for the live version, plus live counts of answers, fallbacks and declines | P0 |
-| F12 | Demo market fall | "Simulate a market fall" adds a -6% day so testers can create the moment | P0 |
+| F12 | Removed | The demo control is gone: Riya's seeded SIP shows the dip | - |
 | F13 | App shell | Groww's tabs and product set at Full, Simple or Placeholder depth, with mutual funds at Full depth | P0 |
 
 Within F13, the Simple products (stocks, ETFs, IPO, gold and silver, bonds, US stocks, calculators) are P1 and the placeholders are P2.

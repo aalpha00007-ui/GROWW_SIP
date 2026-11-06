@@ -172,7 +172,7 @@ export function SipControls({ id, controls, status, skipLabel, skipConfirm, undo
         </fieldset>
       )}
 
-      <p aria-live="polite" className={`text-sm empty:hidden ${message?.error ? 'mt-3 rounded-lg bg-loss-soft px-3 py-2 text-loss-strong' : 'mt-3 text-gain'}`}>
+      <p aria-live="polite" className={`text-sm empty:hidden ${message?.error ? 'mt-3 rounded-lg bg-loss-soft px-3 py-2 text-loss-strong' : 'mt-3 text-ink'}`}>
         {message?.text}
       </p>
     </section>

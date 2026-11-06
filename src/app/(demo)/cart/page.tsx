@@ -27,11 +27,11 @@ export default async function Cart() {
               <li key={item.id} className="flex flex-wrap items-center gap-3 p-4">
                 <Initials text={initials(item.fund)} />
                 <div className="min-w-0 flex-1">
-                  <Link href={`/fund/${item.fundId}`} className="font-medium text-strong hover:text-primary">
+                  <Link href={`/fund/${item.fundId}`} className="font-medium text-strong underline underline-offset-2 hover:text-primary">
                     {item.fund}
                   </Link>
                   <p className="text-sm text-muted">{item.label}</p>
-                  {item.goal && <p className="text-sm font-medium text-primary">{item.goal.text}</p>}
+                  {item.goal && <p className="text-sm font-medium text-ink">{item.goal.text}</p>}
                 </div>
                 <p className="tabular font-semibold text-strong">{item.amount}</p>
                 <div className="flex w-full flex-wrap gap-2 sm:w-auto">

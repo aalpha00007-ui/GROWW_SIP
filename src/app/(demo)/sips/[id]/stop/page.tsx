@@ -28,7 +28,7 @@ export default async function StopPage({ params }: { params: Promise<{ id: strin
       <LogEvent event="stop_checkin_opened" sipId={sip.id} />
 
       <section className="rounded-xl border border-primary bg-primary-soft p-4">
-        <p className="text-sm font-semibold text-primary">{sip.fund}</p>
+        <p className="text-sm font-semibold text-ink">{sip.fund}</p>
         <p className="mt-1 text-lg font-bold">{toRupeeSign(sip.goalLine)}</p>
       </section>
 

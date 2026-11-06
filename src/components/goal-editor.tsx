@@ -79,6 +79,22 @@ export function goalProblems(goal: GoalDraft, options: GoalEditorOptions, { date
   return { named, dated, date, target, ok: named && date === null && target === null && (dated || !dateRequired) };
 }
 
+/** What the server worked out for the goal so far (server/goal-gap.ts). */
+export interface GoalGapLines {
+  line: string;
+  monthly: string | null;
+}
+
+/** The gap to the target: instalments only, plain arithmetic, the same wording in goal setup and Edit goal. */
+export function GoalGapNote({ gap }: { gap: GoalGapLines }) {
+  return (
+    <div className="tabular space-y-1 text-ink">
+      <p>{gap.line}</p>
+      {gap.monthly && <p>{gap.monthly}</p>}
+    </div>
+  );
+}
+
 const chip = (on: boolean) =>
   `min-h-11 rounded-full border px-4 text-sm font-medium ${on ? 'border-primary bg-primary-soft text-primary' : 'border-line bg-surface hover:border-primary'}`;
 

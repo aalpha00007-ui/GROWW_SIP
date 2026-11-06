@@ -53,7 +53,7 @@ export function CheckInCardView({ card }: { card: CheckInCard }) {
 
       {card.checked && (
         <details className="mt-3 border-t border-line pt-1 text-sm" lang={card.lang}>
-          <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-primary">{card.checked.summary}</summary>
+          <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-primary underline underline-offset-2">{card.checked.summary}</summary>
           <ul className="space-y-1 pb-1 text-xs text-muted" aria-label="Quality checks">
             {card.checked.items.map((check) => (
               <li key={check.label}>

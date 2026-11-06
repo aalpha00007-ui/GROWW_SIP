@@ -23,7 +23,7 @@ export default function SipBasics() {
       <ol className="space-y-3">
         {FACTS.map((fact, i) => (
           <li key={i} className="flex gap-4 rounded-xl border border-line bg-surface p-5">
-            <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-bold text-primary">
+            <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-bold text-ink">
               {i + 1}
             </span>
             <p>{fact}</p>

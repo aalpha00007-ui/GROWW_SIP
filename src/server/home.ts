@@ -1,4 +1,4 @@
-// Home (PRD F4, F12): one card per goal, the "no goal yet" row, the coming-up instalments and a
+// Home (PRD F4): one card per goal, the "no goal yet" row, the coming-up instalments and a
 // mutual-fund summary. Every SIP number comes from retrieveFacts, the same facts the AI answers from; a
 // goal card adds the one-time investments made for that goal. Formatted here: the page prints these strings
 // and does no maths (spec §5).
@@ -7,7 +7,6 @@ import type { SipFacts } from '../pipeline/chunking/facts';
 import { dayMonthYear, demoDate, duration, lastPayment, monthsBetween, monthYear, percent, pricesAsOf } from '../pipeline/chunking/format';
 import { combineSchedules, paidLabel, skipsLabel, toGoLabel, type SipSchedule } from '../pipeline/chunking/schedule';
 import { inr, signedInr } from './money';
-import { simulatedFalls } from '../pipeline/loading/market-fall';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
 
 export type Direction = 'up' | 'down' | 'flat';
@@ -56,8 +55,6 @@ export interface HomeView {
   asOf: string | null;
   /** 'Last payment 3 Nov 2026': account activity, apart from the price date. Null before any payment. */
   lastPayment: string | null;
-  /** 'Includes 1 simulated market fall'; null when there is none. */
-  demoNote: string | null;
   summary: { value: string; putIn: string; change: Change | null; sipCount: string } | null;
   goals: GoalCard[];
   noGoal: { text: string; funds: string[]; href: string } | null;
@@ -100,7 +97,6 @@ export async function homeView(db: Db, investorId: string, today: string): Promi
     return lookup.status === 'not_found' ? [] : [{ row, facts: lookup.facts, schedule: lookup.schedule, stopped: lookup.status === 'stopped' }];
   });
 
-  const falls = await simulatedFalls(db, investorId);
   const oneTime = (
     await db.query<OneTimeRow>(
       `SELECT l.goal_id, g.name AS goal_name, g.target_month::text, g.target_amount::float8 AS target_amount, f.name AS fund, l.amount,
@@ -130,7 +126,6 @@ export async function homeView(db: Db, investorId: string, today: string): Promi
     demoDate: demoDate(dayMonthYear(today)),
     asOf: asOf ? pricesAsOf(dayMonthYear(asOf)) : null,
     lastPayment: lastPaid ? lastPayment(dayMonthYear(lastPaid)) : null,
-    demoNote: falls > 0 ? `Includes ${falls} simulated market ${falls === 1 ? 'fall' : 'falls'}` : null,
     summary: sips.length ? summary(sips.map((s) => s.facts)) : null,
     goals: [...byGoal.entries()].map(([id, group]) => goalCard(id, group, oneTime.filter((o) => o.goal_id === id), today)),
     noGoal: noGoal.length

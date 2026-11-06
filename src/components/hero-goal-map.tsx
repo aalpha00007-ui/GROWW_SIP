@@ -286,7 +286,7 @@ export function HeroGoalMap() {
       <ol className="mt-4 grid gap-2 text-sm text-strong md:hidden">
         {STEPS.map((step, i) => (
           <li key={step} className="flex items-center gap-3">
-            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary">{i + 1}</span>
+            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-ink">{i + 1}</span>
             {step}
           </li>
         ))}

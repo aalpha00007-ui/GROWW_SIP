@@ -64,7 +64,7 @@ export function SearchBox({ suggestions }: { suggestions: ShellData['suggestions
             if (e.key === 'Escape') setOpen(false);
           }}
           placeholder="Search mutual funds"
-          className="min-w-0 flex-1 bg-transparent text-ink placeholder:text-muted"
+          className="min-w-0 flex-1 bg-transparent text-ink"
         />
         <kbd className="rounded border border-line px-1.5 text-[11px] text-muted">Ctrl K</kbd>
       </label>

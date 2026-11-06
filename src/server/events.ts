@@ -5,7 +5,7 @@ import type { Db } from '../db/client';
 // Nothing is logged for opening an editor: a goal or an amount counts once it is saved. goal_step_shown, from before
 // that rule, stays allowed in the table so old rows keep their meaning, and is left out of the report.
 export const EVENTS = [
-  'goal_saved', 'goal_skipped', 'sip_started', 'market_fall_simulated',
+  'goal_saved', 'goal_skipped', 'sip_started',
   'dip_context_viewed', 'ai_question_asked', 'stop_checkin_opened', 'sip_stopped', 'sip_kept', 'goal_tooltip_dismissed',
 ] as const;
 export type AppEvent = (typeof EVENTS)[number];

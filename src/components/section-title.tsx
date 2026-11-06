@@ -9,7 +9,7 @@ export function SectionTitle({ title, link, id }: { title: string; link?: { labe
         {title}
       </h2>
       {link && (
-        <Link href={link.href} className="inline-flex min-h-11 items-center gap-0.5 text-sm font-semibold text-primary hover:text-primary-hover">
+        <Link href={link.href} className="inline-flex min-h-11 items-center gap-0.5 text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary-hover">
           {link.label}
           <Icon name="chevron" size={16} />
         </Link>

@@ -77,7 +77,10 @@ describe('Explore and the fund page', () => {
     });
     expect(fund?.box.quickAdd.map((q) => q.label)).toEqual(['+₹1,000', '+₹2,000', '+₹5,000']);
     expect(fund?.box.days).toHaveLength(28);
-    expect(fund?.box.days[3].label).toBe('Monthly on 4th');
+    // Each day says when the instalment after the first falls, from the SIP's own schedule.
+    expect(fund?.box.days[3]).toEqual({ value: 4, next: '4 Dec 2026' });
+    expect(fund?.box.days[26]).toEqual({ value: 27, next: '27 Nov 2026' });
+    expect(fund?.box.firstInstalment).toBe('27 Oct 2026');
     expect(fund?.box.goalStep.kinds.map((k) => k.label)).toEqual([
       'Retirement', "Child's education", 'Home down payment', 'Emergency fund', 'Wedding', 'Car', 'Travel', 'Something else',
     ]);
@@ -240,6 +243,7 @@ describe('The goal line (spec §2A)', () => {
       plannedPutIn: 120000,
       putInTotal: '₹1,20,000',
       line: '60 x ₹2,000 = ₹1,20,000 put in by Oct 2031. That is what you put in, not what it will be worth.',
+      gap: null,
     });
     // A date still to come this month makes the first instalment this month: one more.
     expect(await goalPreview(db, { fundId: 1, amount: 2000, day: 28, targetMonth: '2031-10' }, TODAY)).toMatchObject({ instalments: 61 });

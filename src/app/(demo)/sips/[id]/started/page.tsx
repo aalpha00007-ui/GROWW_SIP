@@ -54,7 +54,7 @@ export default async function StartedPage({ params }: { params: Promise<{ id: st
               <h2 className="text-xl font-bold text-strong">{facts.goal.name}</h2>
             </div>
             {facts.goal.target_month && (
-              <span className="shrink-0 rounded-full bg-primary-soft px-3 py-1 text-sm font-medium text-primary">by {monthYear(facts.goal.target_month)}</span>
+              <span className="shrink-0 rounded-full bg-primary-soft px-3 py-1 text-sm font-medium text-ink">by {monthYear(facts.goal.target_month)}</span>
             )}
           </header>
         ) : (
@@ -69,7 +69,7 @@ export default async function StartedPage({ params }: { params: Promise<{ id: st
           ))}
         </dl>
         {facts.goal && (
-          <p className="mt-3 rounded-lg bg-primary-soft px-3 py-2 text-sm text-primary">
+          <p className="mt-3 rounded-lg bg-primary-soft px-3 py-2 text-sm text-ink">
             If the market falls, you&apos;ll see this goal next to your SIP on the Dashboard.
           </p>
         )}

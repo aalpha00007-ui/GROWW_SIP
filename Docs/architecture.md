@@ -62,7 +62,6 @@ Everything loaded is made up. No real person, fund, NAV or market feed enters th
 | Demo market data | Made-up funds (for example "Banyan Flexi Cap Fund, simulated"), `nav_history`; `assets`, `asset_prices`, `ipos` for Simple products | Postgres | Seed, before first deploy |
 | Persona templates | Riya, Arjun, Meera. Riya has 3 SIPs: Banyan Flexi Cap, Rs 2,000 a month, 7 of 60 paid, goal Home down payment; Harbor Liquid, Rs 1,000, Emergency fund (no date); Kestrel Nifty 50 Index, Rs 1,500, no goal | Postgres | Seed |
 | Per-visitor copy | On "Start as <persona>", the persona's rows are copied under a new investor id tied to a cookie, so two testers never share data (F1) | Postgres | At runtime |
-| Demo market fall | "Simulate a market fall" adds a -6% NAV day labelled demo, for that visitor only (F12). Liquid funds get the day flat, as a real fall barely moves them | Postgres | At runtime |
 | Four explainers | Fixed text for stop, skip, pause and lower amount | Repo (see decision D1) | Build |
 | Advice-phrase list | English, Hindi and Hinglish phrases for the no-advice check | Repo | Build |
 | Eval fixtures | 20 Evidence Log posts with hand labels; 18 safety and routing cases (s01–s18) | Repo | CI |
@@ -89,7 +88,7 @@ Every lookup is by key: investor and SIP id for facts, route for explainers. A s
 | Data | Store | Written by | Read by |
 | --- | --- | --- | --- |
 | Funds, NAVs, assets, prices, IPOs | Postgres | Seed | Pages, facts query |
-| `demo_nav_history` (the -6% days from "Simulate a market fall", per visitor) | Postgres | Market-fall action | Facts query and market fall, merged with `nav_history` by the SQL function `visible_nav_history(investor)` |
+| `demo_nav_history` (per-visitor price days, no longer written by the app) | Postgres | Nothing since the demo control was removed | Facts query, merged with `nav_history` by the SQL function `visible_nav_history(investor)` |
 | Investors, goals, SIPs, instalments, `sip_events`, mandates, demo orders | Postgres | Seed, then visitor actions | Facts query, pages |
 | Four explainers, advice-phrase list | Repo | Authors, through Git | Prompt builder, quality check |
 | Golden set and 16 eval cases | Repo | Authors, through Git | Eval runner in CI |

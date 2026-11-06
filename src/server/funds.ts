@@ -3,12 +3,13 @@
 // worth; only the fund page's return calculator estimates a value, from a rate the investor chooses, never the
 // fund's past return.
 import type { Db } from '../db/client';
-import { dayMonthYear, monthYear, ordinal, percent, pricesAsOf } from '../pipeline/chunking/format';
+import { dayMonthYear, monthYear, percent, pricesAsOf } from '../pipeline/chunking/format';
 import { inr } from './money';
 import { sipSchedule } from '../pipeline/chunking/schedule';
 import { addMonths, firstDueDate, monthStart } from '../pipeline/loading/dates';
 import { loadMarket } from '../pipeline/loading/raw';
 import { logEvent, tooltipDismissed } from './events';
+import { goalGap, type GoalGap } from './goal-gap';
 import { demoBalance } from './shell';
 import { GOAL_KINDS, GOAL_NAME_MAX, goalChoices, insertGoal, oneTimeGoal, parseGoal, TARGET_MAX, TARGET_MIN } from './sip-actions';
 import { MAX_AMOUNT } from './sip';
@@ -38,7 +39,7 @@ const DEFAULT_AMOUNT = 1000;
 /** A made-up mandate for everyone: never a real bank or account number. */
 export const DEMO_MANDATE = 'Pay via mandate · Demo Bank ····0000';
 
-/** Every fund with the latest NAV this visitor sees (their demo market falls included), and the NAV 3 years before it. */
+/** Every fund with the latest NAV this visitor sees, and the NAV 3 years before it. */
 async function funds(db: Db, investorId: string): Promise<FundRow[]> {
   return (
     await db.query<FundRow>(
@@ -194,7 +195,7 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
       { label: 'Exit load', value: fund.exit_load_text },
       { label: 'Expense ratio', value: `${Number(fund.expense_ratio).toFixed(2)}%` },
     ],
-    /** [date, NAV] from the oldest: weekly before the last 30 months, then daily, then any demo market-fall days. */
+    /** [date, NAV] from the oldest: weekly before the last 30 months, then daily. */
     chart: history.rows.map((r) => [r.d, Number(r.nav)] as [string, number]),
     /** In Mutual Funds -> Watchlist. */
     watched: watching.rows.length > 0,
@@ -204,8 +205,11 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
       amountRange: `From ${inr(fund.min_sip)} to ${inr(MAX_AMOUNT)}`,
       defaultAmount: Math.max(DEFAULT_AMOUNT, fund.min_sip),
       quickAdd: QUICK_ADD.map((value) => ({ value, label: `+${inr(value)}` })),
-      days: Array.from({ length: 28 }, (_, i) => ({ value: i + 1, label: `Monthly on ${ordinal(i + 1)}` })),
+      /** The days a SIP can be on, each with the next instalment it would give. */
+      days: Array.from({ length: 28 }, (_, i) => ({ value: i + 1, next: dayMonthYear(nextAfterFirst(today, i + 1)) })),
       defaultDay: Math.min(Number(today.slice(8, 10)), 28),
+      /** Paid when the SIP starts: the demo date. */
+      firstInstalment: dayMonthYear(today),
       mandate: DEMO_MANDATE,
       balance: `Pay from demo balance · ${inr(balance)}`,
       goalStep: goalStepOptions(today, choices),
@@ -213,6 +217,12 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
       showGoalTip: !tipDone,
     },
   };
+}
+
+/** The instalment after the first, from the same schedule the SIP will have once started today on this day. */
+function nextAfterFirst(today: string, day: number): string {
+  const paid = [{ due: firstDueDate(today, day), paidOn: today, amount: 1 }];
+  return sipSchedule({ startedOn: today, dayOfMonth: day, today, amount: 1, stopped: false, goalMonth: null, paid, marked: [] }).nextDue!;
 }
 
 /** Mutual Funds -> Watchlist: the funds the investor added from a fund page, the latest first. */
@@ -307,22 +317,24 @@ export async function investOnce(
   return { status: 200, message: `${inr(amount)} invested in ${fund.name}${forGoal} at ${nav(fund.nav)} a unit. Demo order, no real money.` };
 }
 
-export type GoalPreview = { status: 200; instalments: number; plannedPutIn: number; putInTotal: string; line: string } | { status: 400 | 404; error: string };
+export type GoalPreview =
+  | { status: 200; instalments: number; plannedPutIn: number; putInTotal: string; line: string; gap: GoalGap | null }
+  | { status: 400 | 404; error: string };
 
 /**
  * GET /api/goal-preview: "60 x ₹2,000 = ₹1,20,000 put in by Oct 2031. That is what you put in,
  * not what it will be worth." (spec §2A). Counts the due dates from the first instalment to the target month.
  */
-export async function goalPreview(db: Db, q: { fundId: number; amount: number; day: number; targetMonth: string }, today: string): Promise<GoalPreview> {
+export async function goalPreview(db: Db, q: { fundId: number; amount: number; day: number; targetMonth: string; target?: number | null }, today: string): Promise<GoalPreview> {
   const [fund] = (await db.query<{ min_sip: number }>('SELECT min_sip FROM funds WHERE id = $1', [Number.isInteger(q.fundId) ? q.fundId : 0])).rows;
   if (!fund) return { status: 404, error: 'We could not find that fund.' };
   const checked = checkSip(q.amount, q.day, fund.min_sip);
   if (checked) return checked;
   const parsed = parseGoal({ kind: 'custom', name: 'preview', targetMonth: q.targetMonth }, { today, firstDue: firstDueDate(today, q.day) });
   if (!parsed.ok) return { status: 400, error: parsed.error };
-  const target = parsed.goal!.target!;
+  const goalMonth = parsed.goal!.target!;
   // The same schedule the SIP will have once started, with nothing paid yet.
-  const plan = sipSchedule({ startedOn: today, dayOfMonth: q.day, today, amount: q.amount, stopped: false, goalMonth: target, paid: [], marked: [] });
+  const plan = sipSchedule({ startedOn: today, dayOfMonth: q.day, today, amount: q.amount, stopped: false, goalMonth, paid: [], marked: [] });
   const instalments = plan.plannedPayable!;
   const plannedPutIn = plan.plannedPutIn!;
   const putInTotal = inr(plannedPutIn);
@@ -332,14 +344,15 @@ export async function goalPreview(db: Db, q: { fundId: number; amount: number; d
     /** What will be put in by the target month (instalments x amount): never what it will be worth. */
     plannedPutIn,
     putInTotal,
-    line: `${instalments} x ${inr(q.amount)} = ${putInTotal} put in by ${monthYear(target)}. That is what you put in, not what it will be worth.`,
+    line: `${instalments} x ${inr(q.amount)} = ${putInTotal} put in by ${monthYear(goalMonth)}. That is what you put in, not what it will be worth.`,
+    gap: q.target ? goalGap({ plannedPutIn, putIn: plan.putIn, remaining: instalments, target: q.target, goalMonth }) : null,
   };
 }
 
 /**
  * POST /api/sips {fundId, amount, frequency, day, goal?, goalStep?, source?, cartItemId?}: start a monthly SIP
  * from today (PRD F2, brief phase 4). The first instalment is paid at once from the demo balance at the latest
- * NAV this visitor sees, as the SIP's first due date, so a market fall shows a dip straight away. Logs
+ * NAV this visitor sees, as the SIP's first due date. Logs
  * sip_started, and goal_saved or goal_skipped. A demo order: no real money moves.
  */
 export async function startSip(db: Db, investorId: string, input: unknown, today: string): Promise<{ status: 200; id: number } | { status: 400 | 404; error: string }> {

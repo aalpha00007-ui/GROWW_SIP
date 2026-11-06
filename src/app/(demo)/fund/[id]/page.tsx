@@ -22,7 +22,7 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="space-y-4">
-      <Link href="/funds" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:text-primary-hover">
+      <Link href="/funds" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary-hover">
         ← All mutual funds
       </Link>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">

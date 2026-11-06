@@ -27,7 +27,7 @@ export default async function AllFunds({ searchParams }: { searchParams: Promise
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       <div>
-        <Link href="/explore" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:text-primary-hover">
+        <Link href="/explore" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-2 hover:text-primary-hover">
           ← Explore
         </Link>
         <h1 className="text-2xl font-bold">All mutual funds</h1>

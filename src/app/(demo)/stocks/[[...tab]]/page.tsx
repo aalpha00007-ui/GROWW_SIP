@@ -123,7 +123,7 @@ async function Explore({ db, samples }: { db: ReturnType<typeof getDb>; samples:
                 <Link href={tool.href} className="flex min-h-12 items-center gap-3 py-3 text-[15px] text-ink hover:text-primary">
                   <Icon name={tool.icon} className="text-primary" />
                   <span className="flex-1">{tool.label}</span>
-                  {tool.pill && <span className="rounded-full bg-primary-soft px-2.5 py-0.5 text-xs font-semibold text-primary">{tool.pill}</span>}
+                  {tool.pill && <span className="rounded-full bg-primary-soft px-2.5 py-0.5 text-xs font-semibold text-ink">{tool.pill}</span>}
                   <Icon name="chevron" size={16} className="text-muted" />
                 </Link>
               </li>
@@ -144,7 +144,7 @@ async function StockTable({ db, today, section, samples }: { db: ReturnType<type
     </span>
   );
   const status = (s: string) => (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${s === 'Executed' ? 'bg-primary-soft text-primary' : s === 'Rejected' ? 'bg-loss-soft text-loss-strong' : 'bg-page text-muted'}`}>{s}</span>
+    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${s === 'Executed' ? 'bg-primary-soft text-ink' : s === 'Rejected' ? 'bg-loss-soft text-loss-strong' : 'bg-page text-muted'}`}>{s}</span>
   );
   const tables = {
     holdings: () => (

@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { BANNER_TEXT } from './banner';
-import { EMPTY_GOAL, GoalEditor, goalLabel, goalProblems, INR, MONTHS, type GoalDraft, type GoalEditorOptions } from './goal-editor';
+import { EMPTY_GOAL, GoalEditor, GoalGapNote, goalLabel, goalProblems, INR, MONTHS, type GoalDraft, type GoalEditorOptions, type GoalGapLines } from './goal-editor';
 
 export interface GoalStepOptions extends GoalEditorOptions {
   /** The investor's goals a one-time investment can be added to. */
@@ -37,7 +37,7 @@ const chip = (on: boolean) =>
 
 export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, options, initial, busy = false, error = null, onSave, onSkip, onClose }: Props) {
   const [goal, setGoal] = useState<GoalDraft>(initial);
-  const [count, setCount] = useState<{ instalments: number; plannedPutIn: number } | { error: string } | null>(null);
+  const [count, setCount] = useState<{ instalments: number; gap: GoalGapLines | null } | { error: string } | null>(null);
   const [pressed, setPressed] = useState<'save' | 'skip' | null>(null);
   const panel = useRef<HTMLDivElement>(null);
 
@@ -69,23 +69,23 @@ export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, option
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       const query = new URLSearchParams({ fundId: String(fundId), amount: String(amount), day: String(day), targetMonth: `${goal.year}-${goal.month}` });
+      if (goal.targetAmount && !problems.target) query.set('target', goal.targetAmount);
       const response = await fetch(`/api/goal-preview?${query}`, { signal: controller.signal }).catch(() => null);
-      const body = (await response?.json().catch(() => null)) as { instalments?: number; plannedPutIn?: number; error?: string } | null;
-      if (body?.instalments !== undefined) setCount({ instalments: body.instalments, plannedPutIn: body.plannedPutIn ?? body.instalments * amount });
+      const body = (await response?.json().catch(() => null)) as { instalments?: number; gap?: GoalGapLines | null; error?: string } | null;
+      if (body?.instalments !== undefined) setCount({ instalments: body.instalments, gap: body.gap ?? null });
       else if (body?.error) setCount({ error: body.error });
     }, 200);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [open, dated, once, problems.date, fundId, amount, day, goal.month, goal.year]);
+  }, [open, dated, once, problems.date, problems.target, fundId, amount, day, goal.month, goal.year, goal.targetAmount]);
 
   if (!open) return null;
   const valid = picked || (problems.ok && (once || (count !== null && 'instalments' in count)));
   // The plan next to the target: what will be put in, never what it will be worth. Saving is allowed either way.
-  const putIn = once ? amount : count && 'instalments' in count ? count.plannedPutIn : null;
-  const byWhen = dated ? `${MONTHS[Number(goal.month) - 1]} ${goal.year}` : '';
-  const showGap = !picked && problems.ok && target !== null && putIn !== null;
+  const gap = count && 'gap' in count ? count.gap : null;
+  const showGap = !picked && problems.ok && target !== null && (once || gap !== null);
   // Whole years to the goal for the Goal planner (1-40), counted from this month.
   const plannerYears = (() => {
     if (!dated) return 10;
@@ -144,7 +144,7 @@ export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, option
 
           <div aria-live="polite" className="rounded-lg bg-primary-soft px-4 py-3 text-sm">
             {once ? (
-              <p className="tabular font-semibold text-primary">
+              <p className="tabular font-semibold text-ink">
                 {picked
                   ? `₹${INR.format(amount)} one-time, ${goalLabel(goal, options).replace('For: ', 'for ')}`
                   : named && dated && !problems.date
@@ -152,21 +152,25 @@ export function GoalStep({ open, kind = 'sip', mode, fundId, amount, day, option
                     : 'Pick a goal to add this money to, or a new goal and a month.'}
               </p>
             ) : named && dated && count && 'instalments' in count ? (
-              <p className="tabular font-semibold text-primary">
+              <p className="tabular font-semibold text-ink">
                 ₹{INR.format(amount)} a month for {what} by {MONTHS[Number(goal.month) - 1]} {goal.year} · about {count.instalments} instalments
               </p>
             ) : count && 'error' in count ? (
               <p className="text-loss-strong">{count.error}</p>
             ) : (
-              <p className="text-primary">Pick a goal and a month to see how many instalments that is.</p>
+              <p className="text-ink">Pick a goal and a month to see how many instalments that is.</p>
             )}
             {showGap && (
               <div className="mt-2 space-y-1 border-t border-primary/20 pt-2">
-                <p className="tabular text-ink">
-                  {putIn >= target
-                    ? `You’ll put in ₹${INR.format(putIn)} ${once ? 'now' : `by ${byWhen}`}, which covers your ₹${INR.format(target)} target before any returns.`
-                    : `You’ll put in ₹${INR.format(putIn)} ${once ? 'now' : `by ${byWhen}`}. Your target is ₹${INR.format(target)}.`}
-                </p>
+                {gap ? (
+                  <GoalGapNote gap={gap} />
+                ) : (
+                  <p className="tabular text-ink">
+                    {amount >= target!
+                      ? `You’ll put in ₹${INR.format(amount)} now, which covers your ₹${INR.format(target!)} target before any returns.`
+                      : `You’ll put in ₹${INR.format(amount)} now. Your target is ₹${INR.format(target!)}.`}
+                  </p>
+                )}
                 <p className="text-xs text-muted">Returns can add to this or take away from it. They aren’t guaranteed.</p>
                 <a
                   href={`/calculators/goal?target=${target}&years=${plannerYears}`}

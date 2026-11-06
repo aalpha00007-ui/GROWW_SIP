@@ -12,7 +12,7 @@ export function GoalCard({ goal }: { goal: Card }) {
           <h3 className="text-base font-semibold">{goal.name}</h3>
           <p className="text-sm text-muted">{goal.timeToGo}</p>
         </div>
-        {goal.targetMonth && <span className="shrink-0 rounded-full bg-primary-soft px-2.5 py-1 text-sm font-medium text-primary">{goal.targetMonth}</span>}
+        {goal.targetMonth && <span className="shrink-0 rounded-full bg-primary-soft px-2.5 py-1 text-sm font-medium text-ink">{goal.targetMonth}</span>}
       </header>
 
       <div className="mt-4">

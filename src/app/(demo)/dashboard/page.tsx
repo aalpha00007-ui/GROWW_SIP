@@ -1,6 +1,6 @@
 // Mutual Funds -> Dashboard (PRD F4, F12): the old Home. Left: "Your goals" first (the case study's main
 // feature), with "What does this dip mean for my goal?", then every holding with the goal it is for. Right:
-// Your investments, the demo control and Coming up. One column below 1024px, the right column under the left.
+// Your investments and Coming up. One column below 1024px, the right column under the left.
 // The page prints what homeView and investmentsView format.
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -8,7 +8,6 @@ import { GoalCard } from '@/components/goal-card';
 import { Icon } from '@/components/icons';
 import { InvestmentsCard } from '@/components/investments-card';
 import { LogEvent } from '@/components/log-event';
-import { MarketFallButton } from '@/components/market-fall-button';
 import { SectionTitle } from '@/components/section-title';
 import { Signed } from '@/components/signed';
 import { getDb } from '@/db/pool';
@@ -30,7 +29,7 @@ export default async function Dashboard() {
       <div className="@container space-y-8">
         {/* The dip seen next to its goal: the case study's main moment. */}
         {home.goals.some((g) => g.change?.direction === 'down') && <LogEvent event="dip_context_viewed" where="dashboard" />}
-        <p className="text-sm text-muted">{[home.demoDate, home.asOf, home.lastPayment, home.demoNote].filter(Boolean).join(' · ')}</p>
+        <p className="text-sm text-muted">{[home.demoDate, home.asOf, home.lastPayment].filter(Boolean).join(' · ')}</p>
         <section>
           <SectionTitle id="your-goals" title="Your goals" link={{ label: 'All SIPs', href: '/sips' }} />
           {home.goals.length > 0 ? (
@@ -68,7 +67,7 @@ export default async function Dashboard() {
                     <span className="min-w-0 flex-1">
                       <span className="block font-medium text-strong">{h.fund}</span>
                       <span className="block text-sm text-muted">{h.kind}</span>
-                      <span className={`block text-sm font-medium ${h.goal ? 'text-primary' : 'text-muted'}`}>{h.goal ?? 'No goal yet'}</span>
+                      <span className={`block text-sm font-medium text-ink`}>{h.goal ?? 'No goal yet'}</span>
                     </span>
                     <span className="tabular shrink-0 text-right">
                       <span className="block font-semibold text-strong">{h.value}</span>
@@ -107,7 +106,6 @@ export default async function Dashboard() {
 
       <div className="space-y-6">
         <InvestmentsCard view={investments} />
-        <MarketFallButton />
         {home.comingUp.length > 0 && (
           <section>
             <SectionTitle title="Coming up" />

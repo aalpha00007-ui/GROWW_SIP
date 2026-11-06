@@ -15,11 +15,32 @@ export async function startClean(page: Page, persona = 'kabir') {
   expect(response.ok()).toBe(true);
 }
 
+let accounts = 0;
+
+/**
+ * A real account, signed in. A persona copy can't sign back in, so login tests need one. Each comes from its own made-up
+ * address: the suite makes more than the 5 sign-ups an hour one network is allowed, and that limit is real, so it stays.
+ */
+export async function signUp(page: Page): Promise<{ username: string; pin: string }> {
+  accounts += 1;
+  const username = `otter-${Date.now().toString(36).slice(-6)}-${accounts}`;
+  const pin = '4826';
+  const response = await page.request.post('/api/auth/signup', { data: { username, pin }, headers: { 'x-forwarded-for': `203.0.113.${accounts}` } });
+  expect(response.ok(), 'The test account must be created').toBe(true);
+  return { username, pin };
+}
+
 /** Opens the fund page's order card with this amount and SIP date. */
 export async function openFund(page: Page, { fund = 1, amount, day }: { fund?: number; amount?: number; day?: number } = {}) {
   await page.goto(`/fund/${fund}`);
   if (amount !== undefined) await page.getByLabel('SIP amount').fill(String(amount));
-  if (day !== undefined) await page.getByLabel('SIP date').selectOption(String(day));
+  if (day !== undefined) await pickDay(page, day);
+}
+
+/** One day on the SIP date grid: the radio is hidden, so tap the square a person would. */
+export async function pickDay(page: Page, day: number) {
+  await page.locator('label').filter({ has: page.getByRole('radio', { name: `Day ${day}`, exact: true }) }).click();
+  await expect(page.getByRole('radio', { name: `Day ${day}`, exact: true })).toBeChecked();
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

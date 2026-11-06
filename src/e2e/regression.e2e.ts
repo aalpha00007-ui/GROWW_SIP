@@ -1,6 +1,6 @@
 // The regression suite: every journey the QA review covered, on the real production build (npm run e2e:regression).
-import { expect, test, type Page } from '@playwright/test';
-import { balance, changeAmount, DEMO_DAY, openFund, pause, saveGoalStep, setClock, skipNext, startClean, startSipNoGoal, startSipWithGoal } from './regression-helpers';
+import { expect, test } from '@playwright/test';
+import { balance, changeAmount, DEMO_DAY, openFund, pause, pickDay, setClock, signUp, skipNext, startClean, startSipNoGoal, startSipWithGoal } from './regression-helpers';
 
 test.beforeEach(async ({ page, request }) => {
   await setClock(request, DEMO_DAY);
@@ -206,17 +206,8 @@ test.describe('Changing a SIP', () => {
 });
 
 test.describe('Goals', () => {
-  /** A real account: a persona copy can't sign back in. */
-  async function account(page: Page) {
-    const username = `goal-otter-${Date.now().toString(36).slice(-6)}`;
-    const pin = '4826';
-    const made = await page.request.post('/api/auth/signup', { data: { username, pin } });
-    expect(made.ok()).toBe(true);
-    return { username, pin };
-  }
-
   test('edits keep what was saved, and survive logout and login', async ({ page }) => {
-    const { username, pin } = await account(page);
+    const { username, pin } = await signUp(page);
     const id = await startSipWithGoal(page, { amount: 1000, day: 5, month: '2031-03', target: 500_000 });
 
     await page.goto(`/sips/${id}/goal`);
@@ -343,7 +334,7 @@ test.describe('Dates', () => {
     await expect(page.getByText(/the demo doesn't collect instalments on its own/)).toBeVisible();
   });
 
-  test('the price date and the activity date are told apart, and a fall lands on the demo date', async ({ page }) => {
+  test('the price date and the activity date are told apart', async ({ page }) => {
     await startSipWithGoal(page, { amount: 1000, day: 5, month: '2027-11' });
     await expect(page.getByText('Fund prices as of 27 Oct 2026 · demo price series')).toBeVisible();
     await expect(page.getByText('Last payment 5 Nov 2026')).toBeVisible();
@@ -351,10 +342,6 @@ test.describe('Dates', () => {
 
     await page.goto('/dashboard');
     await expect(page.getByText(/Demo date: 5 Nov 2026 · Fund prices as of 27 Oct 2026 · demo price series · Last payment 5 Nov 2026/)).toBeVisible();
-    await page.getByRole('button', { name: 'Simulate a market fall' }).click();
-    await expect(page.getByText(/on the demo date, 5 Nov 2026/)).toBeVisible();
-    await expect(page.getByText(/Fund prices as of 5 Nov 2026 · demo price series · Last payment 5 Nov 2026 · Includes 1 simulated market fall/)).toBeVisible();
-    await expect(page.getByRole('link', { name: 'What does this dip mean for my goal?' })).toBeVisible();
   });
 });
 
@@ -483,6 +470,201 @@ test.describe('When the AI is unavailable', () => {
     await page.getByRole('button', { name: 'Within a year' }).click();
     await go.click();
     await expect(page.getByText('Quality check: AI unavailable → showing facts only')).toBeVisible();
+  });
+});
+
+test.describe('The SIP date grid', () => {
+  test('picking a day highlights it and says when the instalments fall', async ({ page }) => {
+    await openFund(page, { amount: 1000 });
+    await expect(page.getByRole('radio', { name: 'Day 5', exact: true })).toBeChecked();
+    await expect(page.getByText('First instalment: 5 Nov 2026 · Next instalment: 5 Dec 2026')).toBeVisible();
+    await pickDay(page, 15);
+    await expect(page.getByText('First instalment: 5 Nov 2026 · Next instalment: 15 Dec 2026')).toBeVisible();
+    await expect(page.getByRole('radio', { name: 'Day 5', exact: true })).not.toBeChecked();
+    // Earlier in the month than today: the first instalment covers next month's date.
+    await pickDay(page, 3);
+    await expect(page.getByText('First instalment: 5 Nov 2026 · Next instalment: 3 Jan 2027')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Start SIP' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Skip for now' }).click();
+    await expect(page.getByRole('heading', { name: 'SIP started' })).toBeVisible();
+    await expect(page.getByText('3 Jan 2027')).toBeVisible();
+  });
+
+  test('29, 30 and 31 are shown but can not be picked, and the note says why', async ({ page }) => {
+    await openFund(page, { amount: 1000 });
+    for (const day of [29, 30, 31]) await expect(page.getByRole('radio', { name: `Day ${day}, not available` })).toBeDisabled();
+    await expect(page.getByText('Not available, so every month has this date')).toBeVisible();
+    await page.locator('label', { hasText: /^30$/ }).click({ force: true });
+    await expect(page.getByRole('radio', { name: 'Day 5', exact: true })).toBeChecked();
+  });
+
+  test('works with the keyboard, and skips the days that can not be picked', async ({ page }) => {
+    await openFund(page, { amount: 1000 });
+    const five = page.getByRole('radio', { name: 'Day 5', exact: true });
+    await five.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByRole('radio', { name: 'Day 6', exact: true })).toBeChecked();
+    await expect(page.getByText('Next instalment: 6 Dec 2026')).toBeVisible();
+    await pickDay(page, 28);
+    await page.getByRole('radio', { name: 'Day 28', exact: true }).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByRole('radio', { name: 'Day 1', exact: true })).toBeChecked();
+  });
+
+  test('fits a 375px screen with no sideways scroll', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    await openFund(page, { amount: 1000 });
+    const grid = await page.locator('fieldset', { hasText: 'SIP date' }).boundingBox();
+    expect(grid!.x + grid!.width).toBeLessThanOrEqual(375);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+    // Big enough for a thumb.
+    const square = await page.locator('label', { hasText: /^14$/ }).boundingBox();
+    expect(square!.height).toBeGreaterThanOrEqual(44);
+  });
+
+  test('a February start shows the real next date', async ({ page, request }) => {
+    await setClock(request, '2027-02-01');
+    await startClean(page);
+    await openFund(page, { amount: 1000, day: 1 });
+    await expect(page.getByText('First instalment: 1 Feb 2027 · Next instalment: 1 Mar 2027')).toBeVisible();
+  });
+});
+
+test.describe('The gap to the target', () => {
+  const short = "Your planned instalments add up to ₹13,000 by Nov 2027. That's ₹37,000 short of your ₹50,000 target (instalments only, no returns included).";
+  const covered = 'Your planned instalments add up to ₹13,000, which covers your ₹5,000 target (instalments only, no returns included).';
+
+  test('goal setup: short, covered, live as things change, and hidden with no target', async ({ page }) => {
+    await openFund(page, { amount: 1000, day: 5 });
+    await page.getByRole('button', { name: 'Start SIP' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Retirement' }).click();
+    await dialog.getByLabel('Month').selectOption({ label: 'Nov' });
+    await dialog.getByLabel('Year').selectOption('2027');
+    await expect(dialog.getByText(/about 13 instalments/)).toBeVisible();
+    await expect(dialog.getByText(/planned instalments/)).toHaveCount(0);
+
+    await dialog.getByLabel('Target amount').fill('50000');
+    await expect(dialog.getByText(short)).toBeVisible();
+    await expect(dialog.getByText('To reach ₹50,000 from instalments alone, the monthly amount would be about ₹3,847.')).toBeVisible();
+
+    await dialog.getByLabel('Target amount').fill('5000');
+    await expect(dialog.getByText(covered)).toBeVisible();
+
+    await dialog.getByLabel('Year').selectOption('2028');
+    await expect(dialog.getByText(/add up to ₹25,000, which covers your ₹5,000 target/)).toBeVisible();
+
+    await dialog.getByLabel('Target amount').fill('');
+    await expect(dialog.getByText(/planned instalments/)).toHaveCount(0);
+    await expect(dialog.getByText(/you should|increase/i)).toHaveCount(0);
+  });
+
+  test('Edit goal: the same message, leaving out scheduled skips', async ({ page }) => {
+    const id = await startSipWithGoal(page, { amount: 1000, day: 5, month: '2027-11', target: 50_000 });
+    await page.goto(`/sips/${id}/goal`);
+    await expect(page.getByText(short)).toBeVisible();
+    await expect(page.getByText('To reach ₹50,000 from instalments alone, the monthly amount would be about ₹4,084.')).toBeVisible();
+
+    await page.getByLabel('Target amount').fill('5000');
+    await expect(page.getByText(covered)).toBeVisible();
+
+    await page.goto(`/sips/${id}`);
+    await skipNext(page);
+    await page.goto(`/sips/${id}/goal`);
+    await expect(page.getByText(/add up to ₹12,000 by Nov 2027/)).toBeVisible();
+
+    await page.getByLabel('Target amount').fill('');
+    await expect(page.getByText(/planned instalments/)).toHaveCount(0);
+  });
+});
+
+test('editing the goal amount reaches every screen, survives login, and can be cleared', async ({ page }) => {
+  const { username, pin } = await signUp(page);
+  const id = await startSipWithGoal(page, { amount: 1000, day: 5, month: '2031-03', target: 500_000 });
+  await page.goto(`/sips/${id}/goal`);
+  await expect(page.getByLabel('Target amount')).toHaveValue('5,00,000');
+  await page.getByLabel('Target amount').fill('800000');
+  await page.getByRole('button', { name: 'Save goal' }).click();
+  await expect(page.getByText('Goal saved.')).toBeVisible();
+  await expect(page.getByText(/by Mar 2031 · \d+ instalments to go · target ₹8,00,000/)).toBeVisible();
+  await page.goto('/dashboard');
+  await expect(page.getByText(/of your ₹8,00,000 target/)).toBeVisible();
+
+  await page.request.post('/api/auth/logout');
+  expect((await page.request.post('/api/auth/login', { data: { username, pin } })).ok()).toBe(true);
+  await page.goto('/dashboard');
+  await expect(page.getByText(/of your ₹8,00,000 target/)).toBeVisible();
+  await page.goto(`/sips/${id}`);
+  await expect(page.getByText(/target ₹8,00,000/)).toBeVisible();
+
+  await page.goto(`/sips/${id}/goal`);
+  await expect(page.getByLabel('Target amount')).toHaveValue('8,00,000');
+  await page.getByLabel('Target amount').fill('');
+  await page.getByRole('button', { name: 'Save goal' }).click();
+  await expect(page.getByText('Goal saved.')).toBeVisible();
+  await expect(page.getByText(/target ₹/)).toHaveCount(0);
+  await expect(page.getByText(/by Mar 2031 · \d+ instalments to go/)).toBeVisible();
+});
+
+test.describe('The demo control is gone', () => {
+  test('from every screen, the menu and the API', async ({ page }) => {
+    for (const path of ['/explore', '/dashboard']) {
+      await page.goto(path);
+      await expect(page.getByRole('button', { name: /Simulate/ })).toHaveCount(0);
+      await expect(page.getByText(/demo control/i)).toHaveCount(0);
+    }
+    await page.getByRole('button', { name: /Notifications/ }).click();
+    await expect(page.getByText(/market fall to see|Demo market fell|Try a market fall/)).toHaveCount(0);
+    const response = await page.request.post('/api/demo/market-fall');
+    expect(response.status()).toBe(404);
+  });
+
+  test("Riya's seeded dip is still there, and its explainer still works", async ({ page }) => {
+    await startClean(page, 'riya');
+    await page.goto('/dashboard');
+    await expect(page.getByText(/simulated/i)).toHaveCount(0);
+    await page.getByRole('link', { name: 'What does this dip mean for my goal?' }).first().click();
+    await expect(page).toHaveURL(/explain=dip/);
+    // No AI on this server, so the facts-only card: the feature itself still runs.
+    await expect(page.getByText('Quality check: AI unavailable → showing facts only')).toBeVisible();
+    await expect(page.getByText('Worst fall since you started:')).toBeVisible();
+  });
+});
+
+test.describe('Text colour', () => {
+  const black = 'rgb(0, 0, 0)';
+
+  test('main text is black everywhere it was tinted', async ({ page }) => {
+    await startSipWithGoal(page, { amount: 1000, day: 5, month: '2027-11' });
+    const colour = (selector: string) => page.locator(selector).first().evaluate((e) => getComputedStyle(e).color);
+    expect(await page.evaluate(() => getComputedStyle(document.body).color)).toBe(black);
+    expect(await colour('h1')).toBe(black);
+    expect(await colour('.text-muted')).toBe(black);
+    expect(await colour('[role="note"]')).toBe(black);
+    await expect(page.getByText(/This SIP is for/)).toHaveCSS('color', black);
+    await page.goto('/dashboard');
+    await expect(page.getByText('by Nov 2027', { exact: true })).toHaveCSS('color', black);
+  });
+
+  test('gains and losses keep their colour and arrows, buttons stay white, links stay marked', async ({ page }) => {
+    await startClean(page, 'riya');
+    await page.goto('/dashboard');
+    const loss = page.getByText(/^▼/).first();
+    await expect(loss).toBeVisible();
+    await page.goto('/explore');
+    const signed = page.locator('.text-gain, .text-loss').first();
+    await expect(signed).not.toHaveCSS('color', black);
+    await page.goto('/funds');
+    await expect(page.getByRole('link', { name: '← Explore' })).toHaveCSS('text-decoration-line', 'underline');
+    await page.goto('/fund/1');
+    await expect(page.getByRole('button', { name: 'Start SIP' })).toHaveCSS('color', 'rgb(255, 255, 255)');
+  });
+
+  test('the active product tab is marked by more than colour', async ({ page }) => {
+    await page.goto('/explore');
+    const tab = page.getByRole('navigation', { name: 'Products' }).first().getByRole('link', { name: 'Mutual Funds' });
+    await expect(tab).toHaveCSS('text-decoration-line', 'underline');
   });
 });
 

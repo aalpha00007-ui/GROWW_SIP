@@ -81,8 +81,8 @@ export async function investmentsView(db: Db, investorId: string): Promise<Inves
   const value = (f: Flow) => Number(f.units) * latest.get(f.fund_id)!;
   const current = sum(flows, value);
   const invested = sum(flows, (f) => f.amount);
-  // Units held before the latest NAV day move from the previous NAV. Units bought on that day (a new SIP's first
-  // instalment is bought at the last NAV before a demo fall added for today) move from the price they were bought at.
+  // Units held before the latest NAV day move from the previous NAV. Units bought on that day move from the price they
+  // were bought at.
   const oneDay = sum(flows, (f) => {
     const now = latest.get(f.fund_id)!;
     const before = f.on_date < latestDate.get(f.fund_id)! ? (previous.get(f.fund_id) ?? now) : Number(f.nav);

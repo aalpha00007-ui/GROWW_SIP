@@ -101,13 +101,13 @@ All three apps offer the mechanics (skip, pause, change), but on the SIP page, b
 | F9 | Safe fallback | If the AI is unsure or a check fails: "I couldn't give a reliable answer here." plus a facts table, the options and SEBI and AMFI links | Triggered when confidence < 0.6, any check fails, Mistral times out (12 s) or errors; no AI text shown | W7 |
 | F10 | Declined card | Asking for a fund pick or a return prediction gets a polite, facts-only decline with the official links | Triggered when asks_for_advice is true; fixed text, no AI-written words | W7 |
 | F11 | Quality page | /quality shows the eval result for the live version, plus live counts of answers, fallbacks and declines | Reads the eval run whose commit equals RENDER_GIT_COMMIT; pass rates computed, not stored | W8 |
-| F12 | Demo market fall | "Simulate a market fall" on Home adds a -6% day so testers can create the moment | Adds NAV facts labelled demo; affects only that visitor's data | W4 |
+| F12 | Removed | The demo control is gone: Riya's seeded SIP shows the dip | - | - |
 | F13 | App shell with Groww's product set | Bottom tabs Home, Explore, SIPs, Portfolio, Profile; Explore has product tabs (Stocks, Mutual funds, ETFs, IPO, Gold & Silver, Bonds, US stocks, F&O, More); every Groww product appears (Appendix E) | One shared template for every asset: list › detail page › order box; Simple products allow one demo order with made-up prices; Placeholders open "Not in this prototype" and never fake a transaction | W9, W10 |
 
 ### 3.2 User journey (the mentor task follows it)
 1. **Start.** Welcome, tick the box, start as Riya (F1).
 2. **Set the goal.** Explore › Mutual funds › Banyan Flexi Cap Fund › SIP box: Rs 2,000, monthly on 2nd, pick Home and 2031 › Start SIP (F2). If they chose "Not sure yet", the success screen asks once more (F3).
-3. **See it.** Home shows the goal card (F4). Tap "Simulate a market fall" (F12); the card turns red; tap "What does this dip mean for my goal?" (F6).
+3. **See it.** Home shows the goal card (F4). Riya's card is already red; tap "What does this dip mean for my goal?" (F6).
 4. **Manage.** SIPs › the SIP: goal header, skip, change amount or date, step up, pause (F5).
 5. **Recall it at the exit.** Stop SIP › Before you stop: the goal card, the reason, the AI answer with the quality strip, the options (F7, F8). Choose any option; Stop anyway completes in one tap.
 6. **Trust.** /quality shows the eval result for the live version (F11).
@@ -330,7 +330,6 @@ W4 Home: goal card (placement D)
 | |  for my goal?]             | |
 | +----------------------------+ |
 | ! 1 SIP has no goal · Add goal |
-| (demo) Simulate a market fall  |
 | Home Explore SIPs Portf. Prof. |
 +--------------------------------+
 ```
