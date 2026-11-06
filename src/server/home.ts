@@ -61,7 +61,7 @@ export interface HomeView {
   summary: { value: string; putIn: string; change: Change | null; sipCount: string } | null;
   goals: GoalCard[];
   noGoal: { text: string; funds: string[]; href: string } | null;
-  comingUp: { sipId: number; date: string; fund: string; amount: string }[];
+  comingUp: { sipId: number; date: string; due: string; fund: string; amount: string }[];
   /** For Products & Tools: SIPs not stopped, and goals with a SIP. */
   activeSips: number;
   goalCount: number;
@@ -143,7 +143,7 @@ export async function homeView(db: Db, investorId: string, today: string): Promi
     comingUp: sips
       .flatMap(({ facts }) => (facts.next_due_date ? [{ facts, due: facts.next_due_date }] : []))
       .sort((a, b) => a.due.localeCompare(b.due) || a.facts.sip_id - b.facts.sip_id)
-      .map(({ facts, due }) => ({ sipId: facts.sip_id, date: dayMonthYear(due), fund: facts.fund_name, amount: inr(facts.amount) })),
+      .map(({ facts, due }) => ({ sipId: facts.sip_id, date: dayMonthYear(due), due, fund: facts.fund_name, amount: inr(facts.amount) })),
     activeSips: sips.filter((s) => !s.stopped).length,
     goalCount: byGoal.size,
   };

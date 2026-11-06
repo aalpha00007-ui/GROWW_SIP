@@ -19,6 +19,7 @@ export interface SipState {
   status: SipStatus;
   stoppedOn: string | null;
   minSip: number;
+  fundId: number;
   /** The one source of every count, date and history row (pipeline/chunking/schedule.ts). */
   schedule: SipSchedule;
 }
@@ -30,8 +31,8 @@ export async function loadSip(db: Db, investorId: string, sipId: number, today: 
   if (lookup.status === 'not_found') return null;
 
   const [row] = (
-    await db.query<{ min_sip: number; goal_kind: string | null }>(
-      `SELECT f.min_sip, g.kind AS goal_kind
+    await db.query<{ min_sip: number; goal_kind: string | null; fund_id: number }>(
+      `SELECT f.min_sip, g.kind AS goal_kind, f.id AS fund_id
        FROM sips s JOIN funds f ON f.id = s.fund_id LEFT JOIN goals g ON g.id = s.goal_id
        WHERE s.id = $1 AND s.investor_id = $2`,
       [sipId, investorId],
@@ -45,12 +46,14 @@ export async function loadSip(db: Db, investorId: string, sipId: number, today: 
     status: lookup.status === 'stopped' ? 'stopped' : lookup.schedule.paused ? 'paused' : 'active',
     stoppedOn: lookup.stoppedOn,
     minSip: row.min_sip,
+    fundId: row.fund_id,
     schedule: lookup.schedule,
   };
 }
 
 export interface SipView {
   id: number;
+  fundId: number;
   fund: string;
   category: string;
   /** '₹2,000 a month' */
@@ -85,6 +88,12 @@ export interface SipView {
   explainDip: boolean;
   /** 'Skip the 2 Nov 2026 instalment' */
   skipLabel: string | null;
+  /** 'Skip the 2 Nov 2026 instalment? It won't be taken later.': the confirm step. */
+  skipConfirm: string | null;
+  /** Skips ahead that Undo can take back; a paused date comes back with Resume now instead. */
+  undoable: { due: string; date: string }[];
+  /** 'If you resume now, the next instalment is on 2 Dec 2026.'; null unless paused. */
+  resumeNote: string | null;
   pauseChoices: { count: number; label: string }[];
   /**
    * Under each option at Before you stop: what it does, in one fixed line from the approved explainers
@@ -128,6 +137,7 @@ export function sipView(state: SipState, today: string): SipView {
 
   return {
     id: facts.sip_id,
+    fundId: state.fundId,
     fund: facts.fund_name,
     category: facts.fund_category,
     amount: `${inr(facts.amount)} a month`,
@@ -151,6 +161,12 @@ export function sipView(state: SipState, today: string): SipView {
     controls: { skip: active && ahead.length > 0, pause: active && ahead.length > 0, amount: state.status !== 'stopped', stop: state.status !== 'stopped' },
     explainDip: state.status !== 'stopped' && facts.instalments_paid > 0 && Math.round(facts.current_value) < facts.invested,
     skipLabel: ahead[0] ? `Skip the ${dayMonthYear(ahead[0])} instalment` : null,
+    skipConfirm: ahead[0] ? `Skip the ${dayMonthYear(ahead[0])} instalment? It won't be taken later. You can undo this until that date.` : null,
+    undoable: schedule.rows
+      .filter((r) => r.state === 'scheduled_skip' && !r.paused)
+      .reverse()
+      .map((r) => ({ due: r.due, date: dayMonthYear(r.due) })),
+    resumeNote: schedule.resumeDate ? `If you resume now, the next instalment is on ${dayMonthYear(schedule.resumeDate)}.` : null,
     pauseChoices: ahead.map((date, i) => ({
       count: i + 1,
       label: i === 0 ? `1 instalment (${dayMonthYear(date)})` : `${i + 1} instalments (${dayMonthYear(ahead[0])} to ${dayMonthYear(date)})`,

@@ -8,6 +8,7 @@ import { LogOutButton } from './account-actions';
 import { Avatar } from './avatar';
 import { Dropdown } from './dropdown';
 import { Icon, type IconName } from './icons';
+import { postJson } from './post-json';
 
 export function SearchBox({ suggestions }: { suggestions: ShellData['suggestions'] }) {
   const router = useRouter();
@@ -88,26 +89,38 @@ export function SearchBox({ suggestions }: { suggestions: ShellData['suggestions
 }
 
 export function Bell({ notifications }: { notifications: ShellData['notifications'] }) {
-  const [read, setRead] = useState(false);
-  const unread = read ? 0 : 3;
+  // Saved on the server when the panel opens, so the badge stays gone after moving around or signing in again.
+  // `seen` covers the moment before the next page load brings the saved state back.
+  const [seen, setSeen] = useState<ReadonlySet<string>>(new Set());
+  const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
+  const unread = notifications.filter((n) => !n.read && !seen.has(n.id));
+
+  function open() {
+    if (unread.length === 0) return setFresh(new Set());
+    const ids = unread.map((n) => n.id);
+    setFresh(new Set(ids));
+    setSeen(new Set([...seen, ...ids]));
+    void postJson('/api/notifications/read', { ids });
+  }
+
   return (
     <Dropdown
-      label={unread ? `Notifications, ${unread} unread` : 'Notifications'}
-      onOpen={() => setRead(true)}
+      label={unread.length ? `Notifications, ${unread.length} unread` : 'Notifications'}
+      onOpen={open}
       className="relative grid size-11 place-items-center rounded-full text-strong hover:bg-hover-neutral"
       button={
         <>
           <Icon name="bell" />
-          {unread > 0 && <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-loss" aria-hidden="true" />}
+          {unread.length > 0 && <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-loss" aria-hidden="true" />}
         </>
       }
     >
       <p className="border-b border-line px-4 py-3 font-semibold text-strong">Notifications · demo</p>
       <ul className="max-h-96 overflow-y-auto">
-        {notifications.map((n, i) => (
+        {notifications.map((n) => (
           <li key={n.id} className="border-b border-line last:border-0">
             <Link href={n.href} className="flex gap-3 px-4 py-3 hover:bg-hover-neutral">
-              <span className={`mt-1.5 size-2 shrink-0 rounded-full ${i < 3 && !read ? 'bg-primary' : 'bg-transparent'}`} aria-hidden="true" />
+              <span className={`mt-1.5 size-2 shrink-0 rounded-full ${fresh.has(n.id) ? 'bg-primary' : 'bg-transparent'}`} aria-hidden="true" />
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-strong">{n.title}</span>
                 <span className="block text-sm text-ink">{n.text}</span>
@@ -127,7 +140,7 @@ export function AvatarMenu({ name, handle, balance }: { name: string; handle: st
     { label: 'My goals', href: '/dashboard#your-goals', icon: 'goals' },
     { label: 'All orders', href: '/orders', icon: 'orders' },
     { label: 'SIPs', href: '/sips', icon: 'sips' },
-    { label: 'Reports (demo statement)', href: '/reports', icon: 'report' },
+    { label: 'Reports · coming later', href: '/reports', icon: 'report' },
     { label: 'Help & about this prototype', href: '/help', icon: 'help' },
     { label: 'Switch demo persona', href: '/#personas', icon: 'switch' },
   ];

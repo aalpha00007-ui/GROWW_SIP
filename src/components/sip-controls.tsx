@@ -6,7 +6,7 @@ import { useState } from 'react';
 import type { SipView } from '@/server/sip';
 import { postJson } from './post-json';
 
-type Props = Pick<SipView, 'id' | 'controls' | 'skipLabel' | 'pauseChoices' | 'amountNow' | 'minAmount' | 'maxAmount' | 'amountRange'> & {
+type Props = Pick<SipView, 'id' | 'controls' | 'status' | 'skipLabel' | 'skipConfirm' | 'undoable' | 'resumeNote' | 'pauseChoices' | 'amountNow' | 'minAmount' | 'maxAmount' | 'amountRange'> & {
   /** Open the amount form on arrival, for "Lower amount" at Before you stop. */
   openAmount: boolean;
   /** Open the pause choices on arrival, for Pause on the SIPs tab. */
@@ -15,9 +15,9 @@ type Props = Pick<SipView, 'id' | 'controls' | 'skipLabel' | 'pauseChoices' | 'a
 
 const BUTTON = 'flex min-h-11 w-full items-center justify-center rounded-lg border border-line px-3 text-sm font-semibold hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50';
 
-export function SipControls({ id, controls, skipLabel, pauseChoices, amountNow, minAmount, maxAmount, amountRange, openAmount, openPause = false }: Props) {
+export function SipControls({ id, controls, status, skipLabel, skipConfirm, undoable, resumeNote, pauseChoices, amountNow, minAmount, maxAmount, amountRange, openAmount, openPause = false }: Props) {
   const router = useRouter();
-  const [open, setOpen] = useState<'amount' | 'pause' | null>(
+  const [open, setOpen] = useState<'amount' | 'pause' | 'skip' | null>(
     openAmount && controls.amount ? 'amount' : openPause && controls.pause ? 'pause' : null,
   );
   const [amount, setAmount] = useState(String(amountNow));
@@ -62,7 +62,7 @@ export function SipControls({ id, controls, skipLabel, pauseChoices, amountNow, 
       <h2 className="font-bold">Manage this SIP</h2>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
         <div>
-          <button type="button" className={BUTTON} disabled={busy || !controls.skip} onClick={() => act('skip')}>
+          <button type="button" className={BUTTON} disabled={busy || !controls.skip} aria-expanded={open === 'skip'} onClick={() => setOpen(open === 'skip' ? null : 'skip')}>
             Skip next
           </button>
           {skipLabel && controls.skip && <p className="mt-1 text-center text-xs text-muted">{skipLabel}</p>}
@@ -83,6 +83,42 @@ export function SipControls({ id, controls, skipLabel, pauseChoices, amountNow, 
           </Link>
         )}
       </div>
+
+      {status === 'paused' && (
+        <div className="mt-4 rounded-lg bg-accent-tint p-3">
+          <p className="text-sm text-accent-ink">{resumeNote}</p>
+          <button type="button" disabled={busy} onClick={() => act('resume')} className="mt-2 flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-3 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60">
+            Resume now
+          </button>
+        </div>
+      )}
+
+      {undoable.length > 0 && (
+        <ul className="mt-4 space-y-2" aria-label="Scheduled skips">
+          {undoable.map((skip) => (
+            <li key={skip.due} className="flex items-center justify-between gap-3 rounded-lg bg-page px-3 py-1 text-sm">
+              <span>Scheduled skip: {skip.date}</span>
+              <button type="button" disabled={busy} onClick={() => act('undo-skip', { dueOn: skip.due })} className="min-h-11 shrink-0 font-semibold text-primary underline underline-offset-2 hover:text-primary-hover disabled:opacity-60">
+                Undo
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {open === 'skip' && (
+        <div className="mt-4 space-y-2 rounded-lg bg-page p-3">
+          <p className="text-sm">{skipConfirm}</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" disabled={busy} onClick={() => act('skip')} className="flex min-h-11 items-center justify-center rounded-lg bg-primary px-3 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60">
+              Yes, skip it
+            </button>
+            <button type="button" disabled={busy} onClick={() => setOpen(null)} className="flex min-h-11 items-center justify-center rounded-lg border border-line bg-surface px-3 text-sm font-semibold hover:border-primary">
+              Keep it
+            </button>
+          </div>
+        </div>
+      )}
 
       {open === 'amount' && (
         <form id="amount" onSubmit={saveAmount} className="mt-4 space-y-2 rounded-lg bg-page p-3">

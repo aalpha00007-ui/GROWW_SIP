@@ -76,6 +76,12 @@ CREATE TABLE IF NOT EXISTS sip_events (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Undo of a scheduled skip, and Resume now: new facts, so an undone skip stays on record. The list is widened
+-- with a new constraint so a deploy's db:migrate reaches a table that already exists.
+ALTER TABLE sip_events DROP CONSTRAINT IF EXISTS sip_events_kind_check;
+ALTER TABLE sip_events ADD CONSTRAINT sip_events_kind_check
+  CHECK (kind IN ('amount_changed','date_changed','skipped','paused','stepped_up','goal_changed','cancelled','skip_undone','resumed'));
+
 CREATE TABLE IF NOT EXISTS instalments (
   id      serial PRIMARY KEY,
   sip_id  int NOT NULL REFERENCES sips(id) ON DELETE CASCADE,
@@ -248,6 +254,14 @@ CREATE TABLE IF NOT EXISTS app_events (
                 'goal_tooltip_dismissed')),
   detail      jsonb NOT NULL DEFAULT '{}',
   created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- Which notifications an investor has read, by a key that changes when the news does: a new instalment is new news.
+CREATE TABLE IF NOT EXISTS notification_reads (
+  investor_id     uuid NOT NULL REFERENCES investors(id) ON DELETE CASCADE,
+  notification_id text NOT NULL,
+  read_at         timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (investor_id, notification_id)
 );
 
 -- The NAVs one visitor sees: the shared history plus their own demo market-fall days. A demo

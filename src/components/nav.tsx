@@ -32,6 +32,7 @@ const SECTIONS: Record<Product, { label: string; href: string; also?: string[] }
     { label: 'Explore', href: '/explore', also: ['/fund/', '/funds', '/collections/', '/soon/'] },
     { label: 'Dashboard', href: '/dashboard' },
     { label: 'SIPs', href: '/sips' },
+    { label: 'Orders', href: '/orders' },
     { label: 'Watchlist', href: '/watchlist' },
   ],
 };

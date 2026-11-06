@@ -50,9 +50,9 @@ describe('Home (PRD F4)', () => {
 
     expect(home.noGoal).toEqual({ text: '1 SIP has no goal yet', funds: ['Kestrel Nifty 50 Index Fund'], href: `/sips/${kestrel}/goal` });
     expect(home.comingUp).toEqual([
-      { sipId: banyan, date: '2 Nov 2026', fund: 'Banyan Flexi Cap Fund', amount: '₹2,000' },
-      { sipId: harbor, date: '10 Nov 2026', fund: 'Harbor Liquid Fund', amount: '₹1,000' },
-      { sipId: kestrel, date: '15 Nov 2026', fund: 'Kestrel Nifty 50 Index Fund', amount: '₹1,500' },
+      { sipId: banyan, date: '2 Nov 2026', due: '2026-11-02', fund: 'Banyan Flexi Cap Fund', amount: '₹2,000' },
+      { sipId: harbor, date: '10 Nov 2026', due: '2026-11-10', fund: 'Harbor Liquid Fund', amount: '₹1,000' },
+      { sipId: kestrel, date: '15 Nov 2026', due: '2026-11-15', fund: 'Kestrel Nifty 50 Index Fund', amount: '₹1,500' },
     ]);
     expect(home.summary).toMatchObject({ putIn: '₹22,500', sipCount: '3 SIPs' });
   });

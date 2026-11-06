@@ -16,10 +16,11 @@ interface Props {
   sipId: number;
   controls: SipView['controls'];
   pauseChoices: SipView['pauseChoices'];
+  skipConfirm: SipView['skipConfirm'];
   options: { key: string; label: string; note: string }[];
 }
 
-export function BeforeYouStop({ sipId, controls, pauseChoices, options }: Props) {
+export function BeforeYouStop({ sipId, controls, pauseChoices, skipConfirm, options }: Props) {
   const router = useRouter();
   const [reason, setReason] = useState('');
   const [asking, setAsking] = useState(false);
@@ -27,6 +28,7 @@ export function BeforeYouStop({ sipId, controls, pauseChoices, options }: Props)
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [pausing, setPausing] = useState(false);
+  const [confirmingSkip, setConfirmingSkip] = useState(false);
 
   async function ask(text: string) {
     if (!text.trim()) return;
@@ -40,9 +42,13 @@ export function BeforeYouStop({ sipId, controls, pauseChoices, options }: Props)
   }
 
   /** Records the choice against the card (when there is one), then does it. */
-  async function choose(key: string, pauseCount?: number) {
+  async function choose(key: string, pauseCount?: number, confirmed = false) {
     if (key === 'pause' && pauseCount === undefined) {
       setPausing(!pausing);
+      return;
+    }
+    if (key === 'skip' && !confirmed) {
+      setConfirmingSkip(!confirmingSkip);
       return;
     }
     setBusy(key);
@@ -142,6 +148,19 @@ export function BeforeYouStop({ sipId, controls, pauseChoices, options }: Props)
             </li>
           ))}
         </ul>
+        {confirmingSkip && (
+          <div className="mt-3 space-y-2 rounded-lg bg-page p-3">
+            <p className="text-sm">{skipConfirm}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" disabled={busy !== null} onClick={() => choose('skip', undefined, true)} className="flex min-h-11 items-center justify-center rounded-lg bg-primary px-3 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60">
+                Yes, skip it
+              </button>
+              <button type="button" disabled={busy !== null} onClick={() => setConfirmingSkip(false)} className="flex min-h-11 items-center justify-center rounded-lg border border-line bg-surface px-3 text-sm font-semibold hover:border-primary">
+                Keep it
+              </button>
+            </div>
+          </div>
+        )}
         {pausing && (
           <div className="mt-3 space-y-2 rounded-lg bg-page p-3">
             <p className="text-sm font-semibold">Skip the next</p>
@@ -158,7 +177,7 @@ export function BeforeYouStop({ sipId, controls, pauseChoices, options }: Props)
             ))}
           </div>
         )}
-        {(!controls.skip || !controls.pause) && <p className="mt-2 text-xs text-muted">Skip and pause are not available while this SIP is paused.</p>}
+        {(!controls.skip || !controls.pause) && <p className="mt-2 text-xs text-muted">Skip and pause are not available while this SIP is paused. You can resume it from the SIP page.</p>}
       </section>
     </div>
   );

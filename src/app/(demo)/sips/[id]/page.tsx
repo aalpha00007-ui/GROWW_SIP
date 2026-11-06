@@ -123,11 +123,24 @@ export default async function SipPage({
         </div>
 
         <div className="space-y-5">
+          {sip.status === 'stopped' && (
+            <section className="rounded-xl border border-line bg-surface p-4">
+              <h2 className="font-bold">Want to start again?</h2>
+              <p className="mt-1 text-sm">A stopped SIP can&apos;t be restarted, but you can start a new SIP in this fund any time. The units you already hold stay invested; they aren&apos;t sold.</p>
+              <Link href={`/fund/${sip.fundId}`} className="mt-3 inline-flex min-h-11 items-center font-semibold text-primary underline underline-offset-2 hover:text-primary-hover">
+                Start a new SIP in this fund
+              </Link>
+            </section>
+          )}
           {sip.status !== 'stopped' && (
             <SipControls
               id={sip.id}
               controls={sip.controls}
+              status={sip.status}
               skipLabel={sip.skipLabel}
+              skipConfirm={sip.skipConfirm}
+              undoable={sip.undoable}
+              resumeNote={sip.resumeNote}
               pauseChoices={sip.pauseChoices}
               amountNow={sip.amountNow}
               minAmount={sip.minAmount}

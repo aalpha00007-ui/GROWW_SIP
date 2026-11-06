@@ -12,7 +12,7 @@ export type ActionResult = { status: 200; message: string } | { status: 400 | 40
 
 const NOT_FOUND = { status: 404, error: 'We could not find that SIP.' } as const;
 const STOPPED = { status: 400, error: 'This SIP is already stopped.' } as const;
-const PAUSED = { status: 400, error: 'This SIP is paused. Skip and pause work again once the pause ends.' } as const;
+const PAUSED = { status: 400, error: 'This SIP is paused. Resume it to skip or pause again.' } as const;
 
 /** Skip next: the next instalment is not taken; the SIP carries on after it. */
 export async function skipNext(db: Db, investorId: string, sipId: number, today: string): Promise<ActionResult> {
@@ -23,6 +23,29 @@ export async function skipNext(db: Db, investorId: string, sipId: number, today:
   const [skip, after] = sip.schedule.upcoming;
   await db.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'skipped', $2)", [sipId, { due_on: skip }]);
   return { status: 200, message: `Skipped the ${dayMonthYear(skip)} instalment.${after ? ` The next one is on ${dayMonthYear(after)}.` : ''}` };
+}
+
+/** Undo a scheduled skip: the instalment is back on. Only while its date is still ahead, and not for a paused date (Resume now does that). */
+export async function undoSkip(db: Db, investorId: string, sipId: number, dueOn: unknown, today: string): Promise<ActionResult> {
+  const sip = await loadSip(db, investorId, sipId, today);
+  if (!sip) return NOT_FOUND;
+  if (sip.status === 'stopped') return STOPPED;
+  const row = sip.schedule.rows.find((r) => r.state === 'scheduled_skip' && !r.paused && r.due === dueOn);
+  if (!row) return { status: 400, error: 'That instalment is not a skip you can undo.' };
+  await db.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'skip_undone', $2)", [sipId, { due_on: row.due }]);
+  return { status: 200, message: `The ${dayMonthYear(row.due)} instalment is back on.` };
+}
+
+/** Resume now: end a pause early. The paused dates still ahead are payable again; no new SIP is needed. */
+export async function resumeSip(db: Db, investorId: string, sipId: number, today: string): Promise<ActionResult> {
+  const sip = await loadSip(db, investorId, sipId, today);
+  if (!sip) return NOT_FOUND;
+  if (sip.status === 'stopped') return STOPPED;
+  if (sip.status !== 'paused') return { status: 400, error: 'This SIP is not paused.' };
+  const dates = sip.schedule.rows.filter((r) => r.state === 'scheduled_skip' && r.paused).map((r) => r.due);
+  await db.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'resumed', $2)", [sipId, { due_dates: dates }]);
+  const next = sip.schedule.resumeDate;
+  return { status: 200, message: `Resumed.${next ? ` The next instalment is on ${dayMonthYear(next)}.` : ''}` };
 }
 
 /** Pause: skip the next 1 to 3 instalments in one go (build spec §2E). */

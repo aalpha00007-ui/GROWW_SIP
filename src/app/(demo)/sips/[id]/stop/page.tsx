@@ -39,6 +39,7 @@ export default async function StopPage({ params }: { params: Promise<{ id: strin
           sipId={sip.id}
           controls={sip.controls}
           pauseChoices={sip.pauseChoices}
+          skipConfirm={sip.skipConfirm}
           options={OPTIONS.map((o) => ({ key: o.key, label: o.label, note: sip.optionNotes[o.key] }))}
         />
       )}
