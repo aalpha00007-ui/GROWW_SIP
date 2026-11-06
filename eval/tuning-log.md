@@ -91,6 +91,39 @@ girav hai"). Prompt v14, the last writer change before the next run is reported 
 | The doubt route's guidance names its placeholders (the six it always meant) and says to use no others and not to say a placeholder's meaning again, as the dip guidance does | Runs #24-#26: s01 | No (call 2) |
 | Shorter Hinglish and Hindi phrases for the worst fall and the fund's biggest fall (10 and 13 words to 8 and 11) | Runs #24-#26: s01 | No (call 2) |
 
+## 6 Nov 2026: what changed after the holdout results were first seen, and is it still fresh?
+
+The holdout was first run on 2 Nov 2026 at 13:18 IST (commit db767b3, prompt v11: 70%, 7 of 10). Its misses were read
+then: H02, H06 and H10. This is everything that changed after that moment.
+
+| Prompt | Date | What changed | Which call | Could it move a holdout score? |
+| --- | --- | --- | --- | --- |
+| v12 | 2 Nov | One second draft; comparisons fail; doubled words dropped | Writer | No |
+| v13 | 2 Nov | A second draft for length aims lower | Writer | No |
+| v14 | 2 Nov | Doubt guidance names its placeholders; shorter Hinglish and Hindi phrases | Writer | No |
+| v15 | 3 Nov | "On track" claims fail; a value drops words the model already said; Groq writes if Mistral fails | Writer and checks | No |
+| **v16** | **6 Nov** | **The reading prompt gains a `goal_completed` field**, plus writer and check changes (below) | **Reader and writer** | **Yes** |
+
+**How this was checked, not assumed:** the reading prompt (`UNDERSTAND_SYSTEM` in
+`src/pipeline/retrieval/prompts.ts`) hashes the same at commits db767b3, 73e1a0f and 4760c8e, and in the v15 work. So
+v12 to v15 did not touch what the holdout measures, and the holdout score of 70% stood for them.
+
+**v16 is different.** It adds one key to the reading prompt, because of the QA review and case s14 (a reached goal
+read as a cash shortage), not because of a holdout miss. It has no rule about themes, and H02, H06 and H10 played no
+part in it. The facts the reader sees changed too: "Scheduled skips", and new planned counts.
+
+But the rule in this log is plain: a prompt changed after a holdout result has been seen is no longer tested on an
+unseen set. **So the holdout is no longer fully fresh.** It was seen on v11, and the reading prompt then changed. It
+stays useful as a check on posts no rule was written for, and the owner asked for it to be run once more on v16.
+That run is a second look at known posts, not a clean measurement, and /quality says so.
+
+**Open:** a fully fresh score needs new posts, picked the same way as below and labelled by the owner. The owner's
+labels are not edited here, so this is left to the owner.
+
+Other v16 changes, none of which can move a reading score: `goal_facts` must-pass check; claim patterns for a floor, a
+recovery and an expected return; the disclaimer once in the reply's language; natural Hindi and Hinglish phrases;
+a question before answering unmet expectations.
+
 ## The holdout set: `eval/holdout-set.json`
 
 Ten real posts from the same collected data as the golden set, never used for any rule. The fields are the golden
@@ -100,8 +133,9 @@ guesses are left blank: they would be a suggested label.
 **Who labelled them:** the labels (`human_theme`, `human_behaviour`) were **drafted by Claude and reviewed by the
 owner** on 1 Nov 2026, then entered as given. They were not written blind by hand first, as the golden set's were,
 so where the drafting model and the model under test lean the same way, the holdout may agree a little more than
-fully hand-written labels would. The labels were entered before the holdout was ever run, and no prompt rule was
-changed after seeing a holdout result.
+fully hand-written labels would. The labels were entered before the holdout was ever run. No theme rule was changed
+because of a holdout miss, but the reading prompt did change after the results were first seen: see the section
+above.
 
 | Post | Theme(s) | Behaviour |
 | --- | --- | --- |

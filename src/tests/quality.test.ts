@@ -4,10 +4,11 @@ import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { Db } from '../db/client';
 import { clonePersona } from '../pipeline/loading/personas';
+import { signUp } from '../server/auth';
 import { setupDatabase } from '../pipeline/loading/seed';
 import { resultsMarkdown } from '../eval/results';
 import type { EvalReport } from '../eval/run';
-import { qualityView, runSummary } from '../server/quality';
+import { HOLDOUT_FRESHNESS, qualityView, runSummary } from '../server/quality';
 import { pgliteDb } from './pglite-db';
 
 const TODAY = '2026-10-27';
@@ -142,8 +143,35 @@ describe('/quality: the eval result (PRD F11), from the committed files', () => 
     expect((await qualityView(db, undefined, dir)).holdout).toEqual({
       total: 3,
       labelled: 2,
-      result: { date: '2 Nov 2026, 10:00 IST', commit: 'fffffff', promptVersion: 'v11', agreement: '50% (1 of 2 posts)', behaviour: null, readByBackup: 0 },
+      result: { date: '2 Nov 2026, 10:00 IST', commit: 'fffffff', promptVersion: 'v11', outOfDate: true, agreement: '50% (1 of 2 posts)', behaviour: null, readByBackup: 0 },
     });
+  });
+
+  it('marks a score from an older prompt out of date, and shows each score with its own prompt', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'dated-'));
+    writeFileSync(path.join(dir, 'holdout-set.json'), JSON.stringify([{ human_theme: 'Returns' }]));
+    const holdout = (version: string) =>
+      writeFileSync(
+        path.join(dir, 'holdout-results.json'),
+        JSON.stringify({
+          run: { date: 'd', commit: 'c', model: 'm', prompt_version: version },
+          scores: { theme_agreement: 1, theme_ok: 1, labelled: 1, total: 1, behaviour_agreement: null, behaviour_ok: 0, behaviour_labelled: 0, read_by_backup: 0 },
+        }),
+      );
+    holdout('v11');
+    expect((await qualityView(db, undefined, dir, 'v16')).holdout?.result).toMatchObject({ promptVersion: 'v11', outOfDate: true });
+    holdout('v16');
+    expect((await qualityView(db, undefined, dir, 'v16')).holdout?.result).toMatchObject({ promptVersion: 'v16', outOfDate: false });
+
+    const committed = await qualityView(db, undefined, EVAL_DIR, 'v999');
+    expect(committed.promptVersion).toBe('v999');
+    expect(committed.run?.outOfDate).toBe(true);
+  });
+
+  it('says the holdout is no longer fully fresh', () => {
+    expect(HOLDOUT_FRESHNESS).toContain('no longer fully fresh');
+    const log = readFileSync(path.join(EVAL_DIR, 'tuning-log.md'), 'utf8');
+    expect(log).toContain('no longer fully fresh');
   });
 
   it('db:setup (reseeding) keeps the eval runs; only db:reset drops them', async () => {
@@ -172,8 +200,11 @@ describe('/quality: the eval result (PRD F11), from the committed files', () => 
 });
 
 describe('/quality: live counts', () => {
-  it('counts outcomes and choices, leaving out eval and test visitors', async () => {
-    const visitor = await clonePersona(db, 'riya');
+  it('counts outcomes and choices from signed-up accounts, leaving out persona demos and eval and test visitors', async () => {
+    const made = await signUp(db, { username: 'quality-otter-1', pin: '1357' }, 'ip-quality');
+    if (made.status !== 200) throw new Error(made.error);
+    const visitor = made.investorId;
+    const persona = await clonePersona(db, 'riya');
     const evalVisitor = await clonePersona(db, 'riya');
     const cliVisitor = await clonePersona(db, 'riya');
     await db.query("UPDATE investors SET display_name = display_name || ' · eval' WHERE id = $1", [evalVisitor]);
@@ -186,14 +217,18 @@ describe('/quality: live counts', () => {
     await log(visitor, 'is_this_normal', 'answer', null);
     await log(evalVisitor, 'before_stop', 'fallback', 'keep');
     await log(cliVisitor, 'before_stop', 'answer', 'skip');
+    await log(persona, 'before_stop', 'answer', 'keep');
+    await log(visitor, 'before_stop', 'asked', null);
 
     const { live } = await qualityView(db, undefined);
-    expect(live.total).toBe(4);
+    expect(live.total).toBe(5);
+    expect(live.leftOut).toEqual({ demo: 1, qa: 2 });
     expect(live.dipExplainers).toBe(1);
     expect(live.outcomes).toEqual([
       { label: 'Answers', count: 3 },
       { label: 'Fallbacks', count: 0 },
       { label: 'Declines', count: 1 },
+      { label: 'Asked first', count: 1 },
     ]);
     expect(live.choiceLabels).toEqual(['Kept', 'Skipped next', 'Paused', 'Lowered', 'Stopped', 'No choice yet']);
     expect(live.choices[0]).toEqual({ outcome: 'Answers', counts: [1, 0, 0, 0, 1, 0] });

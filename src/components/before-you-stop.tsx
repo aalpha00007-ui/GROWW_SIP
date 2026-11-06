@@ -86,17 +86,21 @@ export function BeforeYouStop({ sipId, controls, pauseChoices, skipConfirm, opti
     }
     setBusy(key);
     setError(null);
-    if (card && key !== 'cancel') await postJson('/api/ai/choice', { aiCheckId: card.aiCheckId, choice: key });
-    // Every choice but Stop anyway keeps the SIP going: the funnel counts it as kept.
-    if (key !== 'cancel') void postJson('/api/events', { event: 'sip_kept', sipId, choice: key });
     const done = (did: string) => router.push(`/sips/${sipId}?did=${did}`);
+    // Lower amount only opens the form: it counts once the new amount is saved there, not here.
+    if (key === 'lower') return router.push(`/sips/${sipId}?change=amount${card ? `&check=${card.aiCheckId}` : ''}`);
     let result: Awaited<ReturnType<typeof postJson>> | null = null;
-    if (key === 'keep') return done('keep');
-    if (key === 'lower') return router.push(`/sips/${sipId}?change=amount`);
     if (key === 'skip') result = await postJson(`/api/sips/${sipId}/skip`);
     if (key === 'pause') result = await postJson(`/api/sips/${sipId}/pause`, { count: pauseCount });
     if (key === 'cancel') result = await postJson(`/api/sips/${sipId}/cancel`, { aiCheckId: card?.aiCheckId });
-    if (result?.ok) return done(key === 'cancel' ? 'stop' : key);
+    if (key === 'keep' || result?.ok) {
+      // Only now that it worked. Every choice but Stop anyway keeps the SIP going: the funnel counts it as kept.
+      if (key !== 'cancel') {
+        if (card) await postJson('/api/ai/choice', { aiCheckId: card.aiCheckId, choice: key });
+        void postJson('/api/events', { event: 'sip_kept', sipId, choice: key });
+      }
+      return done(key === 'cancel' ? 'stop' : key);
+    }
     setBusy(null);
     setError(result?.error ?? 'That did not work. Try again.');
   }

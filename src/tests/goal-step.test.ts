@@ -4,7 +4,8 @@ import { applyMarketFall } from '../pipeline/loading/market-fall';
 import { clonePersona } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
 import { addToCart, cartView } from '../server/cart';
-import { eventReport, logBrowserEvent, logEvent, tooltipDismissed } from '../server/events';
+import { signUp } from '../server/auth';
+import { eventReport, logBrowserEvent, logEvent, qaUsernames, tooltipDismissed, visitorKind } from '../server/events';
 import { fundPage, startSip } from '../server/funds';
 import { homeView } from '../server/home';
 import { demoBalance } from '../server/shell';
@@ -139,21 +140,44 @@ describe('Funnel events', () => {
   it('counts each event and the goal-save rate, leaving out test visitors', async () => {
     const fresh = pgliteDb();
     await setupDatabase(fresh, { today: TODAY });
-    const a = await clonePersona(fresh, 'kabir');
-    const b = await clonePersona(fresh, 'kabir');
-    const tester = await clonePersona(fresh, 'kabir');
+    const account = async (username: string) => {
+      const made = await signUp(fresh, { username, pin: '1357' }, `ip-${username}`);
+      if (made.status !== 200) throw new Error(made.error);
+      return made.investorId;
+    };
+    const a = await account('real-otter-1');
+    const b = await account('real-otter-2');
+    const tester = await account('qa-otter-3');
+    const persona = await clonePersona(fresh, 'kabir');
     await fresh.query("UPDATE investors SET display_name = display_name || ' · CLI test' WHERE id = $1", [tester]);
+    await startSip(fresh, persona, { fundId: 3, amount: 1000, day: 4, goalStep: 'skipped' }, TODAY);
     await startSip(fresh, a, { fundId: 1, amount: 1000, day: 4, goal: { kind: 'home', targetMonth: '2031-03' } }, TODAY);
     await startSip(fresh, a, { fundId: 2, amount: 1000, day: 4, goalStep: 'skipped' }, TODAY);
     await startSip(fresh, b, { fundId: 3, amount: 1000, day: 4, goal: { kind: 'wedding' } }, TODAY);
     await startSip(fresh, tester, { fundId: 3, amount: 1000, day: 4, goalStep: 'skipped' }, TODAY);
-    await logEvent(fresh, a, 'goal_step_shown');
 
     const report = await eventReport(fresh);
     expect(report.counts.find((c) => c.event === 'sip_started')).toEqual({ event: 'sip_started', events: 3, investors: 2 });
     expect(report.counts.find((c) => c.event === 'goal_skipped')).toMatchObject({ events: 1 });
     expect(report.counts.find((c) => c.event === 'sip_kept')).toEqual({ event: 'sip_kept', events: 0, investors: 0 });
-    expect(report).toMatchObject({ sipsStarted: 3, startedWithGoal: 2 });
+    expect(report).toMatchObject({ sipsStarted: 3, startedWithGoal: 2, leftOut: { demo: 1, qa: 1 } });
     expect(report.goalSaveRate).toBeCloseTo(2 / 3, 5);
+  }, 120_000);
+
+  it('flags accounts: tagged visitors and QA_USERNAMES are QA, persona copies are demo, the rest are real', async () => {
+    const fresh = pgliteDb();
+    await setupDatabase(fresh, { today: TODAY });
+    const made = await signUp(fresh, { username: 'owner-otter', pin: '1357' }, 'ip-owner');
+    if (made.status !== 200) throw new Error(made.error);
+    const persona = await clonePersona(fresh, 'kabir');
+    const kindOf = async (id: string, usernames: string[]) => {
+      const kind = visitorKind(usernames);
+      return (await fresh.query<{ kind: string }>(`SELECT (${kind.sql}) AS kind FROM investors i WHERE i.id = $2`, [...kind.params, id])).rows[0].kind;
+    };
+    expect(await kindOf(made.investorId, [])).toBe('real');
+    expect(await kindOf(made.investorId, ['owner-otter'])).toBe('qa');
+    expect(await kindOf(persona, [])).toBe('demo');
+    expect(qaUsernames({ QA_USERNAMES: ' Deep, qa-1 ,' })).toEqual(['deep', 'qa-1']);
+    expect(qaUsernames({})).toEqual([]);
   }, 120_000);
 });

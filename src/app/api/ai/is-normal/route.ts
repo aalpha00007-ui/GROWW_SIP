@@ -12,7 +12,8 @@ export async function POST(request: Request) {
   const visitor = await currentVisitor();
   if (!visitor) return noVisitor();
   const body = await readJson(request);
-  await logEvent(getDb(), visitor.id, 'ai_question_asked', { moment: 'is_this_normal', sip_id: Number.isInteger(body.sipId) ? body.sipId : null });
   const result = await runCheckIn(checkInDeps(), { investorId: visitor.id, sipId: Number(body.sipId), moment: 'is_this_normal' });
-  return result.status === 200 ? NextResponse.json(checkInCard(result)) : reply(result);
+  if (result.status !== 200) return reply(result);
+  await logEvent(getDb(), visitor.id, 'ai_question_asked', { moment: 'is_this_normal', sip_id: Number(body.sipId) });
+  return NextResponse.json(checkInCard(result));
 }

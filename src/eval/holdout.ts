@@ -1,6 +1,7 @@
 // The holdout set (eval/holdout-set.json): 10 real posts from the same Evidence Log run as the golden set, picked
 // by a fixed rule (eval/tuning-log.md), never used to write any prompt rule. Labelled by hand by the owner. It
-// scores call 1 the same way as the golden set, is reported on /quality next to it, and never gates a deploy.
+// scores call 1 the same way as the golden set, is reported on /quality next to it, and never gates a deploy. It
+// is no longer fully fresh: its results were seen before the reading prompt changed in v16 (eval/tuning-log.md).
 //   npm run eval -- --set holdout
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -123,7 +124,7 @@ export function writeHoldoutResults(report: HoldoutReport, dir = path.join(proce
     '',
     `${json.run.date} · commit ${report.commitSha.slice(0, 7)} · ${report.model} · prompt ${report.promptVersion}`,
     '',
-    'Reported only: the holdout never gates a deploy. Its posts were never used to write a prompt rule (eval/tuning-log.md).',
+    'Reported only: the holdout never gates a deploy. Its posts were never used to write a prompt rule, but its results were first seen on prompt v11 and the reading prompt changed in v16, so it is no longer fully fresh (eval/tuning-log.md).',
     '',
     '| Measure | Result |',
     '| --- | --- |',

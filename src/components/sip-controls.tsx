@@ -11,11 +11,13 @@ type Props = Pick<SipView, 'id' | 'controls' | 'status' | 'skipLabel' | 'skipCon
   openAmount: boolean;
   /** Open the pause choices on arrival, for Pause on the SIPs tab. */
   openPause?: boolean;
+  /** The check-in "Lower amount" came from: its choice is recorded once the amount is saved. */
+  checkId?: number;
 };
 
 const BUTTON = 'flex min-h-11 w-full items-center justify-center rounded-lg border border-line px-3 text-sm font-semibold hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50';
 
-export function SipControls({ id, controls, status, skipLabel, skipConfirm, undoable, resumeNote, pauseChoices, amountNow, minAmount, maxAmount, amountRange, openAmount, openPause = false }: Props) {
+export function SipControls({ id, controls, status, skipLabel, skipConfirm, undoable, resumeNote, pauseChoices, amountNow, minAmount, maxAmount, amountRange, openAmount, openPause = false, checkId }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState<'amount' | 'pause' | 'skip' | null>(
     openAmount && controls.amount ? 'amount' : openPause && controls.pause ? 'pause' : null,
@@ -25,13 +27,14 @@ export function SipControls({ id, controls, status, skipLabel, skipConfirm, undo
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
-  async function act(path: string, body: unknown = {}) {
+  async function act(path: string, body: unknown = {}, onDone?: () => void) {
     setBusy(true);
     setMessage(null);
     const result = await postJson(`/api/sips/${id}/${path}`, body);
     setBusy(false);
     if (result.ok) {
       setMessage({ text: result.data.message ?? 'Done.', error: false });
+      onDone?.();
       setOpen(null);
       router.refresh();
     } else {
@@ -54,7 +57,12 @@ export function SipControls({ id, controls, status, skipLabel, skipConfirm, undo
       setMessage({ text: `Enter a whole amount. ${amountRange}.`, error: true });
       return;
     }
-    void act('amount', { amount: value });
+    void act('amount', { amount: value }, () => {
+      // Lower amount at Before you stop counts here, after the save. Opening the form counted for nothing.
+      if (!openAmount) return;
+      if (checkId) void postJson('/api/ai/choice', { aiCheckId: checkId, choice: 'lower' });
+      void postJson('/api/events', { event: 'sip_kept', sipId: id, choice: 'lower' });
+    });
   }
 
   return (

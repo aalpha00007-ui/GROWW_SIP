@@ -3,11 +3,14 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import type { Db } from '../db/client';
-import { DEFAULT_THEME_TARGET, DEFAULT_THEME_THRESHOLD, EVAL_TAG, INVARIANTS, percent, ROUTING_MISSES_ALLOWED } from '../eval/run';
+import { DEFAULT_THEME_TARGET, DEFAULT_THEME_THRESHOLD, INVARIANTS, percent, ROUTING_MISSES_ALLOWED } from '../eval/run';
 import { CHECK_KEYS, CHECK_LABELS } from '../pipeline/retrieval/checkin';
+import { DEFAULT_PROMPT_VERSION } from '../pipeline/retrieval/prompts';
+import { visitorKind } from './events';
 
-/** The tag the retrieval CLI (and manual browser tests) put on their visitors; live counts leave them out. */
-const CLI_TAG = ' · CLI test';
+/** How far the holdout can be trusted as fresh (eval/tuning-log.md has the detail). */
+export const HOLDOUT_FRESHNESS =
+  'Its posts were never used to write a rule. But its results were first seen on prompt v11, and prompt v16 later changed the reading prompt (a new "goal reached" field, made for a safety case, not for a holdout miss), so it is no longer fully fresh.';
 
 interface RunRow {
   id: number;
@@ -55,9 +58,13 @@ export interface RunSummary {
 }
 
 export interface QualityView {
+  /** The prompt the app runs now: a score from any other prompt is out of date. */
+  promptVersion: string;
   run: (RunSummary & {
     /** True when the run is for the commit that is live. */
     matched: boolean;
+    /** Scored on an older prompt than the app runs now. */
+    outOfDate: boolean;
     title: string;
     note: string | null;
   }) | null;
@@ -65,6 +72,8 @@ export interface QualityView {
   holdout: HoldoutView | null;
   live: {
     total: number;
+    /** Investors left out of these counts: persona demos, and our own QA and test visitors. */
+    leftOut: { demo: number; qa: number };
     outcomes: { label: string; count: number }[];
     /** Before you stop only: what the investor chose after each kind of card. */
     choices: { outcome: string; counts: number[] }[];
@@ -85,6 +94,7 @@ const OUTCOMES = [
   { key: 'answer', label: 'Answers' },
   { key: 'fallback', label: 'Fallbacks' },
   { key: 'declined', label: 'Declines' },
+  { key: 'asked', label: 'Asked first' },
 ] as const;
 
 const WHEN = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
@@ -94,12 +104,17 @@ const WHEN = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '
  * eval/holdout-set.json and eval/holdout-results.json), not the database: reseeding, resetting or replacing the
  * database, or a redeploy, can never empty it. Live counts still come from the database.
  */
-export async function qualityView(db: Db, deployedCommit: string | undefined, evalDir = path.join(process.cwd(), 'eval')): Promise<QualityView> {
-  return { run: committedRun(evalDir, deployedCommit), holdout: holdoutView(evalDir), live: await liveCounts(db) };
+export async function qualityView(
+  db: Db,
+  deployedCommit: string | undefined,
+  evalDir = path.join(process.cwd(), 'eval'),
+  promptVersion = process.env.PROMPT_VERSION || DEFAULT_PROMPT_VERSION,
+): Promise<QualityView> {
+  return { promptVersion, run: committedRun(evalDir, deployedCommit, promptVersion), holdout: holdoutView(evalDir, promptVersion), live: await liveCounts(db) };
 }
 
 /** The committed eval/results.json as /quality shows it; null when there is none (a fresh clone before any eval). */
-export function committedRun(evalDir: string, deployedCommit: string | undefined): QualityView['run'] {
+export function committedRun(evalDir: string, deployedCommit: string | undefined, promptVersion = DEFAULT_PROMPT_VERSION): QualityView['run'] {
   const file = readJson<ResultsFile>(path.join(evalDir, 'results.json'));
   if (!file) return null;
   const summary = summaryFromResults(file);
@@ -109,6 +124,7 @@ export function committedRun(evalDir: string, deployedCommit: string | undefined
   return {
     ...summary,
     matched,
+    outOfDate: summary.promptVersion !== promptVersion,
     title: matched ? `Eval for the live version (run #${summary.runId}, commit ${short})` : `Latest committed eval (run #${summary.runId}, commit ${short})`,
     note: `Read from eval/results.json in the repo, so reseeding or replacing the database never removes it.${live}`,
   };
@@ -175,13 +191,15 @@ export interface HoldoutView {
     date: string;
     commit: string;
     promptVersion: string;
+    /** Scored on an older prompt than the app runs now. */
+    outOfDate: boolean;
     agreement: string;
     behaviour: string | null;
     readByBackup: number;
   } | null;
 }
 
-export function holdoutView(evalDir: string): HoldoutView | null {
+export function holdoutView(evalDir: string, promptVersion = DEFAULT_PROMPT_VERSION): HoldoutView | null {
   const set = readJson<{ human_theme?: string }[]>(path.join(evalDir, 'holdout-set.json'));
   if (!Array.isArray(set)) return null;
   const labelled = set.filter((row) => (row.human_theme ?? '').trim() !== '').length;
@@ -196,6 +214,7 @@ export function holdoutView(evalDir: string): HoldoutView | null {
             date: file.run.date,
             commit: file.run.commit,
             promptVersion: file.run.prompt_version,
+            outOfDate: file.run.prompt_version !== promptVersion,
             agreement: `${percent(s.theme_agreement)} (${s.theme_ok} of ${s.labelled} posts)`,
             behaviour: s.behaviour_agreement === null ? null : `${percent(s.behaviour_agreement)} (${s.behaviour_ok} of ${s.behaviour_labelled})`,
             readByBackup: s.read_by_backup,
@@ -346,16 +365,26 @@ function safetyDisagreement(r: ResultRow): RunSummary['disagreements'][number] {
 }
 
 async function liveCounts(db: Db): Promise<QualityView['live']> {
+  const kind = visitorKind();
   const { rows } = await db.query<{ moment: string; outcome: string; user_choice: string | null; n: number }>(
     `SELECT a.moment, a.outcome, a.user_choice, count(*)::int AS n
      FROM ai_checks a JOIN investors i ON i.id = a.investor_id
-     WHERE right(i.display_name, length($1)) <> $1 AND right(i.display_name, length($2)) <> $2
+     WHERE (${kind.sql}) = 'real'
      GROUP BY 1, 2, 3`,
-    [EVAL_TAG, CLI_TAG],
+    kind.params,
   );
+  const others = (
+    await db.query<{ kind: string; n: number }>(
+      `SELECT k.kind, count(*)::int AS n FROM (
+         SELECT DISTINCT a.investor_id, (${kind.sql}) AS kind FROM ai_checks a JOIN investors i ON i.id = a.investor_id
+       ) k GROUP BY k.kind`,
+      kind.params,
+    )
+  ).rows;
   const count = (filter: (r: (typeof rows)[number]) => boolean) => rows.filter(filter).reduce((total, r) => total + r.n, 0);
   return {
     total: count(() => true),
+    leftOut: { demo: others.find((o) => o.kind === 'demo')?.n ?? 0, qa: others.find((o) => o.kind === 'qa')?.n ?? 0 },
     outcomes: OUTCOMES.map((o) => ({ label: o.label, count: count((r) => r.outcome === o.key) })),
     choiceLabels: CHOICES.map((c) => c.label),
     choices: OUTCOMES.map((o) => ({

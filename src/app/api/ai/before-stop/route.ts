@@ -15,7 +15,6 @@ export async function POST(request: Request) {
   if (!visitor) return noVisitor();
   const body = await readJson(request);
   const text = typeof body.text === 'string' ? body.text : '';
-  await logEvent(getDb(), visitor.id, 'ai_question_asked', { moment: 'before_stop', sip_id: Number.isInteger(body.sipId) ? body.sipId : null });
   const result = await runCheckIn(checkInDeps(), {
     investorId: visitor.id,
     sipId: Number(body.sipId),
@@ -25,5 +24,7 @@ export async function POST(request: Request) {
     expectation: isExpectation(body.expectation) ? body.expectation : undefined,
     askedId: Number.isInteger(body.askedId) ? (body.askedId as number) : undefined,
   });
-  return result.status === 200 ? NextResponse.json(checkInCard(result)) : reply(result);
+  if (result.status !== 200) return reply(result);
+  await logEvent(getDb(), visitor.id, 'ai_question_asked', { moment: 'before_stop', sip_id: Number(body.sipId) });
+  return NextResponse.json(checkInCard(result));
 }

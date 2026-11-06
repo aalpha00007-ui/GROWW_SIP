@@ -30,7 +30,7 @@ export default async function SipPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ explain?: string; change?: string; did?: string }>;
+  searchParams: Promise<{ explain?: string; change?: string; did?: string; check?: string }>;
 }) {
   const visitor = await currentVisitor();
   if (!visitor) redirect(NO_DEMO);
@@ -38,7 +38,7 @@ export default async function SipPage({
   const state = await loadSip(getDb(), visitor.id, await idParam(params), today);
   if (!state) notFound();
   const sip = sipView(state, today);
-  const { explain, change, did } = await searchParams;
+  const { explain, change, did, check } = await searchParams;
   const done = did ? DONE[did] : undefined;
 
   return (
@@ -148,6 +148,7 @@ export default async function SipPage({
               amountRange={sip.amountRange}
               openAmount={change === 'amount'}
               openPause={change === 'pause'}
+              checkId={/^\d{1,9}$/.test(check ?? '') ? Number(check) : undefined}
             />
           )}
           <section className="rounded-xl border border-line bg-surface p-4">

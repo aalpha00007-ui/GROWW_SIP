@@ -1,5 +1,5 @@
 // `npm run events`: how many times each funnel event happened, by how many investors, and the
-// goal-save rate (SIPs started with a goal, of all SIPs started). Test visitors are left out.
+// goal-save rate (SIPs started with a goal, of all SIPs started), from real accounts only.
 import { connectNeon } from '../db/client';
 import { loadEnvFiles } from '../env';
 import { eventReport } from './events';
@@ -15,7 +15,9 @@ async function main(): Promise<void> {
     for (const c of report.counts) console.log(`${c.event.padEnd(26)}${String(c.events).padStart(6)}  ${String(c.investors).padStart(9)}`);
     const rate = report.goalSaveRate === null ? 'no SIPs started yet' : `${(report.goalSaveRate * 100).toFixed(1)}%`;
     console.log(`\nGoal-save rate: ${rate} (${report.startedWithGoal} of ${report.sipsStarted} SIPs started with a goal)`);
-    console.log('Test visitors (" · eval", " · CLI test") are left out.');
+    console.log(`From real accounts only. Left out: ${report.leftOut.demo} persona demo visitors and ${report.leftOut.qa} QA or test visitors.`);
+    console.log('dip_context_viewed and stop_checkin_opened count pages seen; every other event counts something saved or done.');
+    console.log('These are counts, not outcomes: nothing here shows an effect on retention.');
   } finally {
     await db.close();
   }

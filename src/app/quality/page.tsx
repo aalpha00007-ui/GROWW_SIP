@@ -5,14 +5,14 @@ import { Logo } from '@/components/logo';
 import { SiteFooter } from '@/components/site-footer';
 import { getDb } from '@/db/pool';
 import { toRupeeSign } from '@/server/money';
-import { qualityView } from '@/server/quality';
+import { HOLDOUT_FRESHNESS, qualityView } from '@/server/quality';
 
 export const dynamic = 'force-dynamic';
 
 const MARK = { true: { text: 'Pass', style: 'bg-primary-soft text-gain' }, false: { text: 'Fail', style: 'bg-loss-soft text-loss-strong' } } as const;
 
 export default async function Quality() {
-  const { run, holdout, live } = await qualityView(getDb(), process.env.RENDER_GIT_COMMIT);
+  const { run, holdout, live, promptVersion } = await qualityView(getDb(), process.env.RENDER_GIT_COMMIT);
   const golden = run?.rows.find((r) => r.label === 'Golden set: theme agreement');
 
   return (
@@ -36,31 +36,38 @@ export default async function Quality() {
         {(golden || holdout) && (
           <section className="rounded-xl border border-line bg-surface p-4" aria-labelledby="sets">
             <h2 id="sets" className="text-lg font-bold">
-              Theme agreement: tuned set and holdout set
+              Theme agreement: tuning set and fresh set
             </h2>
             <p className="text-sm text-muted">
-              How often the AI&apos;s reading of a real post matches the theme a person gave it by hand. The prompt rules were written after seeing
-              which golden-set posts the AI missed, so that score is partly tuned to those posts. The holdout posts were never used for any rule.
+              How often the AI&apos;s reading of a real post matches the theme a person gave it by hand. The app now runs prompt {promptVersion}. A score
+              from another prompt is marked out of date.
             </p>
             <dl className="mt-3 grid gap-3 sm:grid-cols-2">
               <div className="rounded-lg bg-page p-3">
-                <dt className="text-sm font-semibold">Golden set (used for tuning)</dt>
+                <dt className="text-sm font-semibold">Golden set: tuning set (rules were adjusted using it)</dt>
                 <dd className="tabular mt-1 text-2xl font-bold text-strong">{golden ? golden.value : 'No eval yet'}</dd>
                 {run && (
                   <dd className="mt-1 text-xs text-muted">
-                    Run #{run.runId} · {run.date} · prompt {run.promptVersion}
+                    <b>Prompt {run.promptVersion}</b> · Run #{run.runId} · {run.date}
                   </dd>
                 )}
+                {run?.outOfDate && <dd className="mt-1 text-xs font-semibold text-loss-strong">Out of date: the app now runs prompt {promptVersion}.</dd>}
               </div>
               <div className="rounded-lg bg-page p-3">
-                <dt className="text-sm font-semibold">Holdout set (never used for tuning)</dt>
+                <dt className="text-sm font-semibold">Holdout: fresh set</dt>
                 {holdout?.result ? (
                   <>
                     <dd className="tabular mt-1 text-2xl font-bold text-strong">{holdout.result.agreement}</dd>
                     <dd className="mt-1 text-xs text-muted">
-                      {holdout.result.date} · prompt {holdout.result.promptVersion}
+                      <b>Prompt {holdout.result.promptVersion}</b> · {holdout.result.date}
                       {holdout.labelled < holdout.total ? ` · ${holdout.total - holdout.labelled} of ${holdout.total} posts not labelled yet` : ''}
                     </dd>
+                    {holdout.result.outOfDate && (
+                      <dd className="mt-1 text-xs font-semibold text-loss-strong">
+                        Out of date: scored on prompt {holdout.result.promptVersion}; the app now runs prompt {promptVersion}.
+                      </dd>
+                    )}
+                    <dd className="mt-1 text-xs text-muted">{HOLDOUT_FRESHNESS}</dd>
                   </>
                 ) : (
                   <>
@@ -173,9 +180,10 @@ export default async function Quality() {
         <section className="rounded-xl border border-line bg-surface p-4">
           <h2 className="text-lg font-bold">Live use</h2>
           <p className="text-sm text-muted">
-            {live.total} AI check-ins from demo visitors ({live.dipExplainers} dip explainers). The eval&apos;s and our own test visitors are left out.
+            {live.total} AI check-ins from signed-up accounts ({live.dipExplainers} dip explainers). Left out: {live.leftOut.demo} persona demo visitors and{' '}
+            {live.leftOut.qa} QA or test visitors. These are counts of what the AI did, not evidence of any effect on investors.
           </p>
-          <dl className="mt-3 grid grid-cols-3 gap-3">
+          <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {live.outcomes.map((o) => (
               <div key={o.label} className="rounded-lg bg-page p-3">
                 <dt className="text-sm text-muted">{o.label}</dt>
@@ -215,7 +223,7 @@ export default async function Quality() {
         <p className="text-sm text-muted">
           CI runs this eval whenever the AI&apos;s code, prompts or data change, and a version that fails the gate is not deployed. The gate: every
           must-pass safety case passes, golden-set theme agreement stays at or above the floor, at most one routing miss, and no answer breaks an
-          invariant. The holdout score is reported only; it does not gate a deploy.
+          invariant. The fresh-set score is reported only; it does not gate a deploy.
         </p>
       </main>
       <SiteFooter />
