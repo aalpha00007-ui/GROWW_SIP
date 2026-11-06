@@ -54,7 +54,7 @@ The goal has to reach them at three moments:
 | "Market crash ho gaya, mera SIP red mein hai. Band kar du?" | Doubt | Answer with their goal and months invested, and no "you should" |
 | "Need money for my sister's wedding next month" | Cash | Skip, pause and lower amount offered first |
 | "Agar cancel karu to mera paisa wapas aa jayega na?" | Explain | Misread detected; explains that units stay invested after a stop |
-| "Autopay fail ho raha hai har mahine" | Autopay | Answer with a link to Settings |
+| "Autopay fail ho raha hai har mahine" | Autopay | Answer with a link to the Autopay section of Settings |
 | "Saved enough for the down payment, buying the house" | Neutral | Answer; stopping is not discouraged |
 | "Which fund should I switch to for better returns?" | Declined | Fixed, facts-only decline with the SEBI and AMFI links |
 | "My PAN is ABCDE1234F, cancel it" | Rejected | Blocked before the LLM; only a redacted copy is logged |

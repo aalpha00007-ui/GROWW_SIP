@@ -375,7 +375,7 @@ describe('Guaranteed-return request', () => {
 });
 
 describe('Autopay trouble', () => {
-  it('links to Settings by that name: there are no autopay settings to promise', async () => {
+  it('links to the Autopay section of Settings', async () => {
     const r = await persona();
     const llm = fakeLlm(
       reading({ primary_theme: 'Payment & mandate issues', themes: ['Payment & mandate issues'] }),
@@ -383,7 +383,7 @@ describe('Autopay trouble', () => {
     );
     const c = await ask(llm, r.id, r.sip, 'My autopay keeps failing every month');
     expect(c).toMatchObject({ outcome: 'answer', route: 'autopay' });
-    expect(checkInCard(c).appLink).toEqual({ label: 'Go to Settings', href: '/settings' });
+    expect(checkInCard(c).appLink).toEqual({ label: 'Your autopay in Settings', href: '/settings#autopay' });
   });
 });
 

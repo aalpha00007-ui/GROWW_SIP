@@ -73,7 +73,7 @@ describe('Explore and the fund page', () => {
     expect(fund).not.toHaveProperty('rate3y');
     expect(fund).not.toHaveProperty('rate3yText');
     expect(fund?.box).toMatchObject({
-      minAmount: 500, defaultAmount: 1000, defaultDay: 27, mandate: 'Pay via mandate · Demo Bank ····0000', balance: 'Pay from demo balance · ₹1,00,000',
+      minAmount: 500, defaultAmount: 1000, defaultDay: 27, mandate: 'Pay via mandate · Demo Bank savings', balance: 'Pay from demo balance · ₹1,00,000',
     });
     expect(fund?.box.quickAdd.map((q) => q.label)).toEqual(['+₹1,000', '+₹2,000', '+₹5,000']);
     expect(fund?.box.days).toHaveLength(28);

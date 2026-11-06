@@ -4,6 +4,7 @@
 // fund's past return.
 import type { Db } from '../db/client';
 import { dayMonthYear, monthYear, ordinal, percent, pricesAsOf } from '../pipeline/chunking/format';
+import { autopay } from './autopay';
 import { inr } from './money';
 import { sipSchedule } from '../pipeline/chunking/schedule';
 import { addMonths, firstDueDate, monthStart } from '../pipeline/loading/dates';
@@ -35,8 +36,6 @@ const WHOLE = new Intl.NumberFormat('en-IN');
 /** Quick-add chips in the order card: each adds to the amount. */
 const QUICK_ADD = [1000, 2000, 5000];
 const DEFAULT_AMOUNT = 1000;
-/** A made-up mandate for everyone: never a real bank or account number. */
-export const DEMO_MANDATE = 'Pay via mandate · Demo Bank ····0000';
 
 /** Every fund with the latest NAV this visitor sees, and the NAV 3 years before it. */
 async function funds(db: Db, investorId: string): Promise<FundRow[]> {
@@ -157,7 +156,7 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
   if (!Number.isInteger(fundId)) return null;
   const fund = (await funds(db, investorId)).find((f) => f.id === fundId);
   if (!fund) return null;
-  const [history, balance, tipDone, choices, watching] = await Promise.all([
+  const [history, balance, tipDone, choices, watching, pay] = await Promise.all([
     db.query<{ d: string; nav: string }>('SELECT nav_date::text AS d, nav::text FROM visible_nav_history($1) WHERE fund_id = $2 ORDER BY nav_date', [
       investorId,
       fundId,
@@ -166,6 +165,7 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
     tooltipDismissed(db, investorId),
     goalChoices(db, investorId),
     db.query('SELECT 1 FROM fund_watchlist WHERE investor_id = $1 AND fund_id = $2', [investorId, fundId]),
+    autopay(db, investorId),
   ]);
   return {
     id: fund.id,
@@ -202,7 +202,7 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
       defaultDay: Math.min(Number(today.slice(8, 10)), 28),
       /** Paid when the SIP starts: the demo date. */
       firstInstalment: dayMonthYear(today),
-      mandate: DEMO_MANDATE,
+      mandate: pay ? `Pay via mandate · ${pay.bank}` : 'Pay via mandate',
       balance: `Pay from demo balance · ${inr(balance)}`,
       goalStep: goalStepOptions(today, choices),
       /** The one-time "New: tell us what this SIP is for" tooltip, until the investor closes it. */

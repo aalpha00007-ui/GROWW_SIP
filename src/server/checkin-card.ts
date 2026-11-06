@@ -27,7 +27,7 @@ export interface CheckInCard {
   question: ExpectationQuestion | null;
   facts: FactLine[] | null;
   links: { label: string; url: string }[] | null;
-  /** The autopay route answers with a link to Settings. It names the page: there are no autopay settings to promise. */
+  /** The autopay route answers with a link to the Autopay section of Settings. */
   appLink: { label: string; href: string } | null;
   asOf: string;
 }
@@ -182,7 +182,7 @@ export function checkInCard(result: Shown): CheckInCard {
     question: result.question,
     facts: answered || outcome === 'asked' ? null : result.facts.lines,
     links: answered || outcome === 'asked' ? null : result.links.map((l) => ({ label: l.label, url: l.url })),
-    appLink: answered && result.route === 'autopay' ? { label: 'Go to Settings', href: '/settings' } : null,
+    appLink: answered && result.route === 'autopay' ? { label: 'Your autopay in Settings', href: '/settings#autopay' } : null,
     asOf: pricesAsOf(result.facts.as_of),
   };
 }

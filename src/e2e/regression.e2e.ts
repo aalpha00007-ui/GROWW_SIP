@@ -641,6 +641,35 @@ test.describe('The extras are gone', () => {
   });
 });
 
+test.describe('Autopay in Settings', () => {
+  test('shows the mandate the order card pays from, and leads to the SIPs', async ({ page }) => {
+    await page.goto('/settings#autopay');
+    const section = page.locator('#autopay');
+    await expect(section.getByRole('heading', { name: 'Autopay' })).toBeVisible();
+    await expect(section).toBeInViewport();
+    await expect(section.getByText('Demo Bank ····0000 · UPI')).toBeVisible();
+    await expect(section.getByText(/no real bank is connected/)).toBeVisible();
+    await section.getByRole('link', { name: 'Go to your SIPs' }).click();
+    await expect(page).toHaveURL(/\/sips$/);
+    await openFund(page);
+    await expect(page.getByText('Pay via mandate · Demo Bank ····0000')).toBeVisible();
+  });
+
+  test('a persona with its own mandate sees it on both screens', async ({ page }) => {
+    await startClean(page, 'riya');
+    await page.goto('/settings');
+    await expect(page.locator('#autopay').getByText('Demo Bank savings · UPI')).toBeVisible();
+    await openFund(page);
+    await expect(page.getByText('Pay via mandate · Demo Bank savings')).toBeVisible();
+  });
+
+  test('a new account has one too', async ({ page }) => {
+    await signUp(page);
+    await page.goto('/settings');
+    await expect(page.locator('#autopay').getByText('Demo Bank ····0000 · UPI')).toBeVisible();
+  });
+});
+
 test.describe('The gap to the target', () => {
   const short = "Your planned instalments add up to ₹13,000 by Nov 2027. That's ₹37,000 short of your ₹50,000 target (instalments only, no returns included).";
   const covered = 'Your planned instalments add up to ₹13,000, which covers your ₹5,000 target (instalments only, no returns included).';
