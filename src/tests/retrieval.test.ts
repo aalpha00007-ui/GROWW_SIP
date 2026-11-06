@@ -89,7 +89,7 @@ describe('The day of a demo market fall', () => {
     const visitor = await clonePersona(db, 'kabir');
     const started = await startSip(db, visitor, { fundId: 1, amount: 1000, day: 4 }, tomorrow);
     if (started.status !== 200) throw new Error(started.error);
-    await applyMarketFall(db, visitor);
+    await applyMarketFall(db, visitor, tomorrow);
     const lookup = await retrieveFacts(db, visitor, started.id, tomorrow);
     if (lookup.status !== 'ok') throw new Error(lookup.status);
     expect(lookup.facts.worst_fall_since_start_pct).toBe(-6);
@@ -182,7 +182,7 @@ describe('facts retrieval (step 3)', () => {
     const visitor = await clonePersona(db, 'riya');
     const [sip] = (await db.query<{ id: number }>('SELECT id FROM sips WHERE investor_id = $1 ORDER BY id LIMIT 1', [visitor])).rows;
     const before = await retrieveFacts(db, visitor, sip.id, TODAY);
-    await applyMarketFall(db, visitor);
+    await applyMarketFall(db, visitor, addDays(TODAY, 1));
     const after = await retrieveFacts(db, visitor, sip.id, TODAY);
     if (before.status !== 'ok' || after.status !== 'ok') throw new Error('lookup failed');
     expect(after.facts.as_of).toBe(addDays(TODAY, 1));

@@ -92,7 +92,7 @@ describe('SIP facts unit', () => {
     const unit = buildFactsUnit(riya);
     expect(unit.text).toBe(
       [
-        'Facts about this SIP, as of 27 Oct 2026:',
+        'Facts about this SIP, fund prices as of 27 Oct 2026:',
         '- Fund: Banyan Flexi Cap Fund (Equity)',
         '- Instalment: Rs 2,000 a month',
         '- Months invested: 7 months',

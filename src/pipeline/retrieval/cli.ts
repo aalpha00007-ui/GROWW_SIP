@@ -35,7 +35,7 @@ async function main(args: string[]): Promise<void> {
       return;
     }
     if (command === 'fall') {
-      const rows = await applyMarketFall(db, visitor);
+      const rows = await applyMarketFall(db, visitor, todayInIndia());
       console.log(`Added a -6% day for ${rows.length} funds, dated ${rows[0].nav_date}, for ${persona}'s test visitor only.`);
       return;
     }

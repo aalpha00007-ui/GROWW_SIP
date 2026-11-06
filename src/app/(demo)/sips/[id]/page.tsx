@@ -109,7 +109,11 @@ export default async function SipPage({
               )}
               {sip.nextDue && <li>Next instalment: {sip.nextDue}</li>}
             </ul>
-            <p className="mt-2 text-xs text-muted">{sip.asOf}</p>
+            <ul className="mt-2 space-y-0.5 text-xs text-muted">
+              <li>{sip.asOf}</li>
+              {sip.lastPayment && <li>{sip.lastPayment}</li>}
+              <li>{sip.demoDate}</li>
+            </ul>
             {sip.explainDip && (
               <div className="mt-4">
                 <DipExplainer sipId={sip.id} autoStart={explain === 'dip'} />

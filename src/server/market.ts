@@ -3,6 +3,7 @@
 // so "Simulate a market fall" moves the strip, the fund cards and the goal cards together. Never live data.
 import type { Db } from '../db/client';
 import { dayMonthYear } from '../pipeline/chunking/format';
+import { simulatedFalls } from '../pipeline/loading/market-fall';
 
 /** Made-up levels on the seed day; each follows the NAV of a demo fund from the same corner of the market. */
 const INDICES = [
@@ -60,15 +61,13 @@ export function dayChange(now: number, before: number | null): string | null {
 
 export interface MarketStrip {
   indices: { name: string; value: string; change: string | null }[];
-  /** 'Numbers as of 28 Oct 2026 · Includes 1 simulated market fall · Demo data' */
+  /** 'Demo prices as of 28 Oct 2026 · Includes 1 simulated market fall · Demo data' */
   note: string;
 }
 
 export async function marketStrip(db: Db, investorId: string | null): Promise<MarketStrip> {
   const moves = await fundMoves(db, investorId);
-  const [demo] = (
-    await db.query<{ days: number }>('SELECT count(DISTINCT nav_date)::int AS days FROM demo_nav_history WHERE investor_id = $1', [investorId])
-  ).rows;
+  const falls = investorId ? await simulatedFalls(db, investorId) : 0;
   const asOf = moves.reduce((latest, m) => (m.as_of > latest ? m.as_of : latest), '');
   return {
     indices: INDICES.flatMap((index) => {
@@ -79,8 +78,8 @@ export async function marketStrip(db: Db, investorId: string | null): Promise<Ma
       return [{ name: index.name, value: TWO.format(now), change: dayChange(now, fund.prev === null ? null : Number(fund.prev) * scale) }];
     }),
     note: [
-      asOf ? `Numbers as of ${dayMonthYear(asOf)}` : null,
-      demo.days > 0 ? `Includes ${demo.days} simulated market ${demo.days === 1 ? 'fall' : 'falls'}` : null,
+      asOf ? `Demo prices as of ${dayMonthYear(asOf)}` : null,
+      falls > 0 ? `Includes ${falls} simulated market ${falls === 1 ? 'fall' : 'falls'}` : null,
       'Demo data',
     ]
       .filter(Boolean)

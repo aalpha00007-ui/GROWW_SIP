@@ -42,6 +42,9 @@ CREATE TABLE IF NOT EXISTS demo_nav_history (
   PRIMARY KEY (investor_id, fund_id, nav_date)
 );
 
+-- How many simulated falls this day holds: a second press on the same demo date lands on the same day.
+ALTER TABLE demo_nav_history ADD COLUMN IF NOT EXISTS falls int NOT NULL DEFAULT 1;
+
 CREATE TABLE IF NOT EXISTS goals (
   id           serial PRIMARY KEY,
   investor_id  uuid NOT NULL REFERENCES investors(id) ON DELETE CASCADE,

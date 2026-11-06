@@ -4,9 +4,10 @@
 // and does no maths (spec §5).
 import type { Db } from '../db/client';
 import type { SipFacts } from '../pipeline/chunking/facts';
-import { dayMonthYear, duration, monthsBetween, monthYear, percent } from '../pipeline/chunking/format';
+import { dayMonthYear, demoDate, duration, lastPayment, monthsBetween, monthYear, percent, pricesAsOf } from '../pipeline/chunking/format';
 import { combineSchedules, paidLabel, skipsLabel, toGoLabel, type SipSchedule } from '../pipeline/chunking/schedule';
 import { inr, signedInr } from './money';
+import { simulatedFalls } from '../pipeline/loading/market-fall';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
 
 export type Direction = 'up' | 'down' | 'flat';
@@ -49,8 +50,12 @@ export interface GoalCard {
 }
 
 export interface HomeView {
-  /** 'Numbers as of 27 Oct 2026'; null when the investor has no SIPs. */
+  /** 'Demo date: 5 Nov 2026': the day this demo is on. */
+  demoDate: string;
+  /** 'Fund prices as of 27 Oct 2026 · demo price series'; null when the investor has no SIPs. */
   asOf: string | null;
+  /** 'Last payment 3 Nov 2026': account activity, apart from the price date. Null before any payment. */
+  lastPayment: string | null;
   /** 'Includes 1 simulated market fall'; null when there is none. */
   demoNote: string | null;
   summary: { value: string; putIn: string; change: Change | null; sipCount: string } | null;
@@ -95,9 +100,7 @@ export async function homeView(db: Db, investorId: string, today: string): Promi
     return lookup.status === 'not_found' ? [] : [{ row, facts: lookup.facts, schedule: lookup.schedule, stopped: lookup.status === 'stopped' }];
   });
 
-  const [demo] = (
-    await db.query<{ days: number }>('SELECT count(DISTINCT nav_date)::int AS days FROM demo_nav_history WHERE investor_id = $1', [investorId])
-  ).rows;
+  const falls = await simulatedFalls(db, investorId);
   const oneTime = (
     await db.query<OneTimeRow>(
       `SELECT l.goal_id, g.name AS goal_name, g.target_month::text, g.target_amount::float8 AS target_amount, f.name AS fund, l.amount,
@@ -118,10 +121,16 @@ export async function homeView(db: Db, investorId: string, today: string): Promi
   // A stopped SIP needs no goal, so only active ones count as "no goal yet".
   const noGoal = sips.filter((s) => s.row.goal_id === null && !s.stopped);
   const asOf = sips.reduce<string | null>((latest, s) => (latest && latest > s.facts.as_of ? latest : s.facts.as_of), null);
+  const lastPaid = sips.reduce<string | null>((latest, s) => {
+    const paidOn = s.schedule.lastPaid?.paidOn ?? null;
+    return paidOn && (!latest || paidOn > latest) ? paidOn : latest;
+  }, null);
 
   return {
-    asOf: asOf ? `Numbers as of ${dayMonthYear(asOf)}` : null,
-    demoNote: demo.days > 0 ? `Includes ${demo.days} simulated market ${demo.days === 1 ? 'fall' : 'falls'}` : null,
+    demoDate: demoDate(dayMonthYear(today)),
+    asOf: asOf ? pricesAsOf(dayMonthYear(asOf)) : null,
+    lastPayment: lastPaid ? lastPayment(dayMonthYear(lastPaid)) : null,
+    demoNote: falls > 0 ? `Includes ${falls} simulated market ${falls === 1 ? 'fall' : 'falls'}` : null,
     summary: sips.length ? summary(sips.map((s) => s.facts)) : null,
     goals: [...byGoal.entries()].map(([id, group]) => goalCard(id, group, oneTime.filter((o) => o.goal_id === id), today)),
     noGoal: noGoal.length

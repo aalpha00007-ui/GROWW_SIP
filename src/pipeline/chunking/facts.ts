@@ -127,7 +127,7 @@ export function buildFactsUnit(facts: SipFacts): FactsUnit {
   lines.push(...goalLines(facts));
 
   const asOf = dayMonthYear(facts.as_of);
-  const text = [`Facts about this SIP, as of ${asOf}:`, ...lines.map((l) => `- ${l.label}: ${l.value}`)].join('\n');
+  const text = [`Facts about this SIP, fund prices as of ${asOf}:`, ...lines.map((l) => `- ${l.label}: ${l.value}`)].join('\n');
   const numbersIn = (...labels: string[]) => lines.filter((l) => labels.includes(l.label)).flatMap((l) => numberTokens(l.value));
   return {
     kind: 'facts', sip_id: facts.sip_id, as_of: asOf, lines, text, numbers: numberTokens(text),

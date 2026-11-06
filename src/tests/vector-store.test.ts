@@ -58,7 +58,7 @@ describe('visible_nav_history', () => {
     const shared = await count('SELECT count(*)::int AS n FROM nav_history');
     expect(await count('SELECT count(*)::int AS n FROM visible_nav_history($1)', [visitor])).toBe(shared);
 
-    await applyMarketFall(db, visitor);
+    await applyMarketFall(db, visitor, addDays(TODAY, 1));
     expect(await count('SELECT count(*)::int AS n FROM visible_nav_history($1) WHERE is_demo', [visitor])).toBe(40);
     expect(await count('SELECT count(*)::int AS n FROM visible_nav_history($1)', [visitor])).toBe(shared + 40);
     expect(await count('SELECT count(*)::int AS n FROM visible_nav_history($1) WHERE is_demo', [other])).toBe(0);
@@ -66,7 +66,7 @@ describe('visible_nav_history', () => {
 
   it("keeps a visitor's demo day when the shared history later reaches the same date", async () => {
     const visitor = await clonePersona(db, 'arjun');
-    const [fall] = await applyMarketFall(db, visitor);
+    const [fall] = await applyMarketFall(db, visitor, addDays(TODAY, 1));
     await db.query('INSERT INTO nav_history (fund_id, nav_date, nav) VALUES ($1, $2, 1)', [fall.fund_id, fall.nav_date]);
 
     const rows = (

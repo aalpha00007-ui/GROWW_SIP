@@ -45,7 +45,7 @@ export default async function FundPage({ params }: { params: Promise<{ id: strin
 
           <section className="rounded-xl border border-line bg-surface p-5">
             <p className="tabular text-2xl font-bold text-strong">{fund.nav}</p>
-            <p className="text-sm text-muted">{fund.navDate} · Demo data</p>
+            <p className="text-sm text-muted">{fund.navDate}</p>
             <div className="mt-3">
               <NavChart points={fund.chart} />
             </div>

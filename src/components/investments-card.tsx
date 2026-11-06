@@ -29,7 +29,7 @@ export function InvestmentsCard({ view, link }: { view: InvestmentsView | null; 
               </div>
             ))}
           </dl>
-          <p className="mt-2 text-xs text-muted">{view.asOf} · Demo data</p>
+          <p className="mt-2 text-xs text-muted">{view.asOf}</p>
         </div>
       ) : (
         <div className="rounded-xl border border-line bg-surface p-5 text-center">

@@ -62,7 +62,7 @@ describe('Explore and the fund page', () => {
 
   it('shows the fund page: stats, 6 years of NAVs for the chart, the demo 3Y return and an order card with no goal preselected', async () => {
     const fund = await fundPage(db, riya, 1, TODAY);
-    expect(fund).toMatchObject({ name: 'Banyan Flexi Cap Fund', initials: 'BF', navDate: 'NAV on 27 Oct 2026' });
+    expect(fund).toMatchObject({ name: 'Banyan Flexi Cap Fund', initials: 'BF', navDate: 'Fund prices as of 27 Oct 2026 · demo price series' });
     expect(fund?.stats.map((s) => [s.label, s.value])).toEqual([
       ['NAV', fund!.nav], ['Min. for SIP', '₹500'], ['Fund size', '₹18,420 Cr'], ['Expense ratio', '0.72%'],
     ]);

@@ -30,6 +30,7 @@ export default async function Dashboard() {
       <div className="@container space-y-8">
         {/* The dip seen next to its goal: the case study's main moment. */}
         {home.goals.some((g) => g.change?.direction === 'down') && <LogEvent event="dip_context_viewed" where="dashboard" />}
+        <p className="text-sm text-muted">{[home.demoDate, home.asOf, home.lastPayment, home.demoNote].filter(Boolean).join(' · ')}</p>
         <section>
           <SectionTitle id="your-goals" title="Your goals" link={{ label: 'All SIPs', href: '/sips' }} />
           {home.goals.length > 0 ? (

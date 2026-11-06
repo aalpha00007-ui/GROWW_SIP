@@ -2,7 +2,7 @@
 // retrieveFacts; the SIP's status is computed from sip_events, never stored (build spec §5).
 import type { Db } from '../db/client';
 import type { FactsUnit, SipFacts } from '../pipeline/chunking/facts';
-import { dayMonthYear, monthYear, ordinal, percent } from '../pipeline/chunking/format';
+import { dayMonthYear, demoDate, lastPayment, monthYear, ordinal, percent, pricesAsOf } from '../pipeline/chunking/format';
 import { paidLabel, skipsLabel, toGoLabel, type RowState, type SipSchedule } from '../pipeline/chunking/schedule';
 import { inr } from './money';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
@@ -63,7 +63,12 @@ export interface SipView {
   goalHeader: string;
   hasGoal: boolean;
   goalLine: string;
+  /** 'Fund prices as of 27 Oct 2026 · demo price series': when Value today's prices are from. */
   asOf: string;
+  /** 'Last payment 3 Nov 2026': what the account did, apart from the price date. Null before any payment. */
+  lastPayment: string | null;
+  /** 'Demo date: 5 Nov 2026' */
+  demoDate: string;
   putIn: string;
   value: string;
   change: Change | null;
@@ -132,7 +137,9 @@ export function sipView(state: SipState, today: string): SipView {
     goalHeader: goalHeader(facts, schedule),
     hasGoal: facts.goal !== null,
     goalLine: state.goalLine,
-    asOf: `Numbers as of ${dayMonthYear(facts.as_of)}`,
+    asOf: pricesAsOf(dayMonthYear(facts.as_of)),
+    lastPayment: schedule.lastPaid ? lastPayment(dayMonthYear(schedule.lastPaid.paidOn)) : null,
+    demoDate: demoDate(dayMonthYear(today)),
     putIn: inr(facts.invested),
     value: inr(facts.current_value),
     change: changeOf([facts]),

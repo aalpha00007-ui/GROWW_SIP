@@ -22,6 +22,14 @@ export function percent(value: number, signed = false): string {
   return signed && rounded > 0 ? `+${text}` : text;
 }
 
+/**
+ * The two dates that must never be confused: when the fund prices are from, and what the account did. Demo prices
+ * stop at the seed date, so "27 Oct" prices can sit next to a "3 Nov" payment: each says which one it is.
+ */
+export const pricesAsOf = (date: string) => `Fund prices as of ${date} · demo price series`;
+export const lastPayment = (date: string) => `Last payment ${date}`;
+export const demoDate = (date: string) => `Demo date: ${date}`;
+
 /** 1 -> '1st', 22 -> '22nd', 13 -> '13th' */
 export function ordinal(n: number): string {
   const suffix = n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th';

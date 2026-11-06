@@ -244,7 +244,7 @@ describe('demo market fall', () => {
     const move = (i: number) => (latest[i].category === 'Liquid' ? 1 : 0.94);
     expect(latest.filter((f) => f.category === 'Liquid')).toHaveLength(1);
 
-    const first = await applyMarketFall(db, visitor);
+    const first = await applyMarketFall(db, visitor, addDays(TODAY, 1));
     expect(first).toHaveLength(40);
     first.forEach((row, i) => {
       expect(row.fund_id).toBe(latest[i].fund_id);
@@ -252,7 +252,7 @@ describe('demo market fall', () => {
       expect(Number(row.nav)).toBeCloseTo(Number(latest[i].nav) * move(i), 4);
     });
 
-    const second = await applyMarketFall(db, visitor);
+    const second = await applyMarketFall(db, visitor, addDays(TODAY, 2));
     second.forEach((row, i) => {
       expect(row.nav_date).toBe(addDays(TODAY, 2));
       expect(Number(row.nav)).toBeCloseTo(Number(first[i].nav) * move(i), 4);
@@ -264,7 +264,7 @@ describe('demo market fall', () => {
   });
 
   it('refuses to change a persona template', async () => {
-    await expect(applyMarketFall(db, TEMPLATE_IDS.riya)).rejects.toThrow('read-only');
+    await expect(applyMarketFall(db, TEMPLATE_IDS.riya, TODAY)).rejects.toThrow('read-only');
   });
 });
 

@@ -320,7 +320,7 @@ describe('AI cards (PRD F8-F10)', () => {
   it('shows the dip explainer with its quality strip and no facts table', async () => {
     const r = await riya();
     const c = await card(fakeLlm({ text: answer }), 'is_this_normal', r.id, r.banyan);
-    expect(c).toMatchObject({ outcome: 'answer', understood: null, text: answer, gate: null, lang: 'en', facts: null, links: null, asOf: 'Numbers as of 27 Oct 2026' });
+    expect(c).toMatchObject({ outcome: 'answer', understood: null, text: answer, gate: null, lang: 'en', facts: null, links: null, asOf: 'Fund prices as of 27 Oct 2026 · demo price series' });
     expect(c.strip).toEqual([
       { label: 'No investment advice', ok: true },
       { label: 'Numbers match your SIP', ok: true },

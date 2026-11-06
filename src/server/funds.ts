@@ -2,7 +2,7 @@
 // Funds are made up and shown as simulated. The goal line says what will be put in, never what it will be
 // worth; only the fund page's return calculator estimates a value, from the fund's demo 3Y return, and says so.
 import type { Db } from '../db/client';
-import { dayMonthYear, monthYear, ordinal, percent } from '../pipeline/chunking/format';
+import { dayMonthYear, monthYear, ordinal, percent, pricesAsOf } from '../pipeline/chunking/format';
 import { inr } from './money';
 import { sipSchedule } from '../pipeline/chunking/schedule';
 import { addMonths, firstDueDate, monthStart } from '../pipeline/loading/dates';
@@ -180,7 +180,7 @@ export async function fundPage(db: Db, investorId: string, fundId: number, today
     initials: initials(fund.name),
     chips: [fund.category, fund.sub_category, `${fund.risk_level} risk`].filter((c, i, all) => all.indexOf(c) === i),
     nav: nav(fund.nav),
-    navDate: `NAV on ${dayMonthYear(fund.nav_date)}`,
+    navDate: pricesAsOf(dayMonthYear(fund.nav_date)),
     stats: [
       { label: 'NAV', value: nav(fund.nav), note: dayMonthYear(fund.nav_date) },
       { label: 'Min. for SIP', value: inr(fund.min_sip) },

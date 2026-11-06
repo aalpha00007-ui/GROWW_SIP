@@ -3,6 +3,7 @@
 // one quality-check line in the strip's place saying why only facts are shown. Both AI features show a
 // confidence label.
 import type { FactLine } from '../pipeline/chunking/facts';
+import { pricesAsOf } from '../pipeline/chunking/format';
 import type { Outcome } from '../pipeline/loading/fixtures';
 import { CHECK_KEYS, CHECK_LABELS, type CheckInResult, type CheckKey } from '../pipeline/retrieval/checkin';
 import type { Language } from '../pipeline/retrieval/prompts';
@@ -176,6 +177,6 @@ export function checkInCard(result: Shown): CheckInCard {
     facts: answered ? null : result.facts.lines,
     links: answered ? null : result.links.map((l) => ({ label: l.label, url: l.url })),
     appLink: answered && result.route === 'autopay' ? { label: 'Your autopay settings', href: '/settings' } : null,
-    asOf: `Numbers as of ${result.facts.as_of}`,
+    asOf: pricesAsOf(result.facts.as_of),
   };
 }

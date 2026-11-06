@@ -2,7 +2,7 @@
 // and XIRR across this investor's demo SIPs and one-time investments, plus one row per holding with
 // its goal. Values are units x the latest NAV this visitor sees, the same sum the AI's facts use.
 import type { Db } from '../db/client';
-import { dayMonthYear, monthYear, percent } from '../pipeline/chunking/format';
+import { dayMonthYear, monthYear, percent, pricesAsOf } from '../pipeline/chunking/format';
 import { inr, signedInr } from './money';
 
 interface Flow {
@@ -38,7 +38,7 @@ export interface InvestmentsView {
   /** 'For: Home down payment by Mar 2031', one per goal. */
   goals: string[];
   rows: { label: string; value: string; signed: boolean }[];
-  /** 'Numbers as of 27 Oct 2026' */
+  /** 'Fund prices as of 27 Oct 2026 · demo price series' */
   asOf: string;
   holdings: Holding[];
 }
@@ -88,7 +88,9 @@ export async function investmentsView(db: Db, investorId: string): Promise<Inves
     const before = f.on_date < latestDate.get(f.fund_id)! ? (previous.get(f.fund_id) ?? now) : Number(f.nav);
     return Number(f.units) * (now - before);
   });
-  const rate = xirr([...flows.map((f) => ({ date: f.on_date, amount: -f.amount })), { date: asOf, amount: current }]);
+  // Prices can be older than the last payment (they stop at the seed date), but the value is what the money is worth now.
+  const lastFlow = flows.reduce((last, f) => (f.on_date > last ? f.on_date : last), '');
+  const rate = xirr([...flows.map((f) => ({ date: f.on_date, amount: -f.amount })), { date: asOf > lastFlow ? asOf : lastFlow, amount: current }]);
 
   const goals = [
     ...new Set(flows.filter((f) => f.goal).map((f) => `For: ${f.goal}${f.target_month ? ` by ${monthYear(f.target_month)}` : ''}`)),
@@ -113,7 +115,7 @@ export async function investmentsView(db: Db, investorId: string): Promise<Inves
       { label: 'Invested', value: inr(invested), signed: false },
       { label: 'XIRR', value: rate === null ? 'After 30 days' : percent(rate * 100, true), signed: rate !== null },
     ],
-    asOf: `Numbers as of ${dayMonthYear(asOf)}`,
+    asOf: pricesAsOf(dayMonthYear(asOf)),
     holdings: [...groups.values()].map((group) => {
       const first = group[0];
       const putIn = sum(group, (f) => f.amount);

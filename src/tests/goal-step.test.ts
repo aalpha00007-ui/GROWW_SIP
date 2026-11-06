@@ -91,7 +91,7 @@ describe('Start SIP with the goal step', () => {
     if (started.status !== 200) throw new Error(started.error);
     // Before the fall the SIP is worth what was put in: no dip button.
     expect((await homeView(db, visitor, TODAY)).goals[0].dipSipId).toBeNull();
-    await applyMarketFall(db, visitor);
+    await applyMarketFall(db, visitor, TODAY);
     const card = (await homeView(db, visitor, TODAY)).goals[0];
     expect(card.change?.direction).toBe('down');
     expect(card.dipSipId).toBe(started.id);
