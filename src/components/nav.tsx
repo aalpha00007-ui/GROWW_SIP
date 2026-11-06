@@ -1,6 +1,6 @@
 'use client';
 // The app shell's tabs (PRD F13), after the layout reference. Row 1: Stocks · F&O · Mutual Funds.
-// Row 2: the sections of whichever product is open, with its button on the right (Terminal or Cart).
+// Row 2: the sections of whichever product is open, with the Cart button on the right on Mutual Funds.
 // On phones both rows scroll sideways; the page itself never does.
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -29,7 +29,7 @@ const SECTIONS: Record<Product, { label: string; href: string; also?: string[] }
     { label: 'Orders', href: '/fo/orders' },
   ],
   mf: [
-    { label: 'Explore', href: '/explore', also: ['/fund/', '/funds', '/collections/', '/soon/'] },
+    { label: 'Explore', href: '/explore', also: ['/fund/', '/funds', '/collections/'] },
     { label: 'Dashboard', href: '/dashboard' },
     { label: 'SIPs', href: '/sips' },
     { label: 'Orders', href: '/orders' },
@@ -86,12 +86,6 @@ export function SectionTabs({ cartCount }: { cartCount: number }) {
           </Link>
         ))}
       </nav>
-      {product === 'stocks' && (
-        <Link href="/soon/terminal" className="flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-line px-3 text-sm font-medium text-strong hover:border-primary">
-          <Icon name="terminal" size={18} />
-          Terminal
-        </Link>
-      )}
       {product === 'mf' && (
         <Link href="/cart" className="flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-line px-3 text-sm font-medium text-strong hover:border-primary">
           <Icon name="cart" size={18} />

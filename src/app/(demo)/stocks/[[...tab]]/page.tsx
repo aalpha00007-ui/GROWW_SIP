@@ -1,11 +1,11 @@
 // Stocks (brief phase 5), display only. Explore in two columns after the layout reference: Stocks (demo) and
-// Bonds (demo) on the left, in name order; Your investments (empty) and Products & Tools on the right. Holdings, Positions,
-// Orders and Watchlist are sample tables; a new demo account's are empty. Every company, bond and price is made
-// up; Buy and Sell do nothing.
+// Bonds (demo) on the left, in name order; Your investments (empty) on the right. Holdings, Positions, Orders and
+// Watchlist are sample tables; a new demo account's are empty. Every company, bond and price is made up; Buy and Sell
+// do nothing.
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Initials } from '@/components/fund-rows';
-import { Icon, type IconName } from '@/components/icons';
+import { Icon } from '@/components/icons';
 import { EmptyInvestments } from '@/components/investments-card';
 import { SectionTitle } from '@/components/section-title';
 import { Signed } from '@/components/signed';
@@ -40,15 +40,6 @@ export default async function Stocks({ params }: { params: Promise<{ tab?: strin
 
 async function Explore({ db, samples }: { db: ReturnType<typeof getDb>; samples: boolean }) {
   const data = await stocksExplore(db);
-  const tools: { label: string; href: string; icon: IconName; pill?: string }[] = [
-    { label: 'IPO', href: '/soon/ipo', icon: 'ipo' },
-    { label: 'Bonds', href: '/soon/bonds', icon: 'bond' },
-    { label: 'ETFs', href: '/soon/etfs', icon: 'etf' },
-    { label: 'Stock SIP', href: '/soon/stock-sip', icon: 'sips' },
-    { label: 'Screener', href: '/soon/screener', icon: 'screener' },
-    { label: 'Events calendar', href: '/soon/events', icon: 'calendar' },
-  ];
-
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,65fr)_minmax(0,35fr)] lg:items-start">
       <div className="@container space-y-8">
@@ -75,7 +66,7 @@ async function Explore({ db, samples }: { db: ReturnType<typeof getDb>; samples:
         </section>
 
         <section>
-          <SectionTitle title="Bonds (demo)" link={{ label: 'See more', href: '/soon/bonds' }} />
+          <SectionTitle title="Bonds (demo)" />
           <ul className="divide-y divide-line rounded-xl border border-line bg-surface">
             {data.bonds.map((b) => (
               <li key={b.name} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
@@ -114,21 +105,6 @@ async function Explore({ db, samples }: { db: ReturnType<typeof getDb>; samples:
               <Icon name="chevron" size={16} />
             </Link>
           </div>
-        </section>
-        <section>
-          <SectionTitle title="Products & Tools" />
-          <ul className={`${CARD} divide-y divide-line py-1`}>
-            {tools.map((tool) => (
-              <li key={tool.label}>
-                <Link href={tool.href} className="flex min-h-12 items-center gap-3 py-3 text-[15px] text-ink hover:text-primary">
-                  <Icon name={tool.icon} className="text-primary" />
-                  <span className="flex-1">{tool.label}</span>
-                  {tool.pill && <span className="rounded-full bg-primary-soft px-2.5 py-0.5 text-xs font-semibold text-ink">{tool.pill}</span>}
-                  <Icon name="chevron" size={16} className="text-muted" />
-                </Link>
-              </li>
-            ))}
-          </ul>
         </section>
       </div>
     </div>

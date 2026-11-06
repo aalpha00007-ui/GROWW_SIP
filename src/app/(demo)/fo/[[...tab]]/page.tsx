@@ -1,12 +1,10 @@
 // F&O (brief phase 5), display only. Explore after the layout reference: Contracts (demo) (Equity / Commodities, with
-// candles) and F&O stocks on the left; Positions (F&O returns ₹0.00) and Products & tools on the right.
+// candles) and F&O stocks on the left; Positions (F&O returns ₹0.00) on the right.
 // Positions is empty and Orders lists sample orders that never filled (a new demo account has none). Every
 // contract and price is made up.
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { FoTopTraded } from '@/components/fo-top-traded';
 import { Initials } from '@/components/fund-rows';
-import { Icon, type IconName } from '@/components/icons';
 import { SectionTitle } from '@/components/section-title';
 import { Signed } from '@/components/signed';
 import { DataTable, DEMO_ONLY, DemoTrade, NoRows } from '@/components/trading-ui';
@@ -66,17 +64,11 @@ export default async function FutureAndOptions({ params }: { params: Promise<{ t
   }
 
   const data = await foExplore(getDb());
-  const tools: { label: string; href: string; icon: IconName }[] = [
-    { label: 'Option chain', href: '/soon/options', icon: 'screener' },
-    { label: 'Margin calculator', href: '/soon/margin', icon: 'calculator' },
-    { label: 'Learn F&O', href: '/soon/fo-learn', icon: 'help' },
-  ];
-
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,65fr)_minmax(0,35fr)] lg:items-start">
       <div className="@container space-y-8">
         <section>
-          <SectionTitle title="Contracts (demo)" link={{ label: 'See more', href: '/soon/options' }} />
+          <SectionTitle title="Contracts (demo)" />
           <FoTopTraded equity={data.equity} commodities={data.commodities} />
         </section>
 
@@ -116,20 +108,6 @@ export default async function FutureAndOptions({ params }: { params: Promise<{ t
             <p className="tabular mt-0.5 text-[28px] font-bold leading-tight text-strong">₹0.00</p>
             <p className="mt-1 text-sm text-muted">No open positions. {DEMO_ONLY}</p>
           </div>
-        </section>
-        <section>
-          <SectionTitle title="Products & tools" />
-          <ul className={`${CARD} divide-y divide-line py-1`}>
-            {tools.map((tool) => (
-              <li key={tool.label}>
-                <Link href={tool.href} className="flex min-h-12 items-center gap-3 py-3 text-[15px] text-ink hover:text-primary">
-                  <Icon name={tool.icon} className="text-primary" />
-                  <span className="flex-1">{tool.label}</span>
-                  <Icon name="chevron" size={16} className="text-muted" />
-                </Link>
-              </li>
-            ))}
-          </ul>
         </section>
       </div>
     </div>

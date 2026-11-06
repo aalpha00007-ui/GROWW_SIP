@@ -613,7 +613,7 @@ test.describe('The extras are gone', () => {
     for (const text of GONE) await expect(page.getByText(text)).toHaveCount(0);
   });
 
-  for (const key of ['nfo', 'compare', 'import', 'tax']) {
+  for (const key of ['nfo', 'compare', 'import', 'tax', 'terminal', 'stock-sip', 'screener', 'events', 'options', 'margin', 'fo-learn', 'etfs', 'ipo', 'bonds']) {
     test(`/soon/${key} goes to Explore`, async ({ page }) => {
       await page.goto(`/soon/${key}`);
       await expect(page).toHaveURL(/\/explore$/);
@@ -621,9 +621,14 @@ test.describe('The extras are gone', () => {
     });
   }
 
-  test('the placeholders left in for now still open', async ({ page }) => {
-    await page.goto('/soon/terminal');
-    await expect(page.getByRole('heading', { name: 'Terminal' })).toBeVisible();
+  test('Stocks and F&O stay, with nothing that leads to a page that has gone', async ({ page }) => {
+    for (const [path, heading] of [['/stocks', 'Stocks (demo)'], ['/fo', 'Contracts (demo)']]) {
+      await page.goto(path);
+      await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+      await expect(page.locator('a[href^="/soon"]')).toHaveCount(0);
+      await expect(page.getByText(/Products & Tools/i)).toHaveCount(0);
+      await expect(page.getByRole('link', { name: 'Terminal' })).toHaveCount(0);
+    }
   });
 });
 

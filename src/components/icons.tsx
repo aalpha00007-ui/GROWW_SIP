@@ -23,12 +23,6 @@ const PATHS = {
   largeCap: 'M5 20V8M12 20V4M19 20V8M3 20h18',
   midCap: 'M5 20v-6M12 20V9M19 20v-6M3 20h18',
   smallCap: 'M5 20v-3M12 20v-6M19 20v-3M3 20h18',
-  terminal: 'M4 5h16v14H4zM7 9l3 3-3 3M12 15h5',
-  bond: 'M5 4h14v16H5zM9 8h6M9 12h6M9 16h3',
-  ipo: 'M12 3l3 6h6l-5 4 2 7-6-4-6 4 2-7-5-4h6z',
-  etf: 'M4 19V5M4 19h16M8 15l3-4 3 2 5-6',
-  screener: 'M4 5h16l-6 8v6l-4-2v-4z',
-  calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
   pause: 'M8 5v14M16 5v14',
   stop: 'M6 6h12v12H6z',
 } as const;
