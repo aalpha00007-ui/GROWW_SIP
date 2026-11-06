@@ -247,7 +247,7 @@ describe('Set or edit the goal', () => {
 });
 
 describe('AI cards (PRD F8-F10)', () => {
-  const answer = 'Your goal is set and your instalments are on track. Values move with the market. This is not investment advice.';
+  const answer = 'Your goal is set and no instalment has been skipped. Values move with the market. This is not investment advice.';
   const understood = (overrides: object = {}) => ({
     primary_theme: 'Market fear', themes: ['Market fear'], behaviour: 'Continuing', asks_for_advice: false,
     misreads_cancel: false, language: 'en', confidence: 0.9, summary: 'Worried because the SIP is red', ...overrides,

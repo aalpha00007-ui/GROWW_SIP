@@ -278,6 +278,71 @@ describe('v14: the doubt answer names its placeholders, and the Hinglish and Hin
   });
 });
 
+// Eval run #27 and the live site (3 Nov) showed investors "You've invested for 8 months invested", "53 instalments
+// still to come left over 4 years 4 months to go", "buys 30.6 units per instalment at the latest NAV now" and "Your
+// value today of Rs 11,964 is still on track for Home down payment".
+describe("v15: a value leaves out what the model's own words next to it already say", () => {
+  const fill = (text: string, lang: 'en' | 'hinglish' | 'hi' = 'en') => fillSlots(text, slotsFor(riya.facts, { pause: true }), lang);
+
+  it.each([
+    ['You’ve invested for {months_invested} with {instalments_paid} and no gaps.', 'You’ve invested for 7 months with 7 instalments paid and no gaps.'],
+    [
+      'You’ve put in {share_put_in_pct} for your {goal_name} with {instalments_to_go} left over {time_to_goal}. Each instalment buys {units_now} now.',
+      'You’ve put in 12% of the planned amount for your Home down payment with 53 instalments left over 4 years 5 months. Each instalment buys 30.6 units now.',
+    ],
+    [
+      'The worst fall since you started was {worst_fall}, but this fund’s demo history shows a {fund_biggest_fall}.',
+      'The worst fall since you started was -19.9%, but this fund’s demo history shows a -21.0% fall in May 2023, the biggest.',
+    ],
+    [
+      'Your {worst_fall} is the biggest since your SIP started. Each future instalment buys {units_now} instead of {units_at_peak}.',
+      "Your fall of -19.9% is the biggest since your SIP started. Each future instalment buys 30.6 units at the latest NAV instead of 24.5 units at the SIP's peak NAV.",
+    ],
+    // The same placeholder twice, each with its own words; "the next" one is the instalment, not "a month".
+    [
+      'You could skip the next {instalment_amount}, or lower the {instalment_amount}. Your {goal_name} has {time_to_goal} left. It is due in {time_to_goal}.',
+      'You could skip the next Rs 2,000 instalment, or lower the Rs 2,000 instalment. Your Home down payment has 4 years 5 months left. It is due in 4 years 5 months.',
+    ],
+  ])('in English: %s', (text, filled) => {
+    expect(fill(text)).toBe(filled);
+  });
+
+  it('in Hinglish and Hindi', () => {
+    expect(fill('{goal_name} ke liye {time_to_goal} bacha hai. Aap {months_invested} se SIP chala rahe hain. Fund ka sabse bada fall {fund_biggest_fall} tha.', 'hinglish')).toBe(
+      'Home down payment ke liye 4 saal 5 mahine bacha hai. Aap 7 mahine se SIP chala rahe hain. Fund ka sabse bada fall -21.0% (May 2023) tha.',
+    );
+    expect(fill('{goal_name} के लिए {time_to_goal} बचा है।', 'hi')).toBe('Home down payment के लिए 4 साल 5 महीने बचा है।');
+  });
+
+  it('keeps every word of the value where the words around it say nothing of its meaning, or in another clause', () => {
+    expect(fill('This is the {worst_fall}. You have {months_invested}, {instalments_to_go} and {time_to_goal}.')).toBe(
+      'This is the fall of -19.9%, the worst since your SIP started. You have 7 months invested, 53 instalments still to come and 4 years 5 months to go.',
+    );
+    // "left" belongs to the first clause, not to the placeholder after the comma.
+    expect(fill('You have nothing left, {months_invested}.')).toBe('You have nothing left, 7 months invested.');
+    expect(fill('आपकी {instalments_to_go} हैं।', 'hi')).toBe('आपकी अभी बाकी 53 किस्तें हैं।');
+  });
+
+  it('still checks every number it fills in, and shows the shorter answer', async () => {
+    const r = await reply(riya, 'en', 'You’ve invested for {months_invested} with {instalments_to_go} left over {time_to_goal}. Each instalment buys {units_now} now. This is not investment advice.');
+    expect(r).toMatchObject({ outcome: 'answer', checks: { grounded: true, ungrounded: [] } });
+    expect(r.text).toBe('You’ve invested for 7 months with 53 instalments left over 4 years 5 months. Each instalment buys 30.6 units now. This is not investment advice.');
+  });
+
+  it('fails "No unsupported claims" for "on track" or "part of the journey", with no second try', async () => {
+    for (const [language, text] of [
+      ['en', 'Your {value_today} is still on track for {goal_name} in {time_to_goal}. This is not investment advice.'],
+      ['en', 'Today’s {worst_fall} is part of the journey. This is not investment advice.'],
+      ['hinglish', 'Aap {goal_name} ke liye track par hain. Yeh investment advice nahi hai. This is not investment advice.'],
+      ['hi', 'आप {goal_name} के लिए सही रास्ते पर हैं। यह निवेश सलाह नहीं है। This is not investment advice.'],
+    ] as const) {
+      const r = await reply(riya, language, text);
+      expect(r, text).toMatchObject({ outcome: 'fallback', fallbackReason: { kind: 'checks', failed: ['no_claims'] } });
+      expect(r.checks!.second_draft, text).toBeUndefined();
+    }
+  });
+});
+
 describe('v12: one second draft, for what the writer can fix', () => {
   /** A Before you stop check-in in English with the given writer replies after the reading. */
   async function checkIn(...writes: (object | LlmError)[]) {

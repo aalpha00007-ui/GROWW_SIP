@@ -260,9 +260,19 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
         }
       }
       if (modelText === null) {
-        if (deps.llm) modelsUsed.push(deps.llm.model);
-        writer = deps.llm;
-        modelText = await writeAnswer(deps.llm, args);
+        try {
+          modelText = await writeAnswer(deps.llm, args);
+          writer = deps.llm;
+          if (deps.llm) modelsUsed.push(deps.llm.model);
+        } catch (err) {
+          // v15: the other way round for English. Mistral now and then takes over 10 s (the live dip explainer
+          // showed "AI unavailable" on 3 Nov), so Groq writes instead, unless it has just failed to.
+          if (!(err instanceof LlmError) || groqWrites || !deps.reader) throw err;
+          log(`Writer ${deps.llm?.model ?? 'none'} failed (${err.message}); ${deps.reader.model} writes instead`);
+          modelText = await writeAnswer(deps.reader, args);
+          writer = deps.reader;
+          modelsUsed.push(deps.reader.model);
+        }
       }
       // Step 7b (v12): one second try when the draft is too long once filled in, states a number itself, or
       // compares two numbers. The same writer gets the draft back with what to fix. Whatever comes back gets every

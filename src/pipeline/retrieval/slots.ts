@@ -277,6 +277,189 @@ const DEFS: SlotDef[] = [
   },
 ];
 
+/**
+ * v15: words of a value left out where the model's own words next to the placeholder already say them. Eval run
+ * #27 and the live site (3 Nov) showed investors "invested for 8 months invested", "53 instalments still to come
+ * left over 4 years 4 months to go" and "Each instalment buys 30.6 units per instalment at the latest NAV now":
+ * the writer is told not to repeat a value's meaning, and Mistral does anyway. A part is left out only when the
+ * words around the placeholder say the same thing, so every number still says what it is, in the model's words or
+ * the value's. The number itself, and the word that says what it counts ("instalments", "units"), always stay.
+ */
+interface Trim {
+  /** The words left out: a string where it first appears in the value, a pattern where it matches. */
+  text: string | RegExp;
+  /** Patterns on the words around the placeholder, with "_" where the placeholder is. Every one must match. */
+  when: RegExp[];
+  /** What goes in their place; nothing unless given. */
+  by?: string;
+}
+
+/** Whole English words or phrases, any case. */
+const words = (alternatives: string) => new RegExp(`\\b(?:${alternatives})\\b`, 'i');
+const EN_FALL = words('falls?|fell|fallen|drops?|dropped|dips?|declines?|declined|slump|crash');
+const EN_MOST = words('worst|biggest|largest|deepest|steepest|sharpest');
+const EN_SINCE = words('since|started|starting|start|began|beginning');
+const EN_LEFT = words('left|remaining|remains?|to come|to go|ahead|pending|more');
+const EN_PER_INSTALMENT = words('instalments?|installments?|each|every|per');
+const HL_FALL = words('fall|giravat|girawat|girav|gira|giri|gire|drop|dip');
+const HL_MOST = words('sabse|worst|biggest');
+const HL_LEFT = words('bacha|bachi|bache|baaki|baki|left|remaining');
+const HL_PUT_IN = words('lagay\\w*|lagaa\\w*|lagai\\w*|put in|invest\\w*|daal\\w*|jama');
+const HL_PER_INSTALMENT = words('kisht\\w*|instalments?|har|per|each|prati');
+const HI_PER_INSTALMENT = /किस्त|हर|प्रति/;
+
+const TRIMS: Record<string, Partial<Record<SlotLanguage, Trim[]>>> = {
+  instalment_amount: {
+    en: [
+      { text: ' a month', when: [words('a month|per month|each month|every month|monthly|instalments? of|instalment amount')] },
+      // "skip the next {instalment_amount}", "lower the {instalment_amount}": the instalment, not "a month".
+      { text: ' a month', when: [/\b(?:next|lower|lowering|reduce|reducing|change|changing|raise|raising)\s+(?:the\s+|your\s+)?_/i], by: ' instalment' },
+    ],
+    hinglish: [{ text: 'har mahine ', when: [words('har mahine|monthly|mahina|mahine|agl[aei]|next|kisht\\w*|instalments?|kam')] }],
+    hi: [{ text: 'हर महीने ', when: [/हर महीने|मासिक|अगल|किस्त|कम/] }],
+  },
+  months_invested: {
+    en: [{ text: ' invested', when: [words('invest\\w*|ago|running')] }],
+    hinglish: [{ text: ' se invest', when: [/_\s+(?:se|ke|ka|ki|mein|tak|baad)\b|\binvest|\bchal/i] }],
+    hi: [{ text: ' से निवेश', when: [/_\s+(?:से|के|का|की|में|तक|बाद)(?![\p{L}\p{M}])|निवेश|चल/u] }],
+  },
+  instalments_paid: {
+    en: [{ text: ' paid', when: [words('paid|made|completed|deducted|gone through')] }],
+    hinglish: [{ text: ' bhari', when: [words('bhar\\w*|paid|jama|diye|kat\\w*')] }],
+    hi: [{ text: / भरी गईं?$/, when: [/भर|जमा|चुका|कट/] }],
+  },
+  instalments_skipped: {
+    en: [{ text: ' skipped', when: [words('skip\\w*|miss\\w*')] }],
+  },
+  put_in_so_far: {
+    en: [
+      { text: ' put in', when: [words('put in|putting in|invested|contributed|paid in|added')] },
+      { text: ' so far', when: [words('so far|till now|until now|to date|already|by now')] },
+    ],
+    hinglish: [
+      { text: 'ab tak ', when: [words('ab tak|abhi tak|so far|till now')] },
+      { text: ' lagaye', when: [HL_PUT_IN] },
+    ],
+    hi: [
+      { text: 'अब तक ', when: [/अब तक|अभी तक/] },
+      { text: 'लगाए ', when: [/लगा|निवेश|डाल|जमा/] },
+    ],
+  },
+  value_today: {
+    en: [{ text: /^a value today of /, when: [words('value|worth|valued|stands at')] }],
+    hinglish: [{ text: 'aaj ki value ', when: [words('value|worth|keemat|kimat')] }],
+    hi: [{ text: 'आज की वैल्यू ', when: [/वैल्यू|मूल्य|कीमत/] }],
+  },
+  change_vs_put_in: {
+    en: [{ text: ' against what was put in', when: [words('against|compared|versus|vs|put in|invested')] }],
+    hinglish: [{ text: 'lagaye paise ke mukable ', when: [words('mukable|mukabale|compared|against|lagaye|invest\\w*')] }],
+  },
+  worst_fall: {
+    en: [
+      { text: /^a fall of /, when: [EN_FALL] },
+      { text: ', the worst', when: [EN_MOST] },
+      { text: ' since your SIP started', when: [EN_SINCE] },
+    ],
+    hinglish: [{ text: ', SIP ke shuru se sabse badi giravat', when: [HL_MOST, HL_FALL] }],
+    hi: [{ text: ', SIP की शुरुआत से सबसे बड़ी गिरावट', when: [/सबसे/, /गिरावट|गिर/] }],
+  },
+  fund_biggest_fall: {
+    en: [
+      { text: /^a /, when: [EN_FALL] },
+      { text: ' fall', when: [EN_FALL] },
+      { text: ', the biggest', when: [EN_MOST] },
+      { text: " in this fund's demo history", when: [words('history')] },
+    ],
+    hinglish: [{ text: ', fund ki demo history mein sabse badi giravat', when: [HL_MOST, HL_FALL] }],
+    hi: [{ text: ', फंड के डेमो इतिहास में सबसे बड़ी गिरावट', when: [/सबसे/, /गिरावट|गिर/] }],
+  },
+  units_now: {
+    en: [
+      { text: ' per instalment', when: [EN_PER_INSTALMENT] },
+      { text: ' at the latest NAV', when: [words('now|today|currently|current|latest|nav')] },
+    ],
+    hinglish: [
+      { text: 'latest NAV par ', when: [words('nav|abhi|aaj|ab|latest|current')] },
+      { text: 'ek kisht mein ', when: [HL_PER_INSTALMENT] },
+    ],
+    hi: [
+      { text: 'ताज़ा NAV पर ', when: [/NAV|अभी|आज|ताज़ा|ताजा/] },
+      { text: 'एक किस्त में ', when: [HI_PER_INSTALMENT] },
+    ],
+  },
+  units_at_peak: {
+    en: [
+      { text: ' per instalment', when: [EN_PER_INSTALMENT] },
+      { text: " at the SIP's peak NAV", when: [words('peak')] },
+    ],
+    hinglish: [{ text: 'ek kisht mein ', when: [HL_PER_INSTALMENT] }],
+    hi: [{ text: 'एक किस्त में ', when: [HI_PER_INSTALMENT] }],
+  },
+  time_to_goal: {
+    // "in {time_to_goal}", "{time_to_goal} left", "{time_to_goal} away": not "4 years 4 months to go" there.
+    en: [{ text: ' to go', when: [/\b(?:left|remaining|remains?|away|to go|ahead|more)\b|\b(?:in|within|until|till|before|over)\s+_/i] }],
+    // "{goal_name} ke liye {time_to_goal} bacha hai": the goal is named already, and "bacha" says what is left.
+    hinglish: [
+      { text: 'goal tak ', when: [/\{goal_name\}|\bgoal\b/i] },
+      { text: ' baaki', when: [HL_LEFT] },
+    ],
+    hi: [
+      { text: 'लक्ष्य तक ', when: [/\{goal_name\}|लक्ष्य/] },
+      { text: ' बाकी', when: [/बचा|बची|बचे|बाकी|शेष|रह/] },
+    ],
+  },
+  instalments_planned: {
+    en: [{ text: ' in all', when: [words('in all|in total|total|overall')] }],
+  },
+  instalments_to_go: {
+    en: [{ text: ' still to come', when: [EN_LEFT] }],
+    hinglish: [{ text: ' abhi baaki', when: [HL_LEFT] }],
+    hi: [{ text: 'अभी बाकी ', when: [/बाकी|बची|बचे|शेष|रह/] }],
+  },
+  share_put_in_pct: {
+    en: [
+      { text: ' of the planned amount', when: [words('plan|plans|planned|target')] },
+      { text: ' put in so far', when: [words('put in|invested|contributed|paid in|reached|completed|done')] },
+    ],
+    hinglish: [
+      { text: 'plan ki rakam ka ', when: [words('plan|target')] },
+      { text: ' ab tak lagaya', when: [HL_PUT_IN] },
+    ],
+    hi: [
+      { text: 'योजना की रकम का ', when: [/योजना|प्लान/] },
+      { text: ' अब तक लगाया', when: [/लगा|निवेश|डाल|जमा/] },
+    ],
+  },
+  target_amount: {
+    en: [{ text: /^a target of /, when: [words('target')] }],
+  },
+};
+
+/** Where a clause ends: the words around a placeholder are looked for in its own clause only. */
+const CLAUSE_END = /[.!?।;:,()\n—–]/;
+/** How many words on each side of a placeholder count as around it. */
+const AROUND_WORDS = 8;
+
+/** The model's words around the placeholder at [start, end) in its clause, with "_" where the placeholder is. */
+export function around(text: string, start: number, end: number): string {
+  let from = start;
+  while (from > 0 && !CLAUSE_END.test(text[from - 1])) from--;
+  let to = end;
+  while (to < text.length && !CLAUSE_END.test(text[to])) to++;
+  const before = wordsOf(text.slice(from, start)).slice(-AROUND_WORDS);
+  const after = wordsOf(text.slice(end, to)).slice(0, AROUND_WORDS);
+  return [...before, '_', ...after].join(' ');
+}
+
+/** A placeholder's value without the parts the words around it already say (TRIMS). */
+export function trimmedValue(name: string, value: string, lang: SlotLanguage, nearby: string): string {
+  let v = value;
+  for (const t of TRIMS[name]?.[lang] ?? []) {
+    if (t.when.every((p) => p.test(nearby))) v = v.replace(t.text, () => t.by ?? '');
+  }
+  return v.trim();
+}
+
 /** "1% if redeemed within 1 year", "Nil", "Nil after 7 days": the fund's exit load as a phrase. */
 function exitLoad(f: Fmt, text: string): string {
   const load = /^(\d+(?:\.\d+)?)% if redeemed within (\d+) (year|years|month|months|day|days)$/.exec(text);
@@ -371,13 +554,23 @@ const sameWords = (a: string[], b: string[]) => a.length === b.length && a.every
  * So are words the model wrote again right next to a placeholder whose value already has them at that edge
  * ("{pause_length} instalments" would read "1 to 3 instalments instalments"; "an exit load of {exit_load}" would
  * read "an exit load of an exit load of 1% ..."), and an English value's "a" after a word like "your" or "the"
- * ("your a value today of ..."). Unknown placeholders are left as they are; writtenNumbers has already failed
- * the reply for them.
+ * ("your a value today of ..."). Since v15 each placeholder also leaves out the parts of its value that the
+ * model's words around it already say (TRIMS): "invested for {months_invested}" reads "invested for 8 months".
+ * Unknown placeholders are left as they are; writtenNumbers has already failed the reply for them.
  */
 export function fillSlots(raw: string, slots: Slot[], language: Language): string {
   const lang = slotLanguage(language);
-  const values = new Map(slots.map((s) => [s.name, s.values[lang]]));
-  const text = raw
+  const full = new Map(slots.map((s) => [s.name, s.values[lang]]));
+  // Each placeholder gets a value of its own, keyed by where it is: the same one can need different words in two places.
+  const values = new Map<string, string>();
+  const keyed = raw.replace(SLOT, (whole: string, name: string, offset: number) => {
+    const value = full.get(name.trim());
+    if (value === undefined) return whole;
+    const key = `${name.trim()}#${values.size}`;
+    values.set(key, trimmedValue(name.trim(), value, lang, around(raw, offset, offset + whole.length)));
+    return `{${key}}`;
+  });
+  const text = keyed
     .replace(/(?:\bRs\.?|₹|\bINR)\s*(?=\{)/g, '')
     .replace(/\}\s*%/g, '}')
     .replace(AFTER, (whole, name: string, tail: string) => {

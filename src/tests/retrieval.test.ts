@@ -283,7 +283,7 @@ describe('the full check-in (steps 4-9)', () => {
     expect(llm.calls[1][0].content).toContain('Write in Hinglish');
     const [row] = (await db.query('SELECT moment, outcome, route, model, prompt_version, user_text FROM ai_checks WHERE id = $1', [r.aiCheckId])).rows;
     expect(row).toEqual({
-      moment: 'before_stop', outcome: 'answer', route: 'doubt', model: 'fake-model', prompt_version: 'v14',
+      moment: 'before_stop', outcome: 'answer', route: 'doubt', model: 'fake-model', prompt_version: 'v15',
       user_text: 'Market crash ho gaya, mera SIP red mein hai. Band kar du?',
     });
   });
@@ -409,8 +409,9 @@ describe('the full check-in (steps 4-9)', () => {
       route: 'doubt', slots, situation: situation(lookup.facts), explainers: [], language: 'en', moment: 'is_this_normal', reason: '',
     });
     expect(system.content).toContain(
-      'Never call a fall normal, small, big, temporary or expected, and never tell them not to worry. Describe it only with its placeholders.',
+      'Never call a fall normal, small, big, temporary, expected or part of the journey, and never tell them not to worry. Describe it only with its placeholders.',
     );
+    expect(system.content).toContain('never say they are on track, ahead or behind for their goal.');
     // The fund's history reaches the writer as a placeholder, which the dip guidance points to.
     expect(user.content).toContain("- {fund_biggest_fall}: a #% fall in <a month and year>, the biggest in this fund's demo history");
     expect(system.content).toContain('First: {worst_fall}, next to {fund_biggest_fall}.');
@@ -439,6 +440,24 @@ describe('the full check-in (steps 4-9)', () => {
     expect(backup.calls[0][0].content).toContain('Write in Hindi, in Devanagari script');
     expect(lines).toEqual(['Writer reader-model failed (Groq returned HTTP 429); fake-model writes instead']);
     expect((await db.query('SELECT model FROM ai_checks WHERE id = $1', [hi.aiCheckId])).rows).toEqual([{ model: 'reader-model + fake-model' }]);
+  });
+
+  it('writes an English answer with the reader when Mistral fails (v15), and tries no third model', async () => {
+    const reader = { ...fakeLlm(understood(), { text: groundedAnswer }), model: 'reader-model' };
+    const slow = fakeLlm(new LlmError('Mistral did not answer within 10 s'));
+    const lines: string[] = [];
+    const r = ok(await runCheckIn({ db, llm: slow, reader, today: TODAY, log: (l) => lines.push(l) }, { investorId: riya, sipId: riyaSips[0], moment: 'before_stop', text: 'Markets are down' }));
+    expect(r).toMatchObject({ outcome: 'answer', route: 'doubt' });
+    expect(reader.calls[1][0].content).toContain('Write in English');
+    expect(lines).toEqual(['Writer fake-model failed (Mistral did not answer within 10 s); reader-model writes instead']);
+    expect((await db.query('SELECT model FROM ai_checks WHERE id = $1', [r.aiCheckId])).rows).toEqual([{ model: 'reader-model' }]);
+
+    // A Hinglish answer the reader failed to write, and Mistral too: the facts-only card, no third try.
+    const failing = { ...fakeLlm(understood({ language: 'hinglish' }), new LlmError('Groq returned HTTP 429')), model: 'reader-model' };
+    const down = fakeLlm(new LlmError('Mistral did not answer within 10 s'));
+    const both = ok(await runCheckIn({ db, llm: down, reader: failing, today: TODAY, log: () => {} }, { investorId: riya, sipId: riyaSips[0], moment: 'before_stop', text: 'Market gir gaya, band kar du?' }));
+    expect(both).toMatchObject({ outcome: 'fallback', fallbackReason: { kind: 'timeout' } });
+    expect([failing.calls.length, down.calls.length]).toEqual([2, 1]);
   });
 
   it('strips markdown the model adds before checking and showing the answer', async () => {

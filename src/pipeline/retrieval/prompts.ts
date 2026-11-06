@@ -5,7 +5,7 @@ import type { ExplainerChunk } from '../chunking/explainers';
 import type { FactsUnit } from '../chunking/facts';
 import { BEHAVIOURS, THEMES, type ExplainerKey, type Route } from '../loading/fixtures';
 
-export const DEFAULT_PROMPT_VERSION = 'v14';
+export const DEFAULT_PROMPT_VERSION = 'v15';
 export const DISCLAIMER = 'This is not investment advice.';
 /** A Hindi or Hinglish answer ends with the disclaimer in that language, then the English one. */
 export const LOCAL_DISCLAIMERS = {
@@ -184,7 +184,7 @@ Rules:
 - Never write a number yourself: no digits and no number words (such as "two", "fifty", "lakh", "teen" or "दो"), in any language. Where a number belongs, write one of the placeholders listed below, exactly as shown with its curly braces, such as {instalment_amount}. The app replaces each placeholder with the number and the words that say what it is, in the reply's language, so use it as a whole phrase and never repeat or change its meaning around it.
 - Use only the placeholders listed below. Never make up a placeholder, compare their numbers, or work out new ones.
 - ${goal}
-- Never call a fall normal, small, big, temporary or expected, and never tell them not to worry. Describe it only with its placeholders. Make no predictions or promises about returns, and never say a fall will recover, end or come back.
+- Never call a fall normal, small, big, temporary, expected or part of the journey, and never tell them not to worry. Describe it only with its placeholders. Make no predictions or promises about returns, never say a fall will recover, end or come back, and never say they are on track, ahead or behind for their goal.
 - Skipping misses that instalment; it is not taken later. Never say skipping delays or postpones an instalment.
 - ${pause}
 - Never name a fund. Never tell the investor to buy, sell, hold, switch, stop or continue: the choice is theirs.

@@ -1,5 +1,5 @@
 {
-  "source": "Fix 5, no unsupported claims. Matched case-insensitively against every AI answer; any match sends the investor to the fallback card. A fall is described only with the numbers in the facts: never called normal, small or temporary, never promised to recover, and nobody is told not to worry. English, Hindi and Hinglish.",
+  "source": "Fix 5, no unsupported claims. Matched case-insensitively against every AI answer; any match sends the investor to the fallback card. A fall is described only with the numbers in the facts: never called normal, small or temporary, never promised to recover, nobody is told not to worry, and nobody is told they are on track for their goal or that a fall is part of the journey (v15: the live site said \"still on track\" to an investor who was down, 3 Nov). English, Hindi and Hinglish.",
   "patterns": [
     {
       "lang": "en",
@@ -32,6 +32,34 @@
     {
       "lang": "en",
       "pattern": "\\bnothing to worry\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\bon (track|course)\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\bright track\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\bpart of (the|your|any|every) (journey|process|ride)\\b"
+    },
+    {
+      "lang": "hinglish",
+      "pattern": "\\btrack par\\b"
+    },
+    {
+      "lang": "hinglish",
+      "pattern": "\\bsahi (raste|rasta|track|disha)\\b"
+    },
+    {
+      "lang": "hi",
+      "pattern": "ट्रैक पर"
+    },
+    {
+      "lang": "hi",
+      "pattern": "सही (रास्ते|रास्ता|दिशा)"
     },
     {
       "lang": "hinglish",
