@@ -374,6 +374,19 @@ describe('Guaranteed-return request', () => {
   });
 });
 
+describe('Autopay trouble', () => {
+  it('links to Settings by that name: there are no autopay settings to promise', async () => {
+    const r = await persona();
+    const llm = fakeLlm(
+      reading({ primary_theme: 'Payment & mandate issues', themes: ['Payment & mandate issues'] }),
+      { text: 'A failed autopay is worth checking with your bank. This is not investment advice.' },
+    );
+    const c = await ask(llm, r.id, r.sip, 'My autopay keeps failing every month');
+    expect(c).toMatchObject({ outcome: 'answer', route: 'autopay' });
+    expect(checkInCard(c).appLink).toEqual({ label: 'Go to Settings', href: '/settings' });
+  });
+});
+
 describe('Timeout: every manual action works without the AI', () => {
   const timeout = new LlmError('Groq did not answer within 10 s');
 
