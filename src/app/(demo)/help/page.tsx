@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 const FAQ = [
   ['Is any of this real?', 'No. The funds, prices, people and balances are made up, no money moves, and nothing here is investment advice.'],
-  ['What is a demo account?', 'A display name, a username and a made-up 4-digit PIN. We never ask for an email, phone, bank or ID detail.'],
+  ['What is a demo account?', 'A made-up username and a 4-digit PIN. You can set a display name in Settings. We never ask for an email, phone, bank or ID detail.'],
   ['What does the goal on a SIP do?', 'When the market falls and a SIP looks red, we show its goal and your own numbers next to it, so you can decide calmly.'],
   ['What does the AI do?', 'At "Before you stop" and "What does this dip mean for my goal?" it explains your own SIP numbers. It never recommends a fund or says what to do.'],
   ['Does stopping a SIP take my money back?', 'No. Stopping ends future instalments; the units you bought stay invested until you redeem them.'],

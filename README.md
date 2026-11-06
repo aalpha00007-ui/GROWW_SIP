@@ -4,7 +4,7 @@ Case-study prototype · Not affiliated with Groww · Demo data · Not investment
 
 A goal anchor and an AI check-in ("Before you stop") for first-year SIP investors. See `Docs/PRD.md` and `Docs/architecture.md`.
 
-**Status (30 Oct 2026):** the prototype runs end to end: the landing page, demo accounts and personas, Mutual Funds (Explore, Dashboard, SIPs, the fund page with the goal step), the dip explainer and "Before you stop", display-only Stocks and F&O, public calculators and Learn pages, and /quality. The backend phases 1-6 are below.
+**Status (6 Nov 2026):** live at https://groww-sip.onrender.com on prompt v16; eval run #28 passed. The prototype runs end to end: the landing page, demo accounts and personas, Mutual Funds (Explore, Dashboard, SIPs, Orders, Watchlist, Cart, the fund page with the goal step), the dip explainer and "Before you stop", display-only Stocks and F&O, public calculators and Learn pages, and /quality. The backend phases 1-6 are below.
 
 ## Run the app
 
@@ -33,12 +33,12 @@ npm run e2e:regression # the regression suite: production build, in-memory datab
 
 - One free web service in **Ohio**, next to the Neon database (us-east-2).
 - Build: `npm ci --include=dev && npm run build`. The build needs the dev tools (Tailwind, TypeScript), and the start command's `db:migrate` runs with `tsx`.
-- Start: `npm run db:migrate && npm start`. `db:migrate` adds new tables and columns, and seeds the demo data only when the database is empty (a fresh deploy), so visitors' data is kept.
+- Start: `npm run db:migrate && npm start`. `db:migrate` adds new tables and columns, and seeds the demo data only when the database is empty (a fresh deploy), so visitors' data is kept. Check that the service's Settings > Start Command says the same: on 6 Nov 2026 it said `npm run start`, so a deploy went live without its schema change.
 - Deploys only after GitHub's CI passes (checks and the AI eval).
 - Type in the secrets when Render asks: `DATABASE_URL`, `MISTRAL_API_KEY`, `GROQ_API_KEY`. Render generates `AUTH_SALT`.
 - A free service sleeps after 15 idle minutes; the first visit after that takes about a minute. Open the link a minute before a demo.
 - On demo day, `npm run db:setup` reloads the seed so the dates look current. It replaces the NAV and price history and the persona templates; it keeps visitors and eval runs (`npm run db:reset` is the only command that drops them). /quality reads the committed `eval/results.json` either way, so reseeding never empties it.
-- Saved simulated prices from the old demo control: `npx tsx src/server/clear-simulations-cli.ts` counts them, and `--yes` deletes them. Run it once after the deploy that removes the control. It can't be undone, and seeded persona data isn't touched.
+- Saved simulated prices from the old demo control were cleared on 6 Nov 2026. `npx tsx src/server/clear-simulations-cli.ts` counts any that remain, and `--yes` deletes them. It can't be undone, and seeded persona data isn't touched.
 - Render never runs `db:setup`: its build is `npm ci --include=dev && npm run build` and its start is `npm run db:migrate && npm start`. `db:migrate` adds missing tables and columns, and seeds only an empty database.
 
 ## Phase 1 · data loading
@@ -73,7 +73,7 @@ Not used (architecture decision D3). Two plain stores hold everything: Neon Post
 
 ## Phase 5 · retrieval logic (backend)
 
-`src/pipeline/retrieval/` runs the check-in in architecture Phase 5: validate, PII guard, SQL facts, call 1 (understand), route in code, context with the route's explainers, call 2 (answer), six quality checks (`checks.ts`), and an `ai_checks` row.
+`src/pipeline/retrieval/` runs the check-in in architecture Phase 5: validate, PII guard, SQL facts, call 1 (understand), route in code, context with the route's explainers, call 2 (answer), seven quality checks (`checks.ts`, `goal-check.ts`), and an `ai_checks` row.
 
 - **The writer never writes a number.** It writes placeholders such as `{instalments_to_go}`, and the server fills each with the number and the words that say what it is, in the reply's language ("53 instalments still to come", "53 kishtein abhi baaki", "अभी बाकी 53 किस्तें"), so a number can't be given the wrong meaning. A reply with a digit or number word of the model's own, or a placeholder the SIP doesn't have, fails "Numbers match your SIP" and shows facts only (`src/pipeline/retrieval/slots.ts`, `src/tests/placeholders.test.ts`). The writer is shown no numbers at all.
 - **Numbers match your SIP** also checks every number in the filled-in reply: amounts, percentages and durations as the facts write them; a counted number must be a fact of that kind ("53 instalments" an instalment count, "44.2 units" a number of units, "2 Nov" a date the facts state); numbers written as words, lakh and crore, and Devanagari digits fail, since they can't be matched. `src/tests/numbers-check.test.ts` lists what passes and what is stopped.
@@ -119,7 +119,7 @@ npm run retrieve -- fresh riya            # start over with a clean copy
 A run takes 6-8 minutes and uses about a fifth of Groq's free daily tokens.
 
 **CI** (`.github/workflows/ci.yml`):
-- **Every push:** the type check, tests, `data:check` and `chunks:check`.
+- **Every push:** the type check, tests, `data:check`, `chunks:check` and the production build.
 - **When AI files change** (`src/pipeline`, `src/llm`, `src/eval`, `src/db`, `data/`, the workflow, or the dependencies): `db:verify` and `npm run eval` as well. The **Run workflow** button on the Actions tab always runs the eval live, as does a commit message containing `[run eval]` (for example `git commit --allow-empty -m "Re-run CI [run eval]"`).
 - **Reusing a local eval (saves Groq tokens):** `npm run eval` records a fingerprint (sha256) of every AI file in `eval/results.json`: the same files whose change triggers the eval above. When CI would run the eval, it first runs `npm run eval:reuse`: if the committed results have the fingerprint of the files being deployed, were made with the models CI uses, and pass the gate when worked out again, CI reuses them and calls no model. Any change to an AI file after the local run means a live eval in CI. The Run workflow button and `[run eval]` always run it live. So: run `npm run eval`, commit `eval/results.*` with the code, push. The reuse trusts that `eval/results.json` came from `npm run eval`; never edit it by hand.
 
@@ -136,7 +136,7 @@ groww-sip-mvp/
 ├── data/                      Data only, by pipeline phase (see data/README.md)
 │   ├── raw/                   Phase 1 · data loading
 │   │   ├── personas/          seven persona seed templates (Kabir, Riya, Arjun on the landing page)
-│   │   ├── market/            made-up funds, NAVs, assets, prices, IPOs
+│   │   ├── market/            made-up funds, NAVs, assets, prices, Stocks and F&O rows; IPOs and NFOs are seeded but not shown
 │   │   ├── explainers/        stop, skip, pause, lower amount
 │   │   └── guardrails/        advice-phrase and unsupported-claim lists (EN, HI, Hinglish)
 │   ├── chunks/                Phase 2 · one unit per explainer
@@ -162,6 +162,6 @@ groww-sip-mvp/
     ├── llm/                   Groq and Mistral clients (server only)
     ├── db/                    Postgres client, schema, migrations
     ├── eval/                  Phase 6 · eval runner (golden set + 18 cases)
-    ├── e2e/                   browser tests: the More menu, a new account starting clean
+    ├── e2e/                   browser tests: the More menu, a new account, the regression suite
     └── tests/                 Phase 6 · API tests
 ```

@@ -1,6 +1,6 @@
 # GROWW_SIP — Architecture
 
-**Date:** 27 Oct 2026 · **Scope:** restricted to `Docs/PRD.md` and the full PRD it summarises, `Docs/problemstatement.txt`. Where the PRD is silent, the gap is listed under Open items, not filled in.
+**Date:** 27 Oct 2026, updated 6 Nov 2026 · **Scope:** restricted to `Docs/PRD.md` and the full PRD it summarises, `Docs/problemstatement.txt`. Where the PRD is silent, the gap is listed under Open items, not filled in.
 
 ## 1. Summary
 
@@ -46,8 +46,8 @@ flowchart LR
 
 | Component | Technology (from the PRD) | Responsibility |
 | --- | --- | --- |
-| Web app | Next.js and Tailwind, one responsive layout | App shell (F13), goal placements (F2–F5), Before you stop (F7), quality strip (F8), cards (F9, F10), /quality (F11) |
-| Server API | Next.js server routes on Render (Node web service, Singapore) | The check-in pipeline, SIP controls, per-visitor data; holds the Groq and Mistral keys |
+| Web app | Next.js and Tailwind, one responsive layout | App shell (F13), goal placements (F2–F5), Before you stop (F7), how it was checked (F8), cards (F9, F10), /quality (F11) |
+| Server API | Next.js server routes on Render (Node web service, Ohio) | The check-in pipeline, SIP controls, per-visitor data; holds the Groq and Mistral keys |
 | Database | Neon Postgres | Demo data, per-visitor copies, `ai_checks`, `eval_runs`, `eval_results` |
 | LLM, reader | Groq API, `openai/gpt-oss-120b` (decision D4) | Call 1: understand the reason (JSON mode, temperature 0, low reasoning effort). Call 2 for Hindi and Hinglish answers |
 | LLM, writer | Mistral API, `ministral-8b-latest` (decision D4) | Call 2: write the answer in English (temperature 0.2, at most 90 words). Also reads the reason, and writes Hindi and Hinglish answers, when Groq fails |
@@ -60,7 +60,7 @@ Everything loaded is made up. No real person, fund, NAV or market feed enters th
 | What | Contents (from the PRD) | Loaded into | When |
 | --- | --- | --- | --- |
 | Demo market data | Made-up funds (for example "Banyan Flexi Cap Fund, simulated"), `nav_history`; `assets`, `asset_prices`, `ipos` for Simple products | Postgres | Seed, before first deploy |
-| Persona templates | Riya, Arjun, Meera. Riya has 3 SIPs: Banyan Flexi Cap, Rs 2,000 a month, 7 of 60 paid, goal Home down payment; Harbor Liquid, Rs 1,000, Emergency fund (no date); Kestrel Nifty 50 Index, Rs 1,500, no goal | Postgres | Seed |
+| Persona templates | Seven: Kabir, Riya and Arjun on the landing page; Meera, Sana, Vikram and Dev for tests. Riya has 3 SIPs: Banyan Flexi Cap, Rs 2,000 a month, 7 of 60 paid, goal Home down payment; Harbor Liquid, Rs 1,000, Emergency fund (no date); Kestrel Nifty 50 Index, Rs 1,500, no goal | Postgres | Seed |
 | Per-visitor copy | On "Start as <persona>", the persona's rows are copied under a new investor id tied to a cookie, so two testers never share data (F1) | Postgres | At runtime |
 | Four explainers | Fixed text for stop, skip, pause and lower amount | Repo (see decision D1) | Build |
 | Advice-phrase list | English, Hindi and Hinglish phrases for the no-advice check | Repo | Build |
@@ -128,7 +128,7 @@ sequenceDiagram
             A->>M: call 2: answer (temp 0.2, ≤ 90 words); Groq writes Hindi and Hinglish
             M-->>A: answer text
             A->>A: 5 quality checks
-            A-->>B: Answer card + quality strip, or Fallback card
+            A-->>B: Answer card + how it was checked, or Fallback card
         end
     end
     A->>DB: insert ai_checks row (redacted input)
@@ -171,23 +171,24 @@ sequenceDiagram
 7. **Answer (call 2).** At most 90 words, in the investor's language. Mistral writes English; Groq `gpt-oss-120b` writes Hindi and Hinglish, with Mistral as its backup. A Hindi or Hinglish answer ends with the disclaimer in that language, then in English (code adds the local one if the model left it out). The dip explainer has its own guidance: three short sentences that set the worst fall next to the fund's biggest demo-history fall, give the share of the planned amount put in so far with the instalments to come and the time to go, and say what one instalment buys at the latest NAV against the peak NAV since the SIP started; then the options and the disclaimer. Its facts gain two lines for this: "Share of the planned amount put in so far" and "One instalment at the latest NAV buys". Since prompt v14 the doubt route's guidance is built the same way (`doubtGuidance`): it names the placeholders it covers (today's value, months invested, the worst fall, the fund's biggest fall, the goal and the time to go, as the SIP has them) and asks for no others.
     Since prompt v11 the writer never writes a number and never sees one: it gets what is true about the SIP in words, and named placeholders (`{instalments_to_go}`, `{planned_total}`, `{share_put_in_pct}`, `{time_to_goal}`, `{worst_fall}` and others) with what each becomes, numbers shown as `#`. Code fills each placeholder with the number and the words that say what it is, in the reply's language ("53 instalments still to come", "53 kishtein abhi baaki", "अभी बाकी 53 किस्तें"), so a right number can't be given the wrong meaning (`slots.ts`). Filling in drops words the model repeats at a placeholder's edge ("{pause_length} instalments" would read "1 to 3 instalments instalments") and an English value's "a" after "your", "the" or "Today's".
     Since prompt v12 a first draft gets **one second try** when, filled in, it is over 90 words (the second draft aims at about 75, since v13), states a number itself, or compares two placeholders ("larger than", "se badi", "से बड़ी"): the same writer gets the draft back with what to fix, in words with no numbers. A draft with advice or an unsupported claim gets no second try. Whatever comes back gets every check in step 8; `ai_checks.checks` keeps the first draft (`first_draft`) and why it was redone (`second_draft`), and the eval report counts the second drafts. Eval run #24 (prompt v11) showed why: the filled-in phrases made 3 of 12 answers too long (93-121 words), and one draft said -20.7% "is larger than" -21.0%.
-8. **Quality check (code).** Six checks:
+8. **Quality check (code).** Seven checks (the two number rules below are one check):
     - no advice phrases (English, Hindi and Hinglish list);
     - the model wrote no number of its own: no digits in any script, no number words in English, Hinglish or Hindi, no placeholder the SIP doesn't have, and no comparison between two placeholders in one sentence (checked on the model's text before filling);
     - every number in the filled reply exists in the facts or explainers: rupee amounts, percentages and durations as written; a counted number as a fact of that kind ("53 instalments" must be an instalment count, "44.2 units" a number of units, "2 Nov" a date the facts state); any other number as a number the facts state; number words, lakh and crore, and digits in another script fail because they can't be checked;
     - the disclaimer is present (in Hindi or Hinglish, in that language too);
     - at most 90 words;
     - no unsupported claims (`data/raw/guardrails/claim_patterns.json`, English, Hindi and Hinglish): it never calls a fall normal, small or temporary, says it will recover or bounce back, or tells them not to worry;
-    - written in the investor's language (Hindi in Devanagari, Hinglish in Latin letters with Hindi words, English for every other language), judged on the model's own words, not the filled-in phrases or the disclaimers (`language.ts`).
+    - written in the investor's language (Hindi in Devanagari, Hinglish in Latin letters with Hindi words, English for every other language), judged on the model's own words, not the filled-in phrases or the disclaimers (`language.ts`);
+    - what it says of the goal is true: any goal date is the stored one, no goal is invented, and a date that has passed is never called upcoming (`goal-check.ts`).
 
     Any failure shows the Fallback card. Every facts-only card (declined or fallback) ends with the disclaimer, and its quality-check line is in the reply's language and script, from fixed translations.
-9. **Show and log.** The answer card shows the quality strip and "Numbers as of <latest NAV date>". Every call is written to `ai_checks`. Requests stopped at steps 1-2 (invalid input, someone else's SIP, a stopped SIP, personal details) make no AI call and are not written there; a PII rejection goes to the server log as a redacted copy.
+9. **Show and log.** The answer card folds "How this answer was checked" under it and shows "Fund prices as of <latest NAV date>". Every call is written to `ai_checks`. Requests stopped at steps 1-2 (invalid input, someone else's SIP, a stopped SIP, personal details) make no AI call and are not written there; a PII rejection goes to the server log as a redacted copy.
 
 **Failure handling.** If Groq fails call 1 (timeout, error, out of free requests), Mistral reads the reason instead and the server log says so; the same holds when Groq fails to write a Hindi or Hinglish answer. `ai_checks.model` records which model read and which wrote. If Mistral then times out (10 s), errors, returns 429 twice, or has no `MISTRAL_API_KEY`, the investor gets the Fallback card. The error is logged, and no AI text is shown.
 
 **Every declined and fallback card shows the quality check** where an answer's ticks would be, right under its text: "Quality check: <what happened> → showing facts only", for example "advice question detected", "market prediction question detected", "a number didn't match your SIP", "not sure what you meant", "your SIP's numbers didn't add up" or "AI unavailable" (a timeout, an error or no key). It keeps the facts and the SEBI and AMFI links. The fixed card texts come in Hindi and Hinglish when the investor wrote in them (read by the AI, or by code when the AI couldn't).
 
-**Confidence on both AI features.** Before you stop shows how sure call 1 is about the reason (High at 0.8 or more, Medium at 0.6 or more, Low below). The dip explainer reads no reason, so its label says how much of a goal it could connect the dip to: High with a goal date and plan, Medium with a goal but no date, Low with no goal.
+**Confidence is used, not shown.** Below 0.6, call 1's confidence sends the check-in to the fallback card, but no card shows a confidence label: "Confidence: High" read like a guarantee.
 
 ## 8. Phase 6 — Retrieval testing
 
