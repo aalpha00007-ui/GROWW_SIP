@@ -1,30 +1,30 @@
-// What an AI card shows (PRD F8-F10), shaped for the screen. Answer: the checked text and the quality
-// strip, each tick from a real check. Declined and fallback: fixed text, the facts table and the links, with
-// one quality-check line in the strip's place saying why only facts are shown. Both AI features show a
-// confidence label.
+// What an AI card shows (PRD F8-F10), shaped for the screen. Answer: the checked text, with "How this answer was
+// checked" folded under it, each line from a real check. Declined and fallback: fixed text, the facts table and the
+// links, with one quality-check line saying why only facts are shown. No confidence label: it read like a guarantee.
 import type { FactLine } from '../pipeline/chunking/facts';
 import { pricesAsOf } from '../pipeline/chunking/format';
+import type { ExpectationQuestion } from '../pipeline/retrieval/expectations';
 import type { Outcome } from '../pipeline/loading/fixtures';
-import { CHECK_KEYS, CHECK_LABELS, type CheckInResult, type CheckKey } from '../pipeline/retrieval/checkin';
+import { CHECK_KEYS, type CheckInResult, type CheckKey } from '../pipeline/retrieval/checkin';
 import type { Language } from '../pipeline/retrieval/prompts';
 
 export interface CheckInCard {
-  outcome: Outcome;
+  outcome: Outcome | 'asked';
   aiCheckId: number;
   /** "What I understood": the reason in a line, in the investor's language; null for the dip explainer and the fallback. */
   understood: string | null;
   text: string;
   /** For screen readers: 'hi' for Hindi, 'hi-Latn' for Hinglish, 'en' otherwise. */
   lang: string;
-  /** An answer's ticks, one per check. */
-  strip: { label: string; ok: boolean }[] | null;
-  /** In the strip's place when no answer is shown: "Quality check: advice question detected → showing facts only". */
-  gate: string | null;
   /**
-   * 'Confidence: High'. Before you stop: how sure the AI is what the reason means. The dip explainer has no
-   * reason to read: how much of a goal it can connect the dip to.
+   * "How this answer was checked", collapsed under an answer: what was checked and that it can miss things. It says
+   * what was done, never that the answer is right: a row of ticks or a "Confidence: High" reads like a guarantee.
    */
-  confidence: string | null;
+  checked: { summary: string; items: { label: string; ok: boolean }[]; note: string } | null;
+  /** When no answer is shown: "Quality check: advice question detected → showing facts only". */
+  gate: string | null;
+  /** The chips to answer first, for unmet expectations. */
+  question: ExpectationQuestion | null;
   facts: FactLine[] | null;
   links: { label: string; url: string }[] | null;
   /** The autopay route answers with a link to the autopay settings. */
@@ -51,14 +51,21 @@ const STRIP: Record<
     unsure: string;
     facts: string;
     unavailable: string;
-    confidence: Record<'High' | 'Medium' | 'Low', string>;
-    noGoalDate: string;
-    noGoal: string;
+    summary: string;
+    note: string;
   }
 > = {
   en: {
     line: (what) => `Quality check: ${what} → showing facts only`,
-    checks: CHECK_LABELS,
+    checks: {
+      no_advice: 'Checked for advice words',
+      grounded: 'Numbers compared with your SIP',
+      disclaimer: 'Disclaimer included',
+      length: 'Length checked',
+      no_claims: 'Checked for unsupported claims',
+      in_language: 'Language checked',
+      goal_facts: 'Goal details compared with your SIP',
+    },
     problems: {
       no_advice: 'the answer sounded like advice',
       grounded: "a number didn't match your SIP",
@@ -66,25 +73,26 @@ const STRIP: Record<
       length: 'the answer was too long',
       no_claims: 'the answer made an unsupported claim',
       in_language: "the answer wasn't in your language",
+      goal_facts: "a goal detail didn't match your SIP",
     },
     advice: 'advice question detected',
     prediction: 'market prediction question detected',
     unsure: 'not sure what you meant',
     facts: "your SIP's numbers didn't add up",
     unavailable: 'AI unavailable',
-    confidence: { High: 'Confidence: High', Medium: 'Confidence: Medium', Low: 'Confidence: Low' },
-    noGoalDate: 'no goal date',
-    noGoal: 'no goal set',
+    summary: 'How this answer was checked',
+    note: 'These are automatic checks by code. They catch common mistakes and can still miss some.',
   },
   hinglish: {
     line: (what) => `Quality check: ${what} → sirf facts dikha rahe hain`,
     checks: {
-      no_advice: 'Investment advice nahi',
-      grounded: 'Numbers aapke SIP se match',
-      disclaimer: 'Disclaimer dikhaya',
-      length: 'Chhota jawab',
-      no_claims: 'Koi bina saboot ka daava nahi',
-      in_language: 'Aapki bhasha mein',
+      no_advice: 'Advice wale shabd check kiye',
+      grounded: 'Numbers aapke SIP se milaye',
+      disclaimer: 'Disclaimer shamil hai',
+      length: 'Lambai check ki',
+      no_claims: 'Bina saboot ke daave check kiye',
+      in_language: 'Bhasha check ki',
+      goal_facts: 'Goal ki details aapke SIP se milayi',
     },
     problems: {
       no_advice: 'jawab advice jaisa laga',
@@ -93,25 +101,26 @@ const STRIP: Record<
       length: 'jawab bahut lamba tha',
       no_claims: 'jawab mein bina saboot ka daava tha',
       in_language: 'jawab aapki bhasha mein nahi tha',
+      goal_facts: 'goal ki ek baat aapke SIP se match nahi hui',
     },
     advice: 'advice ka sawaal mila',
     prediction: 'market ke andaaze ka sawaal mila',
     unsure: 'samajh nahi aaya aap kya kehna chahte hain',
     facts: 'aapke SIP ke numbers aapas mein mel nahi kha rahe the',
     unavailable: 'AI abhi uplabdh nahi hai',
-    confidence: { High: 'Bharosa: zyada', Medium: 'Bharosa: theek', Low: 'Bharosa: kam' },
-    noGoalDate: 'goal ki date nahi',
-    noGoal: 'koi goal nahi',
+    summary: 'Yeh jawab kaise check hua',
+    note: 'Yeh code ke automatic checks hain. Yeh aam galtiyan pakadte hain, phir bhi kuch chhoot sakti hain.',
   },
   hi: {
     line: (what) => `गुणवत्ता जाँच: ${what} → सिर्फ़ तथ्य दिखा रहे हैं`,
     checks: {
-      no_advice: 'निवेश सलाह नहीं',
-      grounded: 'आंकड़े आपके SIP से मेल खाते हैं',
-      disclaimer: 'डिस्क्लेमर दिखाया',
-      length: 'छोटा जवाब',
-      no_claims: 'कोई बेबुनियाद दावा नहीं',
-      in_language: 'आपकी भाषा में',
+      no_advice: 'सलाह वाले शब्द जाँचे',
+      grounded: 'आंकड़े आपके SIP से मिलाए',
+      disclaimer: 'डिस्क्लेमर शामिल है',
+      length: 'लंबाई जाँची',
+      no_claims: 'बेबुनियाद दावे जाँचे',
+      in_language: 'भाषा जाँची',
+      goal_facts: 'लक्ष्य की जानकारी आपके SIP से मिलाई',
     },
     problems: {
       no_advice: 'जवाब सलाह जैसा लगा',
@@ -120,15 +129,15 @@ const STRIP: Record<
       length: 'जवाब बहुत लंबा था',
       no_claims: 'जवाब में बेबुनियाद दावा था',
       in_language: 'जवाब आपकी भाषा में नहीं था',
+      goal_facts: 'लक्ष्य की एक बात आपके SIP से मेल नहीं खाई',
     },
     advice: 'सलाह का सवाल मिला',
     prediction: 'बाज़ार के अनुमान का सवाल मिला',
     unsure: 'समझ नहीं आया आप क्या कहना चाहते हैं',
     facts: 'आपके SIP के आंकड़े आपस में मेल नहीं खा रहे थे',
     unavailable: 'AI अभी उपलब्ध नहीं है',
-    confidence: { High: 'भरोसा: ज़्यादा', Medium: 'भरोसा: ठीक', Low: 'भरोसा: कम' },
-    noGoalDate: 'लक्ष्य की तारीख नहीं',
-    noGoal: 'कोई लक्ष्य नहीं',
+    summary: 'यह जवाब कैसे जाँचा गया',
+    note: 'ये कोड की अपने आप चलने वाली जाँचें हैं। ये आम गलतियाँ पकड़ती हैं, फिर भी कुछ छूट सकती हैं।',
   },
 };
 
@@ -136,7 +145,7 @@ type Shown = Extract<CheckInResult, { status: 200 }>;
 
 /** Why only facts are shown, in plain words in the reply's language; null for an answer. */
 export function gateLine(result: Pick<Shown, 'outcome' | 'declineKind' | 'fallbackReason' | 'language'>): string | null {
-  if (result.outcome === 'answer') return null;
+  if (result.outcome === 'answer' || result.outcome === 'asked') return null;
   const s = STRIP[stripLanguage(result.language)];
   let what: string;
   if (result.outcome === 'declined') what = result.declineKind === 'prediction' ? s.prediction : s.advice;
@@ -151,31 +160,28 @@ export function gateLine(result: Pick<Shown, 'outcome' | 'declineKind' | 'fallba
   return s.line(what);
 }
 
-function confidence(result: Shown): string | null {
-  const s = STRIP[stripLanguage(result.language)];
-  if (result.understood) return s.confidence[result.understood.confidenceLabel];
-  if (result.moment !== 'is_this_normal' || result.outcome !== 'answer') return null;
-  if (result.goalDetail === 'plan') return s.confidence.High;
-  return result.goalDetail === 'no_target_month' ? `${s.confidence.Medium} · ${s.noGoalDate}` : `${s.confidence.Low} · ${s.noGoal}`;
-}
-
 export function checkInCard(result: Shown): CheckInCard {
   const { outcome, checks, understood } = result;
   const answered = outcome === 'answer';
+  const strip = STRIP[stripLanguage(result.language)];
   return {
     outcome,
     aiCheckId: result.aiCheckId,
     understood: outcome !== 'fallback' && understood ? understood.summary : null,
     text: result.text,
     lang: result.language === 'hi' ? 'hi' : result.language === 'hinglish' ? 'hi-Latn' : 'en',
-    // Every answer shown passed "Short enough" too, so the strip leaves it out.
-    strip: answered && checks
-      ? CHECK_KEYS.filter((k) => k !== 'length').map((k) => ({ label: STRIP[stripLanguage(result.language)].checks[k], ok: checks[k] }))
-      : null,
+    checked:
+      answered && checks
+        ? {
+            summary: strip.summary,
+            items: CHECK_KEYS.map((k) => ({ label: strip.checks[k], ok: checks[k] })),
+            note: strip.note,
+          }
+        : null,
     gate: gateLine(result),
-    confidence: confidence(result),
-    facts: answered ? null : result.facts.lines,
-    links: answered ? null : result.links.map((l) => ({ label: l.label, url: l.url })),
+    question: result.question,
+    facts: answered || outcome === 'asked' ? null : result.facts.lines,
+    links: answered || outcome === 'asked' ? null : result.links.map((l) => ({ label: l.label, url: l.url })),
     appLink: answered && result.route === 'autopay' ? { label: 'Your autopay settings', href: '/settings' } : null,
     asOf: pricesAsOf(result.facts.as_of),
   };

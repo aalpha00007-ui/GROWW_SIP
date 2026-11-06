@@ -110,7 +110,7 @@ function print(r: CheckInResult): void {
   console.log(`Outcome:    ${r.outcome}${r.route ? ` · route ${r.route}` : ''} · ${r.latencyMs} ms · ai_checks #${r.aiCheckId}`);
   if (r.fallbackReason) console.log(`Why:        ${r.fallbackReason.kind}${r.fallbackReason.kind === 'checks' ? `: ${r.fallbackReason.failed.join(', ')}` : ''}`);
   if (r.understood) {
-    console.log(`Understood: "${r.understood.summary}" (${r.understood.language}, confidence ${r.understood.confidenceLabel} ${r.understood.confidence})`);
+    console.log(`Understood: "${r.understood.summary}" (${r.understood.language})`);
   }
   console.log(`Goal card:  ${r.goalLine}`);
   console.log(`\n${r.text}\n`);

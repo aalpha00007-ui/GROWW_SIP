@@ -118,34 +118,33 @@ describe('A check-in in each language, with scripted AI replies', () => {
     [{ id: sipId }] = (await db.query<{ id: number }>('SELECT id FROM sips WHERE investor_id = $1 ORDER BY id LIMIT 1', [riya])).rows;
   }, 120_000);
 
-  it('answers Hinglish in Hinglish, even when the model says English, with both disclaimers', async () => {
+  it('answers Hinglish in Hinglish, even when the model says English, with its disclaimer once', async () => {
     const llm = fakeLlm(reading('en', 'Market girne se dar kar SIP band karna chahte hain'), { text: REPLIES.hinglish });
     const r = await ask(llm, 'Market crash ho gaya, mera SIP red mein hai. Band kar du?');
     expect(systemPrompt(llm)).toContain('Write in Hinglish');
     expect(r).toMatchObject({ outcome: 'answer', language: 'hinglish', checks: { in_language: true } });
     // The numbers are filled in Hinglish, each with what it means.
     expect(r.text).toContain('Mar 2031 tak, aur goal tak 4 saal 5 mahine baaki hain. Aapne ab tak Rs 14,000 lagaye hain.');
-    expect(r.text.endsWith(`${LOCAL_DISCLAIMERS.hinglish} ${DISCLAIMER}`)).toBe(true);
+    expect(r.text.endsWith(LOCAL_DISCLAIMERS.hinglish)).toBe(true);
+    expect(r.text).not.toContain(DISCLAIMER);
     expect(checkInCard(r)).toMatchObject({ lang: 'hi-Latn', understood: 'Market girne se dar kar SIP band karna chahte hain' });
-    // The quality strip is in Hinglish too.
-    expect(checkInCard(r).strip?.map((s) => s.label)).toEqual([
-      'Investment advice nahi', 'Numbers aapke SIP se match', 'Disclaimer dikhaya', 'Koi bina saboot ka daava nahi', 'Aapki bhasha mein',
-    ]);
-    expect(checkInCard(r).confidence).toBe('Bharosa: zyada');
+    // How it was checked is in Hinglish too.
+    expect(checkInCard(r).checked?.summary).toBe('Yeh jawab kaise check hua');
+    expect(checkInCard(r).checked?.items.map((s) => s.label)).toContain('Numbers aapke SIP se milaye');
   });
 
-  it('answers Hindi in Hindi, even when the model says Hinglish, with both disclaimers', async () => {
+  it('answers Hindi in Hindi, even when the model says Hinglish, with its disclaimer once', async () => {
     const llm = fakeLlm(reading('hinglish', 'बाज़ार गिरने से SIP बंद करना चाहते हैं'), { text: REPLIES.hi });
     const r = await ask(llm, 'बाज़ार गिर गया, SIP बंद कर दूँ?');
     expect(systemPrompt(llm)).toContain('Write in Hindi, in Devanagari script');
     expect(r).toMatchObject({ outcome: 'answer', language: 'hi', checks: { in_language: true } });
     // The numbers are filled in Hindi: the month in Devanagari, years and months as साल and महीने.
     expect(r.text).toContain('मार्च 2031 तक, लक्ष्य तक 4 साल 5 महीने बाकी हैं। आपने अब तक लगाए Rs 14,000 हैं।');
-    expect(r.text.endsWith(`${LOCAL_DISCLAIMERS.hi} ${DISCLAIMER}`)).toBe(true);
+    expect(r.text.endsWith(LOCAL_DISCLAIMERS.hi)).toBe(true);
+    expect(r.text).not.toContain(DISCLAIMER);
     expect(checkInCard(r).lang).toBe('hi');
-    expect(checkInCard(r).strip?.map((s) => s.label)).toEqual([
-      'निवेश सलाह नहीं', 'आंकड़े आपके SIP से मेल खाते हैं', 'डिस्क्लेमर दिखाया', 'कोई बेबुनियाद दावा नहीं', 'आपकी भाषा में',
-    ]);
+    expect(checkInCard(r).checked?.summary).toBe('यह जवाब कैसे जाँचा गया');
+    expect(checkInCard(r).checked?.items.map((s) => s.label)).toContain('आंकड़े आपके SIP से मिलाए');
   });
 
   it('answers English in English, with the English disclaimer only', async () => {
@@ -155,8 +154,8 @@ describe('A check-in in each language, with scripted AI replies', () => {
       outcome: 'answer', language: 'en', checks: { in_language: true },
       text: 'Your SIP is for Home down payment, by Mar 2031, with 4 years 5 months to go. You have Rs 14,000 put in so far, over 7 months invested. You can keep it, skip next, pause or lower the amount. This is not investment advice.',
     });
-    expect(checkInCard(r).strip?.map((s) => s.label)).toEqual([
-      'No investment advice', 'Numbers match your SIP', 'Disclaimer shown', 'No unsupported claims', 'In your language',
+    expect(checkInCard(r).checked?.items.map((s) => s.label)).toEqual([
+      'Checked for advice words', 'Numbers compared with your SIP', 'Disclaimer included', 'Length checked', 'Checked for unsupported claims', 'Language checked', 'Goal details compared with your SIP',
     ]);
   });
 

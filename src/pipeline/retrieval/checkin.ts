@@ -7,12 +7,13 @@ import { todayInIndia } from '../loading/dates';
 import { loadAdvicePatterns, loadClaimPatterns, type AdvicePattern, type Outcome, type Route } from '../loading/fixtures';
 import { readReason, writeAnswer, type Understanding } from './ai';
 import { allPassed, answerWords, runChecks, type QualityChecks } from './checks';
-import { decideRoute, type DeclineKind } from './decide';
+import { decideRoute, saysGoalReached, type DeclineKind, type GoalDone } from './decide';
+import { expectationQuestion, type Expectation, type ExpectationQuestion } from './expectations';
 import { retrieveFacts } from './facts';
 import { detectLanguage, writtenIn } from './language';
 import { findPii, PII_MESSAGE } from './pii';
-import { DEFAULT_PROMPT_VERSION, DISCLAIMER, LOCAL_DISCLAIMERS, MAX_WORDS, REWRITE_AIM_WORDS, ROUTE_EXPLAINERS, type DraftProblem, type Language, type Moment } from './prompts';
-import { comparisons, fillSlots, situation, slotLanguage, slotsFor, writtenNumbers, type Slot } from './slots';
+import { DEFAULT_PROMPT_VERSION, DISCLAIMER, disclaimerFor, LOCAL_DISCLAIMERS, MAX_WORDS, REWRITE_AIM_WORDS, ROUTE_EXPLAINERS, type DraftProblem, type Language, type Moment } from './prompts';
+import { comparisons, EXPECTATION_SLOTS, fillSlots, GOAL_DONE_SLOTS, GOAL_PASSED_SLOTS, situation, slotLanguage, slotsFor, writtenNumbers, type Slot } from './slots';
 
 export const DECLINED_TEXT =
   "I can't recommend funds or tell you to buy, sell or switch. Here are the facts about your SIP and official places to learn more.";
@@ -39,23 +40,23 @@ const CARD_TEXTS: Record<'advice' | 'prediction' | 'fallback', Record<'en' | 'hi
   },
 };
 
-/**
- * A facts-only card's text: the fixed text, then the disclaimer as an AI answer has it (in Hindi or Hinglish
- * first for those languages, then in English).
- */
+/** A facts-only card's text: the fixed text, then the disclaimer as an AI answer has it, once, in the reply's language. */
 export function cardText(kind: keyof typeof CARD_TEXTS, language: Language): string {
   const lang = language === 'hi' || language === 'hinglish' ? language : 'en';
-  return `${CARD_TEXTS[kind][lang]} ${lang === 'en' ? DISCLAIMER : `${LOCAL_DISCLAIMERS[lang]} ${DISCLAIMER}`}`;
+  return `${CARD_TEXTS[kind][lang]} ${disclaimerFor(language)}`;
 }
 
-/** A Hindi or Hinglish answer carries the disclaimer in that language too, just before the English one. */
-export function withLocalDisclaimer(answer: string, language: Language): string {
-  if (language !== 'hi' && language !== 'hinglish') return answer;
-  const local = LOCAL_DISCLAIMERS[language];
-  const at = answer.lastIndexOf(DISCLAIMER);
-  // Without the English disclaimer the check fails anyway.
-  if (answer.includes(local) || at === -1) return answer;
-  return `${answer.slice(0, at).trimEnd()} ${local} ${answer.slice(at)}`.trim();
+/**
+ * The disclaimer once, in the reply's language: the site's banner has it in English on every page. A Hindi or Hinglish
+ * reply that ended in English, or in both, keeps its own language's. A reply with no disclaimer stays as it is, so the
+ * check fails it.
+ */
+export function oneDisclaimer(answer: string, language: Language): string {
+  const local = disclaimerFor(language);
+  if (local === DISCLAIMER) return answer;
+  if (!answer.includes(DISCLAIMER) && !answer.includes(local)) return answer;
+  const body = [DISCLAIMER, local].reduce((text, d) => text.split(d).join(' '), answer).replace(/[ \t]+/g, ' ').trim();
+  return `${body} ${local}`;
 }
 
 /**
@@ -64,7 +65,7 @@ export function withLocalDisclaimer(answer: string, language: Language): string 
  */
 export function draftProblems(draft: string, slots: Slot[], language: Language): DraftProblem[] {
   const problems: DraftProblem[] = [];
-  const words = answerWords(withLocalDisclaimer(fillSlots(draft, slots, language), language), language);
+  const words = answerWords(oneDisclaimer(fillSlots(draft, slots, language), language));
   if (words > MAX_WORDS) {
     const lang = slotLanguage(language);
     const used = new Set([...draft.matchAll(/\{([^{}]*)\}/g)].map((m) => m[1].trim()));
@@ -107,6 +108,12 @@ export interface CheckInInput {
   moment: Moment;
   /** The reason, for before_stop; ignored for is_this_normal. */
   text?: string;
+  /** Unmet expectations: ask what they expected before answering. The app asks; the eval reads the reason straight. */
+  askFirst?: boolean;
+  /** What they said they expected, from the chips. */
+  expectation?: Expectation;
+  /** The check-in that asked, so the same reason isn't read twice. */
+  askedId?: number;
 }
 
 /** Why the fallback card was shown, in plain words on the card. */
@@ -117,7 +124,7 @@ export type FallbackReason =
   | { kind: 'error' }
   | { kind: 'facts' };
 
-export const CHECK_KEYS = ['no_advice', 'grounded', 'disclaimer', 'length', 'no_claims', 'in_language'] as const;
+export const CHECK_KEYS = ['no_advice', 'grounded', 'disclaimer', 'length', 'no_claims', 'in_language', 'goal_facts'] as const;
 export type CheckKey = (typeof CHECK_KEYS)[number];
 
 /** The quality strip's names for the checks. */
@@ -128,6 +135,7 @@ export const CHECK_LABELS: Record<CheckKey, string> = {
   length: 'Short enough',
   no_claims: 'No unsupported claims',
   in_language: 'In your language',
+  goal_facts: 'Goal details match your SIP',
 };
 
 export interface CheckInDeps {
@@ -147,11 +155,14 @@ export type CheckInResult =
   | {
       status: 200;
       moment: Moment;
-      outcome: Outcome;
+      /** 'asked': no answer yet: `question` asks what they expected. */
+      outcome: Outcome | 'asked';
       route: Route | null;
       aiCheckId: number;
       /** "What I understood", null for the dip explainer or when the AI could not be read. */
-      understood: { summary: string; language: Language; confidence: number; confidenceLabel: 'High' | 'Medium' | 'Low' } | null;
+      understood: { summary: string; language: Language } | null;
+      /** The chips to show when the outcome is 'asked'. */
+      question: ExpectationQuestion | null;
       /** The checked AI answer, or the fixed declined or fallback text. */
       text: string;
       goalLine: string;
@@ -164,8 +175,6 @@ export type CheckInResult =
       declineKind: DeclineKind | null;
       /** The card's language: the investor's, read by the AI or, when it could not, by code. */
       language: Language;
-      /** How complete the SIP's goal is: the dip explainer can connect the dip to a full plan only. */
-      goalDetail: 'plan' | 'no_target_month' | 'none';
       options: typeof OPTIONS;
       links: typeof OFFICIAL_LINKS;
       latencyMs: number;
@@ -217,6 +226,10 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
   let checks: QualityChecks | null = null;
   let outcome: Outcome = 'fallback';
   let declineKind: DeclineKind | null = null;
+  let goalDone: GoalDone | null = null;
+  /** What they expected, once they have said: unmet expectations get their own answer. */
+  let expectation: Expectation | null = null;
+  let asked = false;
   let fallbackReason: FallbackReason | null = problem ? { kind: 'facts' } : null;
   // The investor's language by code until the AI reads it: the fallback card uses it when the AI can't.
   let language: Language = detectLanguage(reason);
@@ -227,24 +240,39 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
     } else if (input.moment === 'is_this_normal') {
       route = 'doubt'; // The dip explainer skips understanding: there is no reason to read.
     } else {
-      const read = await readReason({ reader: deps.reader, backup: deps.llm }, unit, reason, log); // Step 4
-      understood = read.understanding;
+      // The chips' answer comes with the check-in that asked: the same reason is not read twice.
+      const earlier = input.expectation && input.askedId ? await askedReading(deps.db, input.askedId, input.investorId, input.sipId) : null;
+      if (earlier) understood = earlier;
+      else {
+        const read = await readReason({ reader: deps.reader, backup: deps.llm }, unit, reason, log); // Step 4
+        understood = read.understanding;
+        modelsUsed.push(read.model);
+      }
       language = understood.language;
-      modelsUsed.push(read.model);
-      const decision = decideRoute(understood); // Step 5
+      const decision = decideRoute(understood, { datePassed: lookup.schedule.goalDatePassed, saidInWords: saysGoalReached(reason) }); // Step 5
       if (decision.outcome === 'declined') {
         outcome = 'declined';
         declineKind = decision.kind;
-      } else if (decision.outcome === 'answer') route = decision.route;
-      else fallbackReason = { kind: 'unsure' };
+      } else if (decision.outcome === 'answer') {
+        route = decision.route;
+        goalDone = decision.goalDone ?? null;
+        if (input.expectation && !goalDone && route !== 'explain' && route !== 'autopay') {
+          route = 'doubt';
+          expectation = input.expectation;
+        } else if (input.askFirst && !input.expectation && !goalDone && route === 'doubt' && understood.primary_theme === 'Expectation mismatch') {
+          asked = true;
+        }
+      } else fallbackReason = { kind: 'unsure' };
     }
-    if (route) {
-      explainers = ROUTE_EXPLAINERS[route].map((key) => explainerChunks()[key]); // Step 6
+    if (route && !asked) {
+      // Step 6. A reached goal also gets what stopping does: it is one of the choices that fits.
+      explainers = (goalDone ? (['stop'] as const) : ROUTE_EXPLAINERS[route]).map((key) => explainerChunks()[key]);
       // The writer gets placeholders, never numbers: the server fills them in with each number's meaning.
-      const slots = slotsFor(lookup.facts, { pause: explainers.some((e) => e.key === 'pause' || e.key === 'stop') });
+      const only = goalDone === 'said' ? GOAL_DONE_SLOTS : goalDone === 'date_passed' ? GOAL_PASSED_SLOTS : expectation ? EXPECTATION_SLOTS : undefined;
+      const slots = slotsFor(lookup.facts, { pause: explainers.some((e) => e.key === 'pause' || e.key === 'stop'), only });
       const args = {
-        route, slots: slots.map(({ name, reads }) => ({ name, reads })), situation: situation(lookup.facts),
-        explainers, language, moment: input.moment, reason,
+        route, slots: slots.map(({ name, reads }) => ({ name, reads })), situation: situation(lookup.facts, goalDone),
+        explainers, language, moment: input.moment, reason, goalDone, expectation,
       };
       // Step 7. Hindi and Hinglish answers are written by the bigger model on Groq, with Mistral as its backup.
       const groqWrites = (language === 'hi' || language === 'hinglish') && deps.reader;
@@ -278,7 +306,7 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
       // compares two numbers. The same writer gets the draft back with what to fix. Whatever comes back gets every
       // check in step 8, so a second draft that still fails shows the facts-only card. Advice or a claim gets no
       // second try: those go straight to the facts-only card.
-      const filledDraft = withLocalDisclaimer(fillSlots(modelText, slots, language), language);
+      const filledDraft = oneDisclaimer(fillSlots(modelText, slots, language), language);
       const unsafe = [...advicePatterns(), ...claimPatterns()].some((p) => p.regex.test(filledDraft));
       const problems = unsafe ? [] : draftProblems(modelText, slots, language);
       if (problems.length > 0) {
@@ -295,7 +323,7 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
       // So does a comparison between two numbers it can't see ("larger than").
       const written = writtenNumbers(modelText, slots.map((s) => s.name));
       const compared = comparisons(modelText);
-      answer = withLocalDisclaimer(fillSlots(modelText, slots, language), language);
+      answer = oneDisclaimer(fillSlots(modelText, slots, language), language);
       // Step 8, on the answer as the investor would see it. The filled numbers are still checked against the facts.
       const explained = explainers.flatMap((e) => numberTokens(e.text));
       checks = runChecks(answer, [...unit.numbers, ...explained], advicePatterns(), claimPatterns(), language, {
@@ -303,7 +331,7 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
         instalments: [...unit.kinds.instalments, ...explained],
         units: unit.kinds.units,
         dates: unit.kinds.dates,
-      });
+      }, lookup.facts);
       if (written.length > 0 || compared.length > 0) {
         const own = [...written.map((w) => `written by the AI: ${w}`), ...compared.map((c) => `compared by the AI: ${c}`)];
         checks = { ...checks, grounded: false, ungrounded: [...own, ...checks.ungrounded] };
@@ -326,7 +354,7 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
 
   // Step 9: show and log.
   const latencyMs = Date.now() - started;
-  const { goal } = lookup.facts;
+  const shown = asked ? 'asked' : outcome;
   const [logged] = (
     await deps.db.query<{ id: number }>(
       `INSERT INTO ai_checks (investor_id, sip_id, moment, user_text, model, prompt_version, understood, route, explanation, checks, outcome, latency_ms)
@@ -335,8 +363,8 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
         // Reader, then writer: "openai/gpt-oss-120b + ministral-8b-latest". Shows when the backup read the reason.
         input.investorId, input.sipId, input.moment, reason || null, [...new Set(modelsUsed)].join(' + ') || (deps.llm?.model ?? 'none'),
         deps.promptVersion ?? DEFAULT_PROMPT_VERSION, understood, route, answer,
-        checks ? { ...checks, model_text: modelText, first_draft: firstDraft, explainers: explainers.map((e) => ({ id: e.id, sha256: e.sha256 })) } : null,
-        outcome, latencyMs,
+        checks ? { ...checks, model_text: modelText, first_draft: firstDraft, goal_done: goalDone, expectation, explainers: explainers.map((e) => ({ id: e.id, sha256: e.sha256 })) } : null,
+        shown, latencyMs,
       ],
     )
   ).rows;
@@ -344,27 +372,34 @@ export async function runCheckIn(deps: CheckInDeps, input: CheckInInput): Promis
   return {
     status: 200,
     moment: input.moment,
-    outcome,
+    outcome: shown,
     route,
     aiCheckId: logged.id,
-    understood: understood && {
-      summary: understood.summary,
-      language: understood.language,
-      confidence: understood.confidence,
-      confidenceLabel: understood.confidence >= 0.8 ? 'High' : understood.confidence >= 0.6 ? 'Medium' : 'Low',
-    },
-    text: outcome === 'answer' ? answer! : cardText(outcome === 'declined' ? declineKind! : 'fallback', language),
+    understood: understood && { summary: understood.summary, language: understood.language },
+    question: asked ? expectationQuestion(language) : null,
+    text: asked ? '' : outcome === 'answer' ? answer! : cardText(outcome === 'declined' ? declineKind! : 'fallback', language),
     goalLine: lookup.goalLine,
     facts: unit,
     checks,
-    fallbackReason: outcome === 'fallback' ? (fallbackReason ?? { kind: 'error' }) : null,
+    fallbackReason: !asked && outcome === 'fallback' ? (fallbackReason ?? { kind: 'error' }) : null,
     declineKind: outcome === 'declined' ? declineKind : null,
     language,
-    goalDetail: !goal ? 'none' : goal.target_month && lookup.facts.instalments_planned !== null ? 'plan' : 'no_target_month',
     options: OPTIONS,
     links: OFFICIAL_LINKS,
     latencyMs,
   };
+}
+
+/** The reading a check-in that asked has already made, if it is this investor's, on this SIP. */
+async function askedReading(db: Db, askedId: number, investorId: string, sipId: number): Promise<Understanding | null> {
+  if (!Number.isInteger(askedId)) return null;
+  const [row] = (
+    await db.query<{ understood: Understanding | null }>(
+      "SELECT understood FROM ai_checks WHERE id = $1 AND investor_id = $2 AND sip_id = $3 AND outcome = 'asked'",
+      [askedId, investorId, sipId],
+    )
+  ).rows;
+  return row?.understood ?? null;
 }
 
 /** POST /api/ai/choice: what the investor did after the card (PRD F7, "choice recorded in ai_checks"). */

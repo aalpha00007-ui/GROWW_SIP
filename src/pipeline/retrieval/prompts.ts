@@ -4,10 +4,12 @@ import type { ChatMessage } from '../../llm/chat';
 import type { ExplainerChunk } from '../chunking/explainers';
 import type { FactsUnit } from '../chunking/facts';
 import { BEHAVIOURS, THEMES, type ExplainerKey, type Route } from '../loading/fixtures';
+import type { GoalDone } from './decide';
+import { expectationLine, type Expectation } from './expectations';
 
-export const DEFAULT_PROMPT_VERSION = 'v15';
+export const DEFAULT_PROMPT_VERSION = 'v16';
 export const DISCLAIMER = 'This is not investment advice.';
-/** A Hindi or Hinglish answer ends with the disclaimer in that language, then the English one. */
+/** A Hindi or Hinglish answer ends with the disclaimer in that language, once: the site's banner already has it in English. */
 export const LOCAL_DISCLAIMERS = {
   hi: 'यह निवेश सलाह नहीं है।',
   hinglish: 'Yeh investment advice nahi hai.',
@@ -23,6 +25,9 @@ const TARGET_WORDS = 50;
  * at a little over the limit, cut just enough, and came back at 91 words.
  */
 export const REWRITE_AIM_WORDS = 75;
+
+/** The disclaimer an answer in this language ends with. */
+export const disclaimerFor = (language: Language): string => (language === 'hi' || language === 'hinglish' ? LOCAL_DISCLAIMERS[language] : DISCLAIMER);
 
 export type Moment = 'before_stop' | 'is_this_normal';
 export type Language = 'en' | 'hi' | 'hinglish' | 'other';
@@ -46,6 +51,7 @@ Return only a JSON object with exactly these keys:
 - "asks_for_advice": true ONLY when they ask which fund or stock to pick, whether to buy, sell or switch a specific product, or for a return prediction or guarantee. Asking whether to stop, pause or keep their own SIP, in any language ("Should I stop my SIP?"), is not an advice request.
 - "asks_for_prediction": true ONLY when they ask whether the market, an index, a fund or prices will rise or fall, how far a fall will go, or when it will end or recover. A question about a fund's future returns is both asks_for_advice and asks_for_prediction. Worrying about a fall without asking what happens next is not a prediction request.
 - "misreads_cancel": true when they believe stopping refunds money, sells their units, or cannot be undone. It is only this flag, never a theme: such a misread has the theme "Confusion"
+- "goal_completed": true ONLY when they say they have already reached what this SIP was for or saved enough for it, or are now buying or paying for it. Needing money for something else, or a goal not reached yet, is false
 - "language": "en", "hi", "hinglish" or "other"
 - "confidence": how sure you are about primary_theme, a number from 0 to 1 written in digits only
 - "summary": at most 20 words, in your own words, saying what they mean or ask (never just their words repeated), in the language and script they wrote in: Hinglish (Hindi in Latin letters) in Latin letters, never Devanagari; Hindi in Devanagari; otherwise English
@@ -106,6 +112,42 @@ export function doubtGuidance(names: ReadonlySet<string>): string {
 }
 
 /**
+ * The goal is behind them (v16): they say they reached it, or its date has passed. Run #27's s14 was read as a cash
+ * shortage: "buying the house this Dec 2030, you can stop the SIP now". This route acknowledges it, sets every option
+ * side by side, and treats stopping as a legitimate choice. It offers the choice; it never tells them to take it.
+ */
+export function goalDoneGuidance(names: ReadonlySet<string>, goalDone: GoalDone): string {
+  const has = (n: string) => names.has(n);
+  const what = has('goal_name') ? '{goal_name}' : 'what this money was for';
+  return [
+    goalDone === 'said'
+      ? `First, in one short sentence, acknowledge that they say they have reached ${what}. Say nothing about when they will buy, pay or use the money.`
+      : `First, in one short sentence, say that the date for ${what} has passed.`,
+    has('value_today') && has('put_in_so_far') ? 'Then state {put_in_so_far} and {value_today}.' : '',
+    'Then set out their choices evenly, with none put ahead of another: keep the SIP going, skip or pause, lower the amount, or stop it.',
+    'Say plainly that stopping is one of the choices that fits here: it ends future instalments, refunds no money and sells no units, and the units stay invested until they redeem, which is a separate step and may have an exit load.',
+    'The choice is theirs: never tell them which to take.',
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+/**
+ * "Returns below expectations" (v16), once they have said what they expected and by when: facts about their SIP and
+ * timeline, and never an expected or typical return. It has no number to give, and any it gave would read as a promise.
+ */
+export function expectationGuidance(names: ReadonlySet<string>, expectation: Expectation): string {
+  const named = ['months_invested', 'put_in_so_far', 'value_today', 'change_vs_put_in', 'goal_name', 'time_to_goal'].filter((n) => names.has(n));
+  return [
+    `${expectationLine(expectation)} Acknowledge that in one short sentence, in their terms.`,
+    `Then give the facts with these placeholders only: ${named.map((n) => `{${n}}`).join(', ')}.`,
+    'Say that a fund\'s value moves with its NAV, up and down, with no set pace, so this app can\'t say what return to expect.',
+    'Never state an expected, typical, average or usual return, and never say what most investors get.',
+    'Then say they can keep, skip, pause or lower the amount.',
+  ].join(' ');
+}
+
+/**
  * "What does this dip mean for my goal?" (PRD F6): connect the dip to the goal and its timeline with the
  * numbers code worked out, so the answer says more than the screen already does. Built from the placeholders
  * this SIP has, so the writer is never pointed at one it doesn't have.
@@ -148,6 +190,18 @@ const LANGUAGE_NAMES: Record<Language, string> = {
   other: 'English',
 };
 
+/**
+ * v16: how those languages should sound. Run #27's Hinglish had half-English sentences ("Stopping a SIP means future
+ * instalments will end, koi refund nahi milega") and read like a word-for-word translation.
+ */
+const LANGUAGE_STYLE: Record<Language, string> = {
+  en: '',
+  other: '',
+  hinglish:
+    ' Write the way people in India text each other: simple Hindi sentences in Latin letters, keeping everyday English words such as SIP, NAV, goal, instalment, skip and pause. Keep the whole reply in Hinglish, with no full English sentences, and never translate word for word.',
+  hi: ' Write simple everyday Hindi, as people speak it, keeping common words such as SIP, NAV and goal as they are. Avoid bookish words and word-for-word translation from English.',
+};
+
 /** An explainer as the writer sees it: its pause range is the {pause_length} placeholder, so it has no number to copy. */
 export function explainerForWriter(text: string): string {
   return text.replace(/\b1 to 3 instalments\b/g, '{pause_length}');
@@ -167,14 +221,14 @@ export function answerMessages(args: {
   language: Language;
   moment: Moment;
   reason: string;
+  /** The goal is behind them: a route of its own wording, whose placeholders say no date for it. */
+  goalDone?: GoalDone | null;
+  /** What they said they expected, from the chips. */
+  expectation?: Expectation | null;
 }): ChatMessage[] {
   const opened = args.moment === 'before_stop' ? 'is thinking of stopping it' : 'asked "What does this dip mean for my goal?"';
   const names = new Set(args.slots.map((s) => s.name));
-  const goal = names.has('time_to_goal')
-    ? 'Mention {goal_name} and {time_to_goal}.'
-    : names.has('goal_name')
-      ? 'Mention {goal_name}, and say it has no target month.'
-      : 'Say that no goal is set for this SIP.';
+  const goal = goalRule(names, args.goalDone ?? null);
   const pause = names.has('pause_length')
     ? 'Count a pause with {pause_length}, never in months or weeks.'
     : 'Never say how long a pause can last.';
@@ -185,13 +239,14 @@ Rules:
 - Use only the placeholders listed below. Never make up a placeholder, compare their numbers, or work out new ones.
 - ${goal}
 - Never call a fall normal, small, big, temporary, expected or part of the journey, and never tell them not to worry. Describe it only with its placeholders. Make no predictions or promises about returns, never say a fall will recover, end or come back, and never say they are on track, ahead or behind for their goal.
+- A past fall is history only. Never say a fund won't fall further or more than it has, that it always recovers, or that anything is a floor or a bottom, and never state an expected, typical or average return.
 - Skipping misses that instalment; it is not taken later. Never say skipping delays or postpones an instalment.
 - ${pause}
 - Never name a fund. Never tell the investor to buy, sell, hold, switch, stop or continue: the choice is theirs.
-- Write in ${LANGUAGE_NAMES[args.language]}.
+- Write in ${LANGUAGE_NAMES[args.language]}.${LANGUAGE_STYLE[args.language]}
 - Keep it to about ${TARGET_WORDS} words, counting each placeholder as the words it becomes, never more than ${MAX_WORDS}. ${disclaimerRule(args.language)}
-- Return only a JSON object: {"text": "<the reply, ending with ${args.language === 'hi' || args.language === 'hinglish' ? `${LOCAL_DISCLAIMERS[args.language]} ` : ''}${DISCLAIMER}>"}
-What to cover: ${args.moment === 'is_this_normal' ? dipGuidance(names) : args.route === 'doubt' ? doubtGuidance(names) : ROUTE_GUIDANCE[args.route]}`;
+- Return only a JSON object: {"text": "<the reply, ending with ${disclaimerFor(args.language)}>"}
+What to cover: ${whatToCover(args, names)}`;
 
   const known = `What is true about this SIP:\n${args.situation.map((l) => `- ${l}`).join('\n')}`;
   const slots = `Placeholders you can use, and what each becomes (# stands for its number):\n${args.slots.map((s) => `- {${s.name}}: ${s.reads}`).join('\n')}`;
@@ -249,10 +304,25 @@ export function rewriteMessages(args: Parameters<typeof answerMessages>[0], draf
   ];
 }
 
-/** The last sentences, exactly: the English disclaimer, after the Hindi or Hinglish one for those languages. */
+/** The last sentence, exactly, once, in the reply's language. */
 function disclaimerRule(language: Language): string {
-  if (language === 'hi' || language === 'hinglish') {
-    return `End with these two exact sentences: ${LOCAL_DISCLAIMERS[language]} ${DISCLAIMER}`;
+  return `End with this exact sentence, once: ${disclaimerFor(language)}`;
+}
+
+function goalRule(names: ReadonlySet<string>, goalDone: GoalDone | null): string {
+  if (goalDone === 'said') {
+    return names.has('goal_name')
+      ? 'Mention {goal_name}. Never say when they will buy, pay or use the money, and never write a date for it.'
+      : 'No goal is set for this SIP: say "what this money was for", and use the word "goal" only to say that none is set.';
   }
-  return `End with this exact sentence: ${DISCLAIMER}`;
+  if (goalDone === 'date_passed') return 'Mention {goal_name} and {goal_date}, and say the date has passed. Never call it upcoming or say time is left.';
+  if (names.has('time_to_goal')) return 'Mention {goal_name} and {time_to_goal}.';
+  return names.has('goal_name') ? 'Mention {goal_name}, and say it has no target month.' : 'Say that no goal is set for this SIP.';
+}
+
+function whatToCover(args: Parameters<typeof answerMessages>[0], names: ReadonlySet<string>): string {
+  if (args.moment === 'is_this_normal') return dipGuidance(names);
+  if (args.goalDone) return goalDoneGuidance(names, args.goalDone);
+  if (args.expectation) return expectationGuidance(names, args.expectation);
+  return args.route === 'doubt' ? doubtGuidance(names) : ROUTE_GUIDANCE[args.route];
 }

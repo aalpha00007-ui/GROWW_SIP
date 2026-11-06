@@ -4,12 +4,15 @@
 // Each option has one fixed line saying what it does (people misread what stopping does), from plain code.
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { expectationQuestion, type Expectation, type ExpectationQuestion } from '@/pipeline/retrieval/expectations';
 import type { CheckInCard } from '@/server/checkin-card';
 import type { SipView } from '@/server/sip';
 import { CheckInCardView } from './checkin-card';
 import { postJson } from './post-json';
 
 const REASON_CHIPS = ['Markets are down', 'I need the money', 'Too much each month', 'Is this the right fund?'];
+/** Asks what they expected first: the useful answer depends on it. */
+const EXPECTATION_CHIP = 'Returns below expectations';
 const REASON_MAX = 500;
 
 interface Props {
@@ -18,6 +21,27 @@ interface Props {
   pauseChoices: SipView['pauseChoices'];
   skipConfirm: SipView['skipConfirm'];
   options: { key: string; label: string; note: string }[];
+}
+
+function ChipRow<K extends string>({ label, options, value, onPick }: { label: string; options: { key: K; label: string }[]; value: K | undefined; onPick: (key: K) => void }) {
+  return (
+    <fieldset className="mt-3">
+      <legend className="text-sm font-semibold">{label}</legend>
+      <div className="mt-1 flex flex-wrap gap-2">
+        {options.map((o) => (
+          <button
+            key={o.key}
+            type="button"
+            aria-pressed={value === o.key}
+            onClick={() => onPick(o.key)}
+            className={`min-h-11 rounded-full border px-4 text-sm font-medium ${value === o.key ? 'border-primary bg-primary-soft text-primary' : 'border-line hover:border-primary'}`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
 }
 
 export function BeforeYouStop({ sipId, controls, pauseChoices, skipConfirm, options }: Props) {
@@ -29,16 +53,25 @@ export function BeforeYouStop({ sipId, controls, pauseChoices, skipConfirm, opti
   const [busy, setBusy] = useState<string | null>(null);
   const [pausing, setPausing] = useState(false);
   const [confirmingSkip, setConfirmingSkip] = useState(false);
+  // Asking what they expected, from the chip or because the AI read the reason that way.
+  const [question, setQuestion] = useState<{ asked: ExpectationQuestion; text: string; askedId?: number } | null>(null);
+  const [expected, setExpected] = useState<Partial<Expectation>>({});
 
-  async function ask(text: string) {
+  async function ask(text: string, expectation?: Expectation, askedId?: number) {
     if (!text.trim()) return;
     setAsking(true);
     setError(null);
     setCard(null);
-    const result = await postJson<CheckInCard>('/api/ai/before-stop', { sipId, text });
+    const result = await postJson<CheckInCard>('/api/ai/before-stop', { sipId, text, expectation, askedId });
     setAsking(false);
-    if (result.ok) setCard(result.data);
-    else setError(result.error);
+    if (!result.ok) return setError(result.error);
+    if (result.data.question) {
+      setExpected({});
+      setQuestion({ asked: result.data.question, text, askedId: result.data.aiCheckId });
+    } else {
+      setQuestion(null);
+      setCard(result.data);
+    }
   }
 
   /** Records the choice against the card (when there is one), then does it. */
@@ -76,14 +109,21 @@ export function BeforeYouStop({ sipId, controls, pauseChoices, skipConfirm, opti
         <h2 className="font-bold">Why do you want to stop?</h2>
         <p className="text-sm text-muted">Optional. Tap a reason or write your own, in any language.</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          {REASON_CHIPS.map((chip) => (
+          {[...REASON_CHIPS, EXPECTATION_CHIP].map((chip) => (
             <button
               key={chip}
               type="button"
               disabled={asking}
               onClick={() => {
                 setReason(chip);
-                void ask(chip);
+                if (chip === EXPECTATION_CHIP) {
+                  setCard(null);
+                  setExpected({});
+                  setQuestion({ asked: expectationQuestion('en'), text: chip });
+                } else {
+                  setQuestion(null);
+                  void ask(chip);
+                }
               }}
               className="min-h-11 rounded-full border border-line px-4 text-sm font-medium hover:border-primary hover:text-primary disabled:opacity-60"
             >
@@ -123,6 +163,26 @@ export function BeforeYouStop({ sipId, controls, pauseChoices, skipConfirm, opti
 
       <div aria-live="polite" className="space-y-3">
         {error && <p className="rounded-lg bg-loss-soft px-3 py-2 text-sm text-loss-strong">{error}</p>}
+        {question && (
+          <section className="rounded-xl border border-primary bg-surface p-4">
+            <h2 className="font-bold">{question.asked.title}</h2>
+            <ChipRow
+              label={question.asked.expectedLabel}
+              options={question.asked.expected}
+              value={expected.expected}
+              onPick={(key) => setExpected({ ...expected, expected: key })}
+            />
+            <ChipRow label={question.asked.byWhenLabel} options={question.asked.byWhen} value={expected.byWhen} onPick={(key) => setExpected({ ...expected, byWhen: key })} />
+            <button
+              type="button"
+              disabled={asking || !expected.expected || !expected.byWhen}
+              onClick={() => void ask(question.text, expected as Expectation, question.askedId)}
+              className="mt-3 flex min-h-11 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60 sm:w-auto"
+            >
+              {asking ? 'Reading your SIP…' : question.asked.action}
+            </button>
+          </section>
+        )}
         {card && <CheckInCardView card={card} />}
       </div>
 

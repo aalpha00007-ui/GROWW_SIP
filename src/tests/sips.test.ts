@@ -317,37 +317,33 @@ describe('AI cards (PRD F8-F10)', () => {
     return checkInCard(result);
   };
 
-  it('shows the dip explainer with its quality strip and no facts table', async () => {
+  it('folds how the answer was checked under it, and shows no facts table', async () => {
     const r = await riya();
     const c = await card(fakeLlm({ text: answer }), 'is_this_normal', r.id, r.banyan);
     expect(c).toMatchObject({ outcome: 'answer', understood: null, text: answer, gate: null, lang: 'en', facts: null, links: null, asOf: 'Fund prices as of 27 Oct 2026 · demo price series' });
-    expect(c.strip).toEqual([
-      { label: 'No investment advice', ok: true },
-      { label: 'Numbers match your SIP', ok: true },
-      { label: 'Disclaimer shown', ok: true },
-      { label: 'No unsupported claims', ok: true },
-      { label: 'In your language', ok: true },
-    ]);
-    // No reason to read: the confidence says how much of a goal the answer could connect the dip to.
-    expect(c.confidence).toBe('Confidence: High');
-    await db.query('UPDATE goals SET target_month = NULL WHERE id = (SELECT goal_id FROM sips WHERE id = $1)', [r.banyan]);
-    expect((await card(fakeLlm({ text: answer }), 'is_this_normal', r.id, r.banyan)).confidence).toBe('Confidence: Medium · no goal date');
-    await db.query('UPDATE sips SET goal_id = NULL WHERE id = $1', [r.banyan]);
-    expect((await card(fakeLlm({ text: answer }), 'is_this_normal', r.id, r.banyan)).confidence).toBe('Confidence: Low · no goal set');
+    expect(c.checked).toMatchObject({ summary: 'How this answer was checked' });
+    expect(c.checked?.items).toHaveLength(7);
+    expect(c.checked?.items.every((i) => i.ok)).toBe(true);
+    // What was done, and that it can miss things: nothing that reads like a guarantee.
+    expect(c.checked?.note).toContain('can still miss');
+    const words = JSON.stringify(c.checked);
+    expect(words).not.toMatch(/confidence|guarantee|verified|accurate|100%|safe|certain/i);
+    expect(c).not.toHaveProperty('confidence');
   });
 
-  it('shows what it understood and the confidence on a Before you stop answer', async () => {
+  it('shows what it understood on a Before you stop answer, with no confidence badge', async () => {
     const r = await riya();
     const c = await card(fakeLlm(understood(), { text: answer }), 'before_stop', r.id, r.banyan);
-    expect(c).toMatchObject({ outcome: 'answer', understood: 'Worried because the SIP is red', confidence: 'Confidence: High' });
+    expect(c).toMatchObject({ outcome: 'answer', understood: 'Worried because the SIP is red' });
+    expect(c).not.toHaveProperty('confidence');
   });
 
   it('shows the facts, the official links and the quality check that stopped the AI on the declined and fallback cards', async () => {
     const r = await riya();
     const declined = await card(fakeLlm(understood({ asks_for_advice: true, summary: 'Asks which fund to switch to' })), 'before_stop', r.id, r.banyan);
     expect(declined).toMatchObject({
-      outcome: 'declined', understood: 'Asks which fund to switch to', strip: null,
-      gate: 'Quality check: advice question detected → showing facts only', confidence: 'Confidence: High',
+      outcome: 'declined', understood: 'Asks which fund to switch to', checked: null,
+      gate: 'Quality check: advice question detected → showing facts only',
     });
     expect(declined.facts?.find((l) => l.label === 'Put in so far')?.value).toBe(rupees(14000));
     expect(declined.links?.map((l) => l.label)).toEqual(['SEBI Investor Website', 'AMFI']);
@@ -355,8 +351,8 @@ describe('AI cards (PRD F8-F10)', () => {
     const fallback = await card(fakeLlm(understood({ confidence: 0.3 })), 'before_stop', r.id, r.banyan);
     expect(fallback).toMatchObject({
       // The facts-only card ends with the disclaimer, as an AI answer does.
-      outcome: 'fallback', understood: null, strip: null, text: "I couldn't give a reliable answer here. This is not investment advice.",
-      gate: 'Quality check: not sure what you meant → showing facts only', confidence: 'Confidence: Low',
+      outcome: 'fallback', understood: null, checked: null, text: "I couldn't give a reliable answer here. This is not investment advice.",
+      gate: 'Quality check: not sure what you meant → showing facts only',
     });
     expect(fallback.facts?.length).toBeGreaterThan(0);
     expect(fallback.links?.map((l) => l.label)).toEqual(['SEBI Investor Website', 'AMFI']);
@@ -369,16 +365,16 @@ describe('AI cards (PRD F8-F10)', () => {
   it('says in plain words which quality check stopped the answer, on both AI features', async () => {
     const r = await riya();
     const claim = await card(fakeLlm(understood(), { text: 'This dip is temporary. This is not investment advice.' }), 'before_stop', r.id, r.banyan);
-    expect(claim).toMatchObject({ outcome: 'fallback', gate: 'Quality check: the answer made an unsupported claim → showing facts only', confidence: 'Confidence: High' });
+    expect(claim).toMatchObject({ outcome: 'fallback', gate: 'Quality check: the answer made an unsupported claim → showing facts only' });
     // A number the model wrote gets one second draft (v12); this one writes it again.
     const wrote = { text: 'You have put in Rs 99,999. This is not investment advice.' };
     const number = await card(fakeLlm(wrote, wrote), 'is_this_normal', r.id, r.banyan);
-    expect(number).toMatchObject({ outcome: 'fallback', gate: "Quality check: a number didn't match your SIP → showing facts only", strip: null });
+    expect(number).toMatchObject({ outcome: 'fallback', gate: "Quality check: a number didn't match your SIP → showing facts only", checked: null });
     expect(number.facts?.length).toBeGreaterThan(0);
     // A timeout, an error or no key: the AI is unavailable, and the card still shows the facts.
     for (const down of [new LlmError('Groq did not answer within 10 s'), new LlmError('Mistral returned HTTP 500')]) {
       const c = await card(fakeLlm(down), 'before_stop', r.id, r.banyan);
-      expect(c).toMatchObject({ outcome: 'fallback', gate: 'Quality check: AI unavailable → showing facts only', confidence: null });
+      expect(c).toMatchObject({ outcome: 'fallback', gate: 'Quality check: AI unavailable → showing facts only' });
       expect(c.facts?.length).toBeGreaterThan(0);
     }
     const noKey = await runCheckIn({ db, llm: null, today: TODAY, log: () => {} }, { investorId: r.id, sipId: r.banyan, moment: 'is_this_normal' });

@@ -319,7 +319,7 @@ function gateRows(m: {
       rule: `At most ${ROUTING_MISSES_ALLOWED} miss`,
       ok: m.routing.misses <= ROUTING_MISSES_ALLOWED,
     },
-    { label: 'Invariant failures', value: String(m.invariantFailures), rule: 'None: no advice, numbers match, disclaimer, no unsupported claims', ok: m.invariantFailures === 0 },
+    { label: 'Invariant failures', value: String(m.invariantFailures), rule: 'None: no advice, numbers match, disclaimer, no unsupported claims, goal details match', ok: m.invariantFailures === 0 },
   ];
 }
 

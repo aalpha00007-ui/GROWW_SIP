@@ -15,6 +15,8 @@ export interface Understanding {
   /** Asks whether markets or prices will rise or fall: the card says the app can't predict markets. */
   asks_for_prediction: boolean;
   misreads_cancel: boolean;
+  /** They say they have reached what this SIP was for. */
+  goal_completed: boolean;
   language: Language;
   confidence: number;
   summary: string;
@@ -111,6 +113,8 @@ export function parseUnderstanding(raw: string): Understanding {
     // Newer than the other keys: a reply without it reads as no prediction request, and its answer is checked as usual.
     asks_for_prediction: u.asks_for_prediction === true,
     misreads_cancel: u.misreads_cancel as boolean,
+    // Newer still: a reply without it reads as not completed, and code still checks their own words.
+    goal_completed: u.goal_completed === true,
     language: u.language as Language,
     confidence: confidence as number,
     summary: (u.summary as string).trim().split(/\s+/).slice(0, 20).join(' '),

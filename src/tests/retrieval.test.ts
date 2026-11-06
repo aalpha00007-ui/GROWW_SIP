@@ -7,7 +7,7 @@ import { clonePersona } from '../pipeline/loading/personas';
 import { setupDatabase } from '../pipeline/loading/seed';
 import { parseUnderstanding, stripMarkdown } from '../pipeline/retrieval/ai';
 import { detectLanguage, scriptLanguage, writtenIn } from '../pipeline/retrieval/language';
-import { cardText, DECLINED_TEXT, FALLBACK_TEXT, PREDICTION_TEXT, recordChoice, runCheckIn, withLocalDisclaimer, type CheckInResult } from '../pipeline/retrieval/checkin';
+import { cardText, DECLINED_TEXT, FALLBACK_TEXT, PREDICTION_TEXT, recordChoice, runCheckIn, oneDisclaimer, type CheckInResult } from '../pipeline/retrieval/checkin';
 import { loadClaimPatterns } from '../pipeline/loading/fixtures';
 import { runChecks } from '../pipeline/retrieval/checks';
 import { decideRoute } from '../pipeline/retrieval/decide';
@@ -272,18 +272,18 @@ describe('the full check-in (steps 4-9)', () => {
   it('answers a market-fall doubt with the goal, and logs it', async () => {
     const llm = fakeLlm(understood({ language: 'hinglish', confidence: 0.86 }), { text: hinglishAnswer });
     const r = ok(await ask(llm, 'Market crash ho gaya, mera SIP red mein hai. Band kar du?'));
-    // The placeholders are filled in Hinglish, and a Hinglish answer carries the Hinglish disclaimer too, just before the English one.
+    // The placeholders are filled in Hinglish, and a Hinglish answer carries the disclaimer once, in Hinglish.
     expect(r).toMatchObject({
       outcome: 'answer', route: 'doubt',
-      text: 'Aapka SIP Home down payment ke liye hai, Mar 2031 tak, aur goal tak 4 saal 5 mahine baaki hain. Aapne ab tak Rs 14,000 lagaye hain. Aap keep, skip, pause ya amount lower kar sakte hain. Yeh investment advice nahi hai. This is not investment advice.',
+      text: 'Aapka SIP Home down payment ke liye hai, Mar 2031 tak, aur goal tak 4 saal 5 mahine baaki hain. Aapne ab tak Rs 14,000 lagaye hain. Aap keep, skip, pause ya amount lower kar sakte hain. Yeh investment advice nahi hai.',
     });
-    expect(r.understood).toMatchObject({ language: 'hinglish', confidenceLabel: 'High' });
+    expect(r.understood).toMatchObject({ language: 'hinglish' });
     expect(r.checks).toMatchObject({ no_advice: true, grounded: true, disclaimer: true, length: true });
     expect(r.options.map((o) => o.label)).toEqual(['Skip next', 'Lower amount', 'Pause', 'Keep my SIP', 'Stop anyway']);
     expect(llm.calls[1][0].content).toContain('Write in Hinglish');
     const [row] = (await db.query('SELECT moment, outcome, route, model, prompt_version, user_text FROM ai_checks WHERE id = $1', [r.aiCheckId])).rows;
     expect(row).toEqual({
-      moment: 'before_stop', outcome: 'answer', route: 'doubt', model: 'fake-model', prompt_version: 'v15',
+      moment: 'before_stop', outcome: 'answer', route: 'doubt', model: 'fake-model', prompt_version: 'v16',
       user_text: 'Market crash ho gaya, mera SIP red mein hai. Band kar du?',
     });
   });
@@ -523,25 +523,36 @@ describe('the full check-in (steps 4-9)', () => {
     expect(check('५३ किस्तें बाकी हैं।')).toEqual(['५३']);
   });
 
-  it('wants the Hindi or Hinglish disclaimer as well as the English one in those languages', () => {
+  it("wants the disclaimer exactly once, in the reply's language", () => {
     const english = 'Your goal is Home down payment. This is not investment advice.';
+    const local = (l: 'hi' | 'hinglish') => `Your goal is Home down payment. ${LOCAL_DISCLAIMERS[l]}`;
+    // In the wrong language, or twice, or not at all: fails.
     expect(runChecks(english, [], [], [], 'hinglish').disclaimer).toBe(false);
-    expect(runChecks(withLocalDisclaimer(english, 'hinglish'), [], [], [], 'hinglish').disclaimer).toBe(true);
-    expect(withLocalDisclaimer(english, 'hi')).toBe(`Your goal is Home down payment. ${LOCAL_DISCLAIMERS.hi} This is not investment advice.`);
-    expect(withLocalDisclaimer(english, 'en')).toBe(english);
-    // Written by the model already, or no English disclaimer to put it before: left as it is.
-    const both = `Goal set. ${LOCAL_DISCLAIMERS.hinglish} This is not investment advice.`;
-    expect(withLocalDisclaimer(both, 'hinglish')).toBe(both);
-    expect(withLocalDisclaimer('No disclaimer here.', 'hi')).toBe('No disclaimer here.');
+    expect(runChecks(`${local('hinglish')} This is not investment advice.`, [], [], [], 'hinglish').disclaimer).toBe(false);
+    expect(runChecks(`${local('hinglish')} ${LOCAL_DISCLAIMERS.hinglish}`, [], [], [], 'hinglish').disclaimer).toBe(false);
+    expect(runChecks(`${english} This is not investment advice.`, [], [], [], 'en').disclaimer).toBe(false);
+    expect(runChecks(`${english} ${LOCAL_DISCLAIMERS.hi}`, [], [], [], 'en').disclaimer).toBe(false);
+    expect(runChecks('Your goal is Home down payment.', [], [], [], 'hi').disclaimer).toBe(false);
+    expect(runChecks(local('hi'), [], [], [], 'hi').disclaimer).toBe(true);
+    expect(runChecks(english, [], [], [], 'en').disclaimer).toBe(true);
+    expect(runChecks(english, [], [], [], 'other').disclaimer).toBe(true);
+
+    // A reply in Hindi or Hinglish that ended in English, or in both, is put right before the check.
+    expect(oneDisclaimer(english, 'hi')).toBe(local('hi'));
+    expect(oneDisclaimer(`${local('hinglish')} This is not investment advice.`, 'hinglish')).toBe(local('hinglish'));
+    expect(runChecks(oneDisclaimer(english, 'hinglish'), [], [], [], 'hinglish').disclaimer).toBe(true);
+    expect(oneDisclaimer(english, 'en')).toBe(english);
+    // With no disclaimer at all it stays that way, so the check fails it.
+    expect(oneDisclaimer('No disclaimer here.', 'hi')).toBe('No disclaimer here.');
   });
 
-  it('keeps the 90-word limit on the reply and the English disclaimer; the added local disclaimer is not counted', () => {
+  it('keeps the 90-word limit on the reply and its disclaimer, in any language', () => {
     const reply = (n: number) => `${'shabd '.repeat(n)}`.trim();
-    // 85 words of reply + the English disclaimer (5) = 90: passes, with the Hinglish one on top.
-    const hinglish = `${reply(85)} ${LOCAL_DISCLAIMERS.hinglish} This is not investment advice.`;
-    expect(runChecks(hinglish, [], [], [], 'hinglish')).toMatchObject({ length: true, words: 90 });
+    // 85 words of reply + the disclaimer (5) = 90: passes.
+    expect(runChecks(`${reply(85)} ${LOCAL_DISCLAIMERS.hinglish}`, [], [], [], 'hinglish')).toMatchObject({ length: true, words: 90 });
     // One more word of reply goes over, as before.
-    expect(runChecks(`${reply(86)} ${LOCAL_DISCLAIMERS.hinglish} This is not investment advice.`, [], [], [], 'hinglish')).toMatchObject({ length: false, words: 91 });
+    expect(runChecks(`${reply(86)} ${LOCAL_DISCLAIMERS.hinglish}`, [], [], [], 'hinglish')).toMatchObject({ length: false, words: 91 });
+    expect(runChecks(`${reply(86)} ${LOCAL_DISCLAIMERS.hi}`, [], [], [], 'hi')).toMatchObject({ length: false, words: 91 });
     expect(runChecks(`${reply(86)} This is not investment advice.`, [], [], [], 'en')).toMatchObject({ length: false, words: 91 });
   });
 
@@ -575,7 +586,7 @@ describe('the full check-in (steps 4-9)', () => {
   it('runs the dip explainer on route doubt with no understanding call', async () => {
     const llm = fakeLlm({ text: groundedAnswer });
     const r = ok(await runCheckIn({ db, llm, today: TODAY, log: () => {} }, { investorId: riya, sipId: riyaSips[0], moment: 'is_this_normal' }));
-    expect(r).toMatchObject({ outcome: 'answer', route: 'doubt', understood: null, moment: 'is_this_normal', goalDetail: 'plan' });
+    expect(r).toMatchObject({ outcome: 'answer', route: 'doubt', understood: null, moment: 'is_this_normal' });
     expect(llm.calls).toHaveLength(1);
     // Its own guidance: connect the dip to the goal and timeline, with the plan's share and the units at the latest NAV.
     const system = llm.calls[0][0].content;

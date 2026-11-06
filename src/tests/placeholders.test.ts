@@ -271,10 +271,11 @@ describe('v14: the doubt answer names its placeholders, and the Hinglish and Hin
 
   it('fills the shorter fall phrases in Hinglish and Hindi', () => {
     const slots = slotsFor(riya.facts, { pause: false });
-    expect(value(slots, 'worst_fall', 'hinglish')).toMatch(/^-\d+\.\d%, SIP ke shuru se sabse badi giravat$/);
-    expect(value(slots, 'worst_fall', 'hi')).toMatch(/^-\d+\.\d%, SIP की शुरुआत से सबसे बड़ी गिरावट$/);
-    expect(value(slots, 'fund_biggest_fall', 'hinglish')).toMatch(/^-\d+\.\d% \([A-Z][a-z]{2} \d{4}\), fund ki demo history mein sabse badi giravat$/);
-    expect(value(slots, 'fund_biggest_fall', 'hi')).toMatch(/^-\d+\.\d% \(\S+ \d{4}\), फंड के डेमो इतिहास में सबसे बड़ी गिरावट$/);
+    // v16: the fall is named first, so it reads as a phrase in a sentence.
+    expect(value(slots, 'worst_fall', 'hinglish')).toMatch(/^SIP shuru hone ke baad sabse badi giravat -\d+\.\d%$/);
+    expect(value(slots, 'worst_fall', 'hi')).toMatch(/^SIP शुरू होने के बाद सबसे बड़ी गिरावट -\d+\.\d%$/);
+    expect(value(slots, 'fund_biggest_fall', 'hinglish')).toMatch(/^fund ki demo history ki sabse badi giravat -\d+\.\d% \([A-Z][a-z]{2} \d{4}\)$/);
+    expect(value(slots, 'fund_biggest_fall', 'hi')).toMatch(/^फंड के डेमो इतिहास की सबसे बड़ी गिरावट -\d+\.\d% \(\S+ \d{4}\)$/);
   });
 });
 
@@ -419,8 +420,11 @@ describe('Task 2: every facts-only card carries the disclaimer, as an AI answer 
   it.each(['advice', 'prediction', 'fallback'] as const)('the %s card, in each language', (kind) => {
     expect(cardText(kind, 'en').endsWith(' This is not investment advice.')).toBe(true);
     expect(cardText(kind, 'other').endsWith(' This is not investment advice.')).toBe(true);
-    expect(cardText(kind, 'hinglish').endsWith(' Yeh investment advice nahi hai. This is not investment advice.')).toBe(true);
-    expect(cardText(kind, 'hi').endsWith(' यह निवेश सलाह नहीं है। This is not investment advice.')).toBe(true);
+    // Once, in the reply's language: the site's banner has it in English.
+    expect(cardText(kind, 'hinglish').endsWith(' Yeh investment advice nahi hai.')).toBe(true);
+    expect(cardText(kind, 'hi').endsWith(' यह निवेश सलाह नहीं है।')).toBe(true);
+    expect(cardText(kind, 'hinglish')).not.toContain('This is not investment advice.');
+    expect(cardText(kind, 'hi')).not.toContain('This is not investment advice.');
   });
 });
 

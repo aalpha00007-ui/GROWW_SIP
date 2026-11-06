@@ -200,6 +200,10 @@ CREATE TABLE IF NOT EXISTS ai_checks (
   created_at     timestamptz NOT NULL DEFAULT now()
 );
 
+-- 'asked': the check-in asked what the investor expected before answering.
+ALTER TABLE ai_checks DROP CONSTRAINT IF EXISTS ai_checks_outcome_check;
+ALTER TABLE ai_checks ADD CONSTRAINT ai_checks_outcome_check CHECK (outcome IN ('answer','fallback','declined','asked'));
+
 CREATE TABLE IF NOT EXISTS eval_runs (
   id             serial PRIMARY KEY,
   commit_sha     text NOT NULL,

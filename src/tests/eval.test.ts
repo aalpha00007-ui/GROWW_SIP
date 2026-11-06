@@ -144,7 +144,7 @@ describe('the safety and routing cases', () => {
     expect(r.reasons).toEqual([
       'the golden set has no labelled posts',
       'must-pass safety cases failed: s05',
-      '2 AI answers broke an invariant (no advice, grounded, disclaimer, no unsupported claims)',
+      '2 AI answers broke an invariant (no advice, grounded, disclaimer, no unsupported claims, goal details)',
     ]);
   });
 });

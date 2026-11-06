@@ -1,5 +1,5 @@
 {
-  "source": "Fix 5, no unsupported claims. Matched case-insensitively against every AI answer; any match sends the investor to the fallback card. A fall is described only with the numbers in the facts: never called normal, small or temporary, never promised to recover, nobody is told not to worry, and nobody is told they are on track for their goal or that a fall is part of the journey (v15: the live site said \"still on track\" to an investor who was down, 3 Nov). English, Hindi and Hinglish.",
+  "source": "Fix 5, no unsupported claims. Matched case-insensitively against every AI answer; any match sends the investor to the fallback card. A fall is described only with the numbers in the facts: never called normal, small or temporary, never promised to recover, nobody is told not to worry, and nobody is told they are on track for their goal or that a fall is part of the journey (v15: the live site said \"still on track\" to an investor who was down, 3 Nov). English, Hindi and Hinglish. A historical fall never implies a floor or a recovery, and no answer states an expected or typical return (v16).",
   "patterns": [
     {
       "lang": "en",
@@ -100,6 +100,130 @@
     {
       "lang": "hi",
       "pattern": "घबरा(एं|इए|ओ|इये) मत"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\b(won['’]?t|will not|wouldn['’]?t|can['’]?t|cannot|shouldn['’]?t|not going to|unlikely to|never) (fall|drop|go down|dip|decline|sink)\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\b(fall|drop|go down|dip|decline)s? (any )?(more|further|lower|below) than\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\bno (lower|further|worse) than\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\b(floor|rock bottom)\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\bbottom(ed|ing)?( out)?\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\b(the )?(worst|fall|dip|drop) (is|are) (over|behind)\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\bthe most (it|this|the fund|this fund|your sip) (can|could|will|would) (fall|drop|lose)\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\b(at|can['’]?t get) worse\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\b(always|eventually|usually|typically|historically|every time|each time) (\\w+ )?(recover(s|ed)?|bounce[sd]? back|rebound(s|ed)?|come[s]? back|came back|go(es)? back up|went back up|climb(s|ed)? back)\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\b(would|can|might|must|going to|likely to|bound to|sure to|set to|expected to) (recover|rebound|bounce back|come back|go back up|climb back)\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\b(has|have) (always )?recovered\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\brebound(s|ed)?\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\brecovery\\b"
+    },
+    {
+      "lang": "hinglish",
+      "pattern": "\\b(isse|is se) (zyada|neeche|niche|kam) (nahi|nahin|nhi)\\b"
+    },
+    {
+      "lang": "hinglish",
+      "pattern": "\\b(zyada|aur|neeche|niche) (nahi|nahin|nhi) (girega|giregi|gira|jayega|jaega)\\b"
+    },
+    {
+      "lang": "hinglish",
+      "pattern": "\\bhamesha (wapas|recover|upar|sambhal)\\b"
+    },
+    {
+      "lang": "hinglish",
+      "pattern": "\\bwapas (upar )?(aayega|aaega|ayega|aa jayega|aa jaega|chadh|badhega)\\b"
+    },
+    {
+      "lang": "hinglish",
+      "pattern": "\\bupar (aa |chala |ja )?(jayega|jaega|aayega|aaega)\\b"
+    },
+    {
+      "lang": "hinglish",
+      "pattern": "\\brecover (ho|kar) (jayega|jaega|lega|leta|jata|jaata)\\b"
+    },
+    {
+      "lang": "hi",
+      "pattern": "इससे (ज़्यादा|ज्यादा|अधिक|नीचे|कम) नहीं"
+    },
+    {
+      "lang": "hi",
+      "pattern": "और नहीं गिर"
+    },
+    {
+      "lang": "hi",
+      "pattern": "हमेशा (वापस|उबर|ऊपर|संभल)"
+    },
+    {
+      "lang": "hi",
+      "pattern": "वापस (ऊपर )?(आएगा|आएगी|आ जाएगी|लौटेगा|लौटेगी|चढ़ेगा)"
+    },
+    {
+      "lang": "hi",
+      "pattern": "उबर (जाएगा|जाएगी|जाता|जाती)"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\b(typical|average|expected|usual|standard|historical|long[- ]term)(ly)? (annual |yearly |monthly )?returns?\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\breturns? (are|is|tend to be) (typically|usually|generally|normally|often)\\b"
+    },
+    {
+      "lang": "en",
+      "pattern": "\\b(usually|typically|generally|on average|tends? to) (give|gives|return|returns|earn|earns|grow|grows|make|makes|deliver|delivers)\\b"
+    },
+    {
+      "lang": "hinglish",
+      "pattern": "\\b(aam taur par|aksar|usually|average|ausat)\\b.{0,24}\\breturn"
+    },
+    {
+      "lang": "hinglish",
+      "pattern": "\\breturn\\b.{0,16}\\b(aam taur par|aksar|usually|ausat)\\b"
+    },
+    {
+      "lang": "hi",
+      "pattern": "(औसत|आम तौर पर|आमतौर पर|अक्सर).{0,20}रिटर्न"
+    },
+    {
+      "lang": "hi",
+      "pattern": "रिटर्न.{0,16}(औसत|आम तौर पर|आमतौर पर|अक्सर)"
     }
   ]
 }

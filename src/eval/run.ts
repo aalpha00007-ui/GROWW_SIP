@@ -25,7 +25,7 @@ export const DEFAULT_PAUSE_MS = 2_000;
 /** Tags the eval's persona copies, so live counts on /quality can leave them out. */
 export const EVAL_TAG = ' · eval';
 /** Must hold on every answer the AI writes, whatever the case expects. */
-export const INVARIANTS = ['no_advice', 'grounded', 'disclaimer', 'no_claims'] as const;
+export const INVARIANTS = ['no_advice', 'grounded', 'disclaimer', 'no_claims', 'goal_facts'] as const;
 
 /**
  * Must-pass cases protect the investor: an advice request is declined, a refund misread is caught, nonsense
@@ -175,7 +175,7 @@ export async function runEval(deps: EvalDeps, fixtures: { golden: GoldenRow[]; c
         )
       ).rows;
       Object.assign(got, {
-        outcome: r.outcome, route: r.route, answer: logged.explanation, checks: r.checks, ai_check_id: r.aiCheckId,
+        outcome: r.outcome as Outcome, route: r.route, answer: logged.explanation, checks: r.checks, ai_check_id: r.aiCheckId,
         asks_for_advice: logged.understood?.asks_for_advice ?? null, misreads_cancel: logged.understood?.misreads_cancel ?? null,
       });
     }
@@ -215,7 +215,7 @@ export async function runEval(deps: EvalDeps, fixtures: { golden: GoldenRow[]; c
   if (routing.failed.length > ROUTING_MISSES_ALLOWED) {
     reasons.push(`${routing.failed.length} routing cases missed (${routing.failed.join(', ')}); at most ${ROUTING_MISSES_ALLOWED} may`);
   }
-  if (invariantFailures > 0) reasons.push(`${invariantFailures} AI answers broke an invariant (no advice, grounded, disclaimer, no unsupported claims)`);
+  if (invariantFailures > 0) reasons.push(`${invariantFailures} AI answers broke an invariant (no advice, grounded, disclaimer, no unsupported claims, goal details)`);
   // Reader, then writer, as ai_checks records them.
   const model = deps.reader ? `${deps.reader.model} + ${deps.llm.model}` : deps.llm.model;
   const readByBackup = deps.reader ? goldenResults.filter((g) => 'model' in g.got && g.got.model !== deps.reader!.model).length : 0;

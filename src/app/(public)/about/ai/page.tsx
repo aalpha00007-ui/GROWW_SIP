@@ -100,17 +100,25 @@ export default function HowTheAiWorks() {
           <li>
             The second model writes a short reply, at most {MAX_WORDS} words, in English, Hindi or Hinglish. It never writes a number: where one
             belongs, it writes a placeholder, and code puts in the number together with what it means, in your language (&ldquo;53 instalments still
-            to come&rdquo;), so a number can&apos;t end up meaning something else. In Hindi or Hinglish the reply ends with the disclaimer in that
-            language and in English. Other languages get an English reply, because the checks below only know English, Hindi and Hinglish.
+            to come&rdquo;), so a number can&apos;t end up meaning something else. A Hindi or Hinglish reply ends with the disclaimer once, in that
+            language. Other languages get an English reply, because the checks below only know English, Hindi and Hinglish.
           </li>
           <li>
-            Code checks the reply six ways: no advice words (such as &ldquo;recommend&rdquo; or &ldquo;you should sell&rdquo;); the model wrote no
-            number of its own (no digits or number words, in any language) and every number code put in matches your facts; it ends with
-            &ldquo;{DISCLAIMER}&rdquo;; it is {MAX_WORDS} words or fewer; it makes no unsupported claims: it never calls a fall normal, small or
-            temporary, says it will recover, or tells you not to worry, in English, Hindi or Hinglish; and it is written in your language.
+            Code checks the reply seven ways: no advice words (such as &ldquo;recommend&rdquo; or &ldquo;you should sell&rdquo;); the model wrote no
+            number of its own (no digits or number words, in any language) and every number code put in matches your facts; it carries the
+            disclaimer once, in your language (&ldquo;{DISCLAIMER}&rdquo; in English); it is {MAX_WORDS} words or fewer; it makes no unsupported
+            claims: it never calls a fall normal, small or temporary, says it will recover or can&apos;t fall further, states an expected or typical
+            return, or tells you not to worry, in English, Hindi or Hinglish; it is written in your language; and what it says of your goal is true:
+            any goal date is the stored one, no goal is invented, and a date that has passed is never called upcoming.
+            These checks are code and can miss things, so nothing here is a guarantee.
           </li>
         </ol>
         <p className="mt-3">For &ldquo;What does this dip mean for my goal?&rdquo; there is no reason to read, so it starts at step 3.</p>
+        <p className="mt-3">
+          If you say your goal is reached, or its date has passed, the reply says so and sets out your choices side by side, with stopping among them
+          as a legitimate one. If you say returns are below what you expected, it first asks what you expected and by when, then replies with facts
+          about your SIP and timeline. It never states an expected or typical return.
+        </p>
       </section>
 
       <section>
@@ -127,10 +135,13 @@ export default function HowTheAiWorks() {
             &ldquo;{FALLBACK_TEXT}&rdquo;, shown with your SIP&apos;s numbers and links to the {OFFICIAL_LINKS.map((l) => l.label).join(' and ')}.
           </li>
           <li>
-            Every one of these cards ends with the disclaimer, as an answer does, and shows a quality-check line where an answer&apos;s ticks would be,
-            such as &ldquo;Quality check: advice question detected → showing facts only&rdquo; or &ldquo;Quality check: AI unavailable → showing facts
-            only&rdquo;, with the confidence when the reason was read. The fixed texts, the disclaimer and that line are in Hindi or Hinglish when you
-            wrote in them.
+            Every one of these cards ends with the disclaimer, as an answer does, and shows a quality-check line, such as &ldquo;Quality check: advice
+            question detected → showing facts only&rdquo; or &ldquo;Quality check: AI unavailable → showing facts only&rdquo;. The fixed texts, the
+            disclaimer and that line are in Hindi or Hinglish when you wrote in them. An answer has &ldquo;How this answer was checked&rdquo; folded
+            under it instead.
+          </li>
+          <li>
+            <b>If the AI times out or fails,</b> nothing else stops working: skip, pause, change the amount and stop are plain code.
           </li>
         </ul>
       </section>

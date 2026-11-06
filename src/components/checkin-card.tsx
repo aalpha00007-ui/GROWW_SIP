@@ -1,6 +1,6 @@
-// An AI card (PRD F8-F10): the answer with its quality strip, or the declined or fallback card with
-// the facts table, the official links and, in the strip's place, the quality check that stopped the AI.
-// Every card says when its numbers are from.
+// An AI card (PRD F8-F10): the answer with "How this answer was checked" folded under it, or the declined or
+// fallback card with the facts table, the official links and the quality check that stopped the AI.
+// Every card says when its prices are from.
 import Link from 'next/link';
 import type { CheckInCard } from '@/server/checkin-card';
 import { toRupeeSign } from '@/server/money';
@@ -17,13 +17,8 @@ export function CheckInCardView({ card }: { card: CheckInCard }) {
       <p lang={card.lang} className={`whitespace-pre-line ${card.understood ? 'mt-3' : ''} ${card.outcome === 'answer' ? '' : 'font-semibold'}`}>
         {toRupeeSign(card.text)}
       </p>
-      {/* Where an answer's ticks would be: right under the text, so it is seen before the facts. */}
-      {card.gate && (
-        <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1 rounded-lg bg-page px-3 py-2 text-xs font-semibold" aria-label="Quality checks">
-          <li className="text-ink">{card.gate}</li>
-          {card.confidence && <li className="text-muted">{card.confidence}</li>}
-        </ul>
-      )}
+      {/* Right under the text, so it is seen before the facts. */}
+      {card.gate && <p className="mt-3 rounded-lg bg-page px-3 py-2 text-xs font-semibold text-ink">{card.gate}</p>}
 
       {card.appLink && (
         <Link href={card.appLink.href} className="mt-3 inline-flex min-h-11 items-center font-semibold text-primary underline">
@@ -56,16 +51,19 @@ export function CheckInCardView({ card }: { card: CheckInCard }) {
         </p>
       )}
 
-      {card.strip && (
-        <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-line pt-3 text-xs font-semibold" aria-label="Quality checks">
-          {card.strip.map((check) => (
-            <li key={check.label} className={check.ok ? 'text-gain' : 'text-loss-strong'}>
-              <span aria-hidden="true">{check.ok ? '✓' : '✗'}</span> {check.label}
-              <span className="sr-only">{check.ok ? ' (passed)' : ' (failed)'}</span>
-            </li>
-          ))}
-          {card.confidence && <li className="text-muted">{card.confidence}</li>}
-        </ul>
+      {card.checked && (
+        <details className="mt-3 border-t border-line pt-1 text-sm" lang={card.lang}>
+          <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-primary">{card.checked.summary}</summary>
+          <ul className="space-y-1 pb-1 text-xs text-muted" aria-label="Quality checks">
+            {card.checked.items.map((check) => (
+              <li key={check.label}>
+                <span aria-hidden="true">{check.ok ? '·' : '✗'}</span> {check.label}
+                {!check.ok && <span className="sr-only"> (failed)</span>}
+              </li>
+            ))}
+          </ul>
+          <p className="pb-1 text-xs text-muted">{card.checked.note}</p>
+        </details>
       )}
       <p className="mt-2 text-xs text-muted">{card.asOf}</p>
     </section>

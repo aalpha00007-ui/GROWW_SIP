@@ -155,7 +155,7 @@ function print(r: EvalReport): void {
     }
   }
 
-  console.log(`\nInvariants on every AI answer (no advice, grounded, disclaimer, no unsupported claims): ${r.invariantFailures} failures`);
+  console.log(`\nInvariants on every AI answer (no advice, grounded, disclaimer, no unsupported claims, goal details): ${r.invariantFailures} failures`);
   console.log(r.passed ? '\nRESULT: PASS' : `\nRESULT: FAIL\n${r.reasons.map((reason) => `  - ${reason}`).join('\n')}`);
 }
 

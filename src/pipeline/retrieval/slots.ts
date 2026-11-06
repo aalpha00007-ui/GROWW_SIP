@@ -6,6 +6,7 @@
 // doesn't have, is not shown (checkin.ts falls back to the facts-only card).
 import type { SipFacts } from '../chunking/facts';
 import { dayMonthYear, duration, monthsBetween, monthYear, months, percent, rupees, signedRupees } from '../chunking/format';
+import type { GoalDone } from './decide';
 import type { Language } from './prompts';
 
 /** The languages a reply is filled in: anything else is answered in English. */
@@ -19,10 +20,19 @@ export interface Slot {
   reads: string;
 }
 
+/**
+ * What a reached goal's answer may use. It has no {goal_date} or {time_to_goal}: run #27 wrote "buying the house this
+ * Dec 2030", and the stored date says nothing about when they buy. A date that has passed may be named: that is the news.
+ */
+export const GOAL_DONE_SLOTS = ['goal_name', 'put_in_so_far', 'value_today', 'instalment_amount', 'next_instalment_date', 'exit_load', 'pause_length'] as const;
+export const GOAL_PASSED_SLOTS = [...GOAL_DONE_SLOTS, 'goal_date'] as const;
+/** What an answer about unmet expectations may use: their SIP and timeline, no fund history. */
+export const EXPECTATION_SLOTS = ['months_invested', 'put_in_so_far', 'value_today', 'change_vs_put_in', 'goal_name', 'time_to_goal', 'instalment_amount', 'first_instalment_date'] as const;
+
 /** The pause explainer's range, "1 to 3 instalments" (data/raw/explainers/pause.md; a test keeps them in step). */
 export const PAUSE_RANGE = [1, 3] as const;
 
-const HI_MONTHS = ['जनवरी', 'फ़रवरी', 'मार्च', 'अप्रैल', 'मई', 'जून', 'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'];
+export const HI_MONTHS = ['जनवरी', 'फ़रवरी', 'मार्च', 'अप्रैल', 'मई', 'जून', 'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'];
 
 /** Numbers formatted for one language, or masked as # for the writer's prompt. */
 interface Fmt {
@@ -114,14 +124,15 @@ const DEFS: SlotDef[] = [
   {
     name: 'months_invested',
     available: paid,
-    phrase: (f, c) => pick(f, `${f.months(c.facts.months_invested)} invested`, `${f.months(c.facts.months_invested)} se invest`, `${f.months(c.facts.months_invested)} से निवेश`),
+    // v16: read as a phrase in a sentence ("Aapka 8 mahine se chal raha SIP"), not "8 mahine se invest".
+    phrase: (f, c) => pick(f, `${f.months(c.facts.months_invested)} invested`, `${f.months(c.facts.months_invested)} se chal raha SIP`, `${f.months(c.facts.months_invested)} से चल रहा SIP`),
   },
   {
     name: 'instalments_paid',
     available: paid,
     phrase: (f, c) => {
       const n = c.facts.instalments_paid;
-      return pick(f, `${f.num(n)} ${plural(n, 'instalment', 'instalments')} paid`, `${f.num(n)} ${plural(n, 'kisht', 'kishtein')} bhari`, `${f.num(n)} ${plural(n, 'किस्त भरी गई', 'किस्तें भरी गईं')}`);
+      return pick(f, `${f.num(n)} ${plural(n, 'instalment', 'instalments')} paid`, `${f.num(n)} ${plural(n, 'kisht', 'kishtein')} bhari gayi`, `${f.num(n)} ${plural(n, 'किस्त भरी गई', 'किस्तें भरी गईं')}`);
     },
   },
   {
@@ -167,8 +178,9 @@ const DEFS: SlotDef[] = [
       const worst = c.facts.worst_fall_since_start_pct!;
       if (worst > -0.05) return pick(f, 'no fall since your SIP started', 'SIP shuru hone ke baad koi giravat nahi', 'SIP शुरू होने के बाद कोई गिरावट नहीं');
       const p = f.pct(worst);
-      // Hinglish and Hindi shortened in v14 (10 words to 8): run #26's Hinglish doubt answer ran long.
-      return pick(f, `a fall of ${p}, the worst since your SIP started`, `${p}, SIP ke shuru se sabse badi giravat`, `${p}, SIP की शुरुआत से सबसे बड़ी गिरावट`);
+      // Hinglish and Hindi name the fall first (v16): a bare "-20.7%, ..." left the writer nothing to build on, and
+      // run #27 read "-20.7%, SIP ke shuru se sabse badi giravat ka fall aapke SIP se hua hai".
+      return pick(f, `a fall of ${p}, the worst since your SIP started`, `SIP shuru hone ke baad sabse badi giravat ${p}`, `SIP शुरू होने के बाद सबसे बड़ी गिरावट ${p}`);
     },
   },
   {
@@ -182,8 +194,8 @@ const DEFS: SlotDef[] = [
       return pick(
         f,
         `a ${p} fall in ${when}, the biggest in this fund's demo history`,
-        `${p} (${when}), fund ki demo history mein sabse badi giravat`,
-        `${p} (${when}), फंड के डेमो इतिहास में सबसे बड़ी गिरावट`,
+        `fund ki demo history ki sabse badi giravat ${p} (${when})`,
+        `फंड के डेमो इतिहास की सबसे बड़ी गिरावट ${p} (${when})`,
       );
     },
   },
@@ -328,12 +340,12 @@ const TRIMS: Record<string, Partial<Record<SlotLanguage, Trim[]>>> = {
   },
   months_invested: {
     en: [{ text: ' invested', when: [words('invest\\w*|ago|running')] }],
-    hinglish: [{ text: ' se invest', when: [/_\s+(?:se|ke|ka|ki|mein|tak|baad)\b|\binvest|\bchal/i] }],
-    hi: [{ text: ' से निवेश', when: [/_\s+(?:से|के|का|की|में|तक|बाद)(?![\p{L}\p{M}])|निवेश|चल/u] }],
+    hinglish: [{ text: ' se chal raha SIP', when: [/_\s+(?:se|ke|ka|ki|mein|tak|baad)\b|\binvest|\bchal/i] }],
+    hi: [{ text: ' से चल रहा SIP', when: [/_\s+(?:से|के|का|की|में|तक|बाद)(?![\p{L}\p{M}])|निवेश|चल/u] }],
   },
   instalments_paid: {
     en: [{ text: ' paid', when: [words('paid|made|completed|deducted|gone through')] }],
-    hinglish: [{ text: ' bhari', when: [words('bhar\\w*|paid|jama|diye|kat\\w*')] }],
+    hinglish: [{ text: ' bhari gayi', when: [words('bhar\\w*|paid|jama|diye|kat\\w*')] }],
     hi: [{ text: / भरी गईं?$/, when: [/भर|जमा|चुका|कट/] }],
   },
   instalments_skipped: {
@@ -368,8 +380,8 @@ const TRIMS: Record<string, Partial<Record<SlotLanguage, Trim[]>>> = {
       { text: ', the worst', when: [EN_MOST] },
       { text: ' since your SIP started', when: [EN_SINCE] },
     ],
-    hinglish: [{ text: ', SIP ke shuru se sabse badi giravat', when: [HL_MOST, HL_FALL] }],
-    hi: [{ text: ', SIP की शुरुआत से सबसे बड़ी गिरावट', when: [/सबसे/, /गिरावट|गिर/] }],
+    hinglish: [{ text: 'SIP shuru hone ke baad sabse badi giravat ', when: [HL_MOST, HL_FALL] }],
+    hi: [{ text: 'SIP शुरू होने के बाद सबसे बड़ी गिरावट ', when: [/सबसे/, /गिरावट|गिर/] }],
   },
   fund_biggest_fall: {
     en: [
@@ -378,8 +390,8 @@ const TRIMS: Record<string, Partial<Record<SlotLanguage, Trim[]>>> = {
       { text: ', the biggest', when: [EN_MOST] },
       { text: " in this fund's demo history", when: [words('history')] },
     ],
-    hinglish: [{ text: ', fund ki demo history mein sabse badi giravat', when: [HL_MOST, HL_FALL] }],
-    hi: [{ text: ', फंड के डेमो इतिहास में सबसे बड़ी गिरावट', when: [/सबसे/, /गिरावट|गिर/] }],
+    hinglish: [{ text: 'fund ki demo history ki sabse badi giravat ', when: [HL_MOST, HL_FALL] }],
+    hi: [{ text: 'फंड के डेमो इतिहास की सबसे बड़ी गिरावट ', when: [/सबसे/, /गिरावट|गिर/] }],
   },
   units_now: {
     en: [
@@ -484,10 +496,10 @@ function exitLoad(f: Fmt, text: string): string {
 }
 
 /** The placeholders this SIP has, with their values in each language. `pause`: the route's explainers give the pause range. */
-export function slotsFor(facts: SipFacts, options: { pause: boolean }): Slot[] {
+export function slotsFor(facts: SipFacts, options: { pause: boolean; only?: readonly string[] }): Slot[] {
   const target = facts.goal?.target_month;
   const c: Context = { facts, left: target ? monthsBetween(facts.today, target) : null, pause: options.pause };
-  return DEFS.filter((d) => d.available(c)).map((d) => ({
+  return DEFS.filter((d) => d.available(c) && (!options.only || options.only.includes(d.name))).map((d) => ({
     name: d.name,
     values: { en: d.phrase(fmt('en'), c), hinglish: d.phrase(fmt('hinglish'), c), hi: d.phrase(fmt('hi'), c) },
     reads: d.phrase(MASK, c),
@@ -495,7 +507,7 @@ export function slotsFor(facts: SipFacts, options: { pause: boolean }): Slot[] {
 }
 
 /** What is true about the SIP, in words with no numbers, so the writer knows the situation without seeing a number. */
-export function situation(facts: SipFacts): string[] {
+export function situation(facts: SipFacts, goalDone: GoalDone | null = null): string[] {
   const lines: string[] = [];
   if (facts.instalments_paid === 0) lines.push('No instalment has been paid yet.');
   else {
@@ -510,6 +522,7 @@ export function situation(facts: SipFacts): string[] {
   else if (monthsBetween(facts.today, goal.target_month) < 0) lines.push('A goal is set, and its date has passed.');
   else lines.push('A goal is set, with a target month.');
   if (goal?.target_amount) lines.push('The investor gave a target amount for the goal.');
+  if (goalDone === 'said') lines.push('The investor says they have reached what this money was for.');
   return lines;
 }
 
