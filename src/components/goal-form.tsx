@@ -1,49 +1,46 @@
 'use client';
-// Set or edit a SIP's goal: the goal page, and the goal prompt after Start SIP (PRD F3), which adds
-// "Maybe later". "Not sure yet" is always a choice.
-import Link from 'next/link';
+// Add or edit a SIP's goal on the goal page, with the same editor the goal step uses. The saved goal is filled in,
+// so changing one field never loses another.
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { goalBody, GoalPicker, type GoalChoice, type GoalOptions } from './goal-picker';
+import { GoalEditor, goalApiBody, goalProblems, type GoalDraft, type GoalEditorOptions } from './goal-editor';
 import { postJson } from './post-json';
 
 interface Props {
   sipId: number;
-  options: GoalOptions;
-  current: { kind: string; name: string; targetMonth: string | null } | null;
-  /** The goal prompt's "Maybe later" link. */
-  laterHref?: string;
+  options: GoalEditorOptions;
+  /** The saved goal, or null when the SIP has none. */
+  current: GoalDraft | null;
 }
 
-export function GoalForm({ sipId, options, current, laterHref }: Props) {
+export function GoalForm({ sipId, options, current }: Props) {
   const router = useRouter();
-  const [choice, setChoice] = useState<GoalChoice>({
-    kind: current?.kind ?? null,
-    name: current?.kind === 'custom' ? current.name : '',
-    target: current?.targetMonth ?? null,
-  });
-  const [saving, setSaving] = useState(false);
+  const [goal, setGoal] = useState<GoalDraft>(current ?? { kind: '', name: '', month: '', year: '', targetAmount: '' });
+  const [saving, setSaving] = useState<'save' | 'remove' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const problems = goalProblems(goal, options, { dateRequired: false });
 
-  async function save(event: React.FormEvent) {
-    event.preventDefault();
-    const body = goalBody(choice);
-    if (!body) return;
-    setSaving(true);
+  async function send(body: unknown, action: 'save' | 'remove') {
+    setSaving(action);
     setError(null);
     const result = await postJson(`/api/sips/${sipId}/goal`, body);
     if (result.ok) {
-      router.push(`/sips/${sipId}?did=goal`);
+      router.push(`/sips/${sipId}?did=${action === 'save' ? 'goal' : 'goal_removed'}`);
       router.refresh();
       return;
     }
-    setSaving(false);
+    setSaving(null);
     setError(result.error);
+  }
+
+  function save(event: React.FormEvent) {
+    event.preventDefault();
+    if (problems.ok) void send(goalApiBody(goal), 'save');
   }
 
   return (
     <form onSubmit={save} className="space-y-5 rounded-xl border border-line bg-surface p-4">
-      <GoalPicker value={choice} onChange={setChoice} options={options} idPrefix="goal" />
+      <GoalEditor value={goal} onChange={setGoal} options={options} idPrefix="goal" dateRequired={false} kindsLegend="What is this money for?" />
       {error && (
         <p role="alert" className="rounded-lg bg-loss-soft px-3 py-2 text-sm text-loss-strong">
           {error}
@@ -52,15 +49,20 @@ export function GoalForm({ sipId, options, current, laterHref }: Props) {
       <div className="flex flex-wrap gap-3">
         <button
           type="submit"
-          disabled={!choice.kind || saving || (choice.kind === 'custom' && !choice.name.trim())}
+          disabled={!problems.ok || saving !== null}
           className="flex min-h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60"
         >
-          {saving ? 'Saving…' : 'Save goal'}
+          {saving === 'save' ? 'Saving…' : 'Save goal'}
         </button>
-        {laterHref && (
-          <Link href={laterHref} className="flex min-h-11 items-center justify-center rounded-lg border border-line px-5 text-sm font-semibold hover:border-primary">
-            Maybe later
-          </Link>
+        {current && (
+          <button
+            type="button"
+            disabled={saving !== null}
+            onClick={() => void send({ kind: 'none' }, 'remove')}
+            className="flex min-h-11 items-center justify-center rounded-lg border border-line px-5 text-sm font-semibold hover:border-primary disabled:opacity-60"
+          >
+            {saving === 'remove' ? 'Removing…' : 'Remove goal'}
+          </button>
         )}
       </div>
     </form>

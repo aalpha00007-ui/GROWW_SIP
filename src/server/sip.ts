@@ -5,7 +5,6 @@ import type { FactsUnit, SipFacts } from '../pipeline/chunking/facts';
 import { dayMonthYear, monthYear, ordinal, percent } from '../pipeline/chunking/format';
 import { paidLabel, skipsLabel, toGoLabel, type RowState, type SipSchedule } from '../pipeline/chunking/schedule';
 import { inr } from './money';
-import { addMonths, monthStart } from '../pipeline/loading/dates';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
 import { changeOf, type Change } from './home';
 
@@ -170,21 +169,6 @@ export function sipView(state: SipState, today: string): SipView {
       state: r.state,
     })),
   };
-}
-
-/** "By when?" picks, as 'YYYY-MM' in this month of a later year (spec §2A: next year, +5, +10, or pick a year). */
-export function goalYearChoices(today: string, current: string | null) {
-  const at = (years: number) => addMonths(monthStart(today), years * 12).slice(0, 7);
-  const label = (value: string) => monthYear(`${value}-01`);
-  const quickYears = [
-    { value: at(1), label: `Next year · ${label(at(1))}` },
-    { value: at(5), label: `In 5 years · ${label(at(5))}` },
-    { value: at(10), label: `In 10 years · ${label(at(10))}` },
-  ];
-  const allYears = Array.from({ length: 40 }, (_, i) => ({ value: at(i + 1), label: label(at(i + 1)) }));
-  // A goal set for another month keeps it as a choice, so editing the name never moves the date.
-  if (current && !allYears.some((y) => y.value === current)) allYears.unshift({ value: current, label: `${label(current)} (current)` });
-  return { quickYears, allYears };
 }
 
 /** The SIPs tab: one row per SIP, with its goal (or "Add a goal") and what can be done to it. */

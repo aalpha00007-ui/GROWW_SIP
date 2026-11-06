@@ -1,4 +1,4 @@
-// Set or edit a SIP's goal (spec §8 /sips/[id]/goal), with the same chips as the SIP box (spec §2A).
+// Set or edit a SIP's goal (spec §8 /sips/[id]/goal), in the same editor as the goal step, with the saved values in.
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { GoalForm } from '@/components/goal-form';
@@ -6,7 +6,8 @@ import { getDb } from '@/db/pool';
 import { todayInIndia } from '@/pipeline/loading/dates';
 import { idParam } from '@/server/api';
 import { loadSip } from '@/server/sip';
-import { goalKey, goalOptions } from '@/server/sip-actions';
+import { goalStepOptions } from '@/server/funds';
+import { goalDraft } from '@/server/sip-actions';
 import { currentVisitor, NO_DEMO } from '@/server/visitor';
 
 export default async function GoalPage({ params }: { params: Promise<{ id: string }> }) {
@@ -16,8 +17,6 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
   const sip = await loadSip(getDb(), visitor.id, await idParam(params), today);
   if (!sip) notFound();
   const goal = sip.facts.goal;
-  const targetMonth = goal?.target_month?.slice(0, 7) ?? null;
-  const current = goal && sip.goalKind ? { kind: goalKey(sip.goalKind, goal.name), name: goal.name, targetMonth } : null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -28,7 +27,7 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
         <h1 className="text-2xl font-bold">{goal ? 'Edit goal' : 'Add a goal'}</h1>
         <p className="text-sm text-muted">{sip.facts.fund_name}</p>
       </div>
-      <GoalForm sipId={sip.facts.sip_id} options={goalOptions(today, targetMonth)} current={current} />
+      <GoalForm sipId={sip.facts.sip_id} options={goalStepOptions(today, [], sip.schedule.firstPaid?.due)} current={goalDraft(sip)} />
     </div>
   );
 }

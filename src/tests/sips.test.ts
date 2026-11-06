@@ -8,7 +8,7 @@ import { runCheckIn } from '../pipeline/retrieval/checkin';
 import { retrieveFacts } from '../pipeline/retrieval/facts';
 import { checkInCard, gateLine } from '../server/checkin-card';
 import { homeView } from '../server/home';
-import { goalYearChoices, loadSip, sipView } from '../server/sip';
+import { loadSip, sipView } from '../server/sip';
 import { changeAmount, pauseSip, setGoal, skipNext, stopSip } from '../server/sip-actions';
 import { pgliteDb } from './pglite-db';
 
@@ -242,15 +242,66 @@ describe('Set or edit the goal', () => {
     expect((await homeView(db, r.id, TODAY)).noGoal?.text).toBe('2 SIPs have no goal yet');
   });
 
-  it('offers next year, 5 and 10 years, and keeps a goal month that is not on the list', () => {
-    const { quickYears, allYears } = goalYearChoices(TODAY, '2031-03');
-    expect(quickYears).toEqual([
-      { value: '2027-10', label: 'Next year · Oct 2027' },
-      { value: '2031-10', label: 'In 5 years · Oct 2031' },
-      { value: '2036-10', label: 'In 10 years · Oct 2036' },
-    ]);
-    expect(allYears[0]).toEqual({ value: '2031-03', label: 'Mar 2031 (current)' });
-    expect(allYears).toHaveLength(41);
+});
+
+describe('Goal edits keep what was saved', () => {
+  const emergency = async (id: string, sipId: number) => (await view(id, sipId)).goalHeader;
+
+  it('keeps the target when only the date changes, in the API and on every screen', async () => {
+    const r = await riya();
+    await setGoal(db, r.id, r.banyan, { kind: 'home', targetMonth: '2031-03', targetAmount: 500000 }, TODAY);
+    // No targetAmount in the request: it stays.
+    expect(await setGoal(db, r.id, r.banyan, { kind: 'home', targetMonth: '2032-03' }, TODAY)).toMatchObject({ status: 200 });
+    expect(await emergency(r.id, r.banyan)).toBe('This SIP is for Home down payment · by Mar 2032 · 65 instalments to go · target ₹5,00,000');
+    const card = (await homeView(db, r.id, TODAY)).goals[0];
+    expect(card).toMatchObject({ targetMonth: 'by Mar 2032', target: '₹5,00,000' });
+    expect(card.targetProgress).toMatch(/^Value today is \d+% of your ₹5,00,000 target$/);
+  });
+
+  it('keeps the date when only the target changes, and null clears either one', async () => {
+    const r = await riya();
+    await setGoal(db, r.id, r.banyan, { kind: 'home', targetAmount: 900000 }, TODAY);
+    expect(await emergency(r.id, r.banyan)).toBe('This SIP is for Home down payment · by Mar 2031 · 53 instalments to go · target ₹9,00,000');
+    await setGoal(db, r.id, r.banyan, { kind: 'home', targetAmount: null }, TODAY);
+    expect(await emergency(r.id, r.banyan)).toBe('This SIP is for Home down payment · by Mar 2031 · 53 instalments to go');
+    await setGoal(db, r.id, r.banyan, { kind: 'home', targetMonth: null }, TODAY);
+    expect(await emergency(r.id, r.banyan)).toBe('This SIP is for Home down payment · no target date');
+  });
+
+  it('edits a goal in place, so its one-time money stays with it and no second card appears', async () => {
+    const r = await riya();
+    const before = (await homeView(db, r.id, TODAY)).goals.length;
+    const [{ goal_id: goalId }] = (await db.query<{ goal_id: number }>('SELECT goal_id FROM sips WHERE id = $1', [r.banyan])).rows;
+    await db.query('INSERT INTO lumpsums (investor_id, fund_id, goal_id, amount, nav, units) SELECT $1, fund_id, $2, 5000, 10, 500 FROM sips WHERE id = $3', [r.id, goalId, r.banyan]);
+    await setGoal(db, r.id, r.banyan, { kind: 'home', targetMonth: '2033-03' }, TODAY);
+    const goals = (await homeView(db, r.id, TODAY)).goals;
+    expect(goals).toHaveLength(before);
+    expect(goals[0]).toMatchObject({ targetMonth: 'by Mar 2033', oneTime: expect.arrayContaining([expect.stringContaining('₹5,000 one-time')]) });
+  });
+
+  it('gives a SIP its own new goal when another SIP shares the old one', async () => {
+    const r = await riya();
+    const [{ goal_id: goalId }] = (await db.query<{ goal_id: number }>('SELECT goal_id FROM sips WHERE id = $1', [r.banyan])).rows;
+    await db.query('UPDATE sips SET goal_id = $1 WHERE id = $2', [goalId, r.kestrel]);
+    await setGoal(db, r.id, r.banyan, { kind: 'home', targetMonth: '2033-03' }, TODAY);
+    expect(await emergency(r.id, r.kestrel)).toContain('by Mar 2031');
+    expect(await emergency(r.id, r.banyan)).toContain('by Mar 2033');
+  });
+
+  it('logs goal_saved only when a save succeeds', async () => {
+    const r = await riya();
+    const saves = async () => (await db.query("SELECT 1 FROM app_events WHERE investor_id = $1 AND event = 'goal_saved'", [r.id])).rows.length;
+    expect(await setGoal(db, r.id, r.banyan, { kind: 'home', targetMonth: '2020-01' }, TODAY)).toMatchObject({ status: 400 });
+    expect(await saves()).toBe(0);
+    await setGoal(db, r.id, r.banyan, { kind: 'home', targetMonth: '2033-03' }, TODAY);
+    expect(await saves()).toBe(1);
+    await setGoal(db, r.id, r.banyan, { kind: 'none' }, TODAY);
+    expect(await saves()).toBe(1);
+  });
+
+  it('explains a date that is too soon', async () => {
+    const r = await riya();
+    expect(await setGoal(db, r.id, r.banyan, { kind: 'home', targetMonth: '2026-10' }, TODAY)).toEqual({ status: 400, error: 'Pick a month after this month, up to 50 years ahead.' });
   });
 });
 

@@ -121,8 +121,10 @@ describe('Funnel events', () => {
     expect(await tooltipDismissed(db, visitor)).toBe(true);
     expect((await fundPage(db, visitor, 1, TODAY))?.box.showGoalTip).toBe(false);
     expect(await logBrowserEvent(db, visitor, { event: 'sip_started' })).toEqual({ status: 400, error: 'Unknown event.' });
-    expect(await logBrowserEvent(db, visitor, { event: 'goal_step_shown', where: 'fund page; drop table' })).toMatchObject({ status: 200 });
-    expect((await events(visitor)).at(-1)).toEqual({ event: 'goal_step_shown', detail: {} });
+    expect(await logBrowserEvent(db, visitor, { event: 'stop_checkin_opened', where: 'fund page; drop table' })).toMatchObject({ status: 200 });
+    expect((await events(visitor)).at(-1)).toEqual({ event: 'stop_checkin_opened', detail: {} });
+    // Opening an editor counts for nothing: only a save does.
+    expect(await logBrowserEvent(db, visitor, { event: 'goal_step_shown' })).toMatchObject({ status: 400 });
   });
 
   it('logs a dip seen in context once a day, and a stop', async () => {

@@ -8,7 +8,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
-import { EMPTY_GOAL, goalApiBody, goalLabel, GoalStep, type GoalDraft, type GoalStepOptions } from './goal-step';
+import { EMPTY_GOAL, goalApiBody, goalLabel, type GoalDraft } from './goal-editor';
+import { GoalStep, type GoalStepOptions } from './goal-step';
 import { Icon } from './icons';
 import { postJson } from './post-json';
 
@@ -44,7 +45,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
   const tipButton = useRef<HTMLButtonElement>(null);
   const whyButton = useRef<HTMLButtonElement>(null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ text: string; error: boolean; cart?: boolean } | null>(null);
+  const [message, setMessage] = useState<{ text: string; error: boolean; cart?: boolean; amountError?: boolean } | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
   // After a one-time investment: what was done, in place of the order buttons until "Invest again".
   const [done, setDone] = useState<{ amount: string; text: string } | null>(null);
@@ -55,8 +56,15 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
 
   function checkAmount(): boolean {
     if (amountOk) return true;
-    setMessage({ text: `Enter a whole amount. ${amountRange}.`, error: true });
+    setMessage({ text: `Enter a whole amount. ${amountRange}.`, error: true, amountError: true });
     return false;
+  }
+
+  /** The "Enter a whole amount" error goes as soon as the amount is right, not at the next click. */
+  function changeAmount(next: string) {
+    setAmount(next);
+    const n = Number(next);
+    if (Number.isInteger(n) && n >= minAmount && n <= maxAmount) setMessage((m) => (m?.amountError ? null : m));
   }
 
   function closeTip() {
@@ -190,7 +198,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
             max={maxAmount}
             step={1}
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => changeAmount(e.target.value)}
             className="tabular w-full bg-transparent pl-1 text-3xl font-bold text-strong [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
         </div>
@@ -199,7 +207,7 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
             <button
               key={chip.value}
               type="button"
-              onClick={() => setAmount(String(Math.min(maxAmount, (Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0) + chip.value)))}
+              onClick={() => changeAmount(String(Math.min(maxAmount, (Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0) + chip.value)))}
               className="min-h-9 rounded-full border border-line px-3 text-sm font-medium hover:border-primary hover:text-primary"
             >
               {chip.label}
@@ -370,7 +378,6 @@ export function OrderCard({ fundId, minAmount, maxAmount, amountRange, defaultAm
         day={day}
         options={goalStep}
         initial={goal ?? EMPTY_GOAL}
-        where="fund_page"
         busy={busy}
         error={stepError}
         onSave={saveGoal}

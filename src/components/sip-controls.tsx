@@ -39,6 +39,13 @@ export function SipControls({ id, controls, skipLabel, pauseChoices, amountNow, 
     }
   }
 
+  /** The amount error goes as soon as the amount is right, not at the next Save. */
+  function changeAmount(next: string) {
+    setAmount(next);
+    const value = Number(next);
+    if (message?.error && Number.isInteger(value) && value >= minAmount && value <= maxAmount) setMessage(null);
+  }
+
   function saveAmount(event: React.FormEvent) {
     event.preventDefault();
     const value = Number(amount);
@@ -90,7 +97,7 @@ export function SipControls({ id, controls, skipLabel, pauseChoices, amountNow, 
             max={maxAmount}
             step={1}
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => changeAmount(e.target.value)}
             className="tabular min-h-11 w-full rounded-lg border border-line bg-surface px-3"
           />
           <p className="text-xs text-muted">{amountRange}. It applies from the next instalment.</p>

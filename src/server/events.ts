@@ -9,7 +9,7 @@ export const EVENTS = [
 export type AppEvent = (typeof EVENTS)[number];
 
 /** What the browser may log itself: what was shown or tapped. Everything else is logged by its server action. */
-const FROM_BROWSER: AppEvent[] = ['goal_step_shown', 'goal_tooltip_dismissed', 'sip_kept', 'stop_checkin_opened', 'dip_context_viewed'];
+const FROM_BROWSER: AppEvent[] = ['goal_tooltip_dismissed', 'sip_kept', 'stop_checkin_opened', 'dip_context_viewed'];
 
 /** Visitors made by the eval and by CLI or browser tests: left out of the counts. */
 const TEST_VISITORS = ['% · eval', '% · CLI test'];

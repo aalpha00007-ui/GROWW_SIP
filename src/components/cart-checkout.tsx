@@ -4,7 +4,8 @@
 // with, then the Dashboard opens. Either way the item leaves the cart.
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { EMPTY_GOAL, goalApiBody, GoalStep, type GoalDraft, type GoalStepOptions } from './goal-step';
+import { EMPTY_GOAL, goalApiBody, type GoalDraft } from './goal-editor';
+import { GoalStep, type GoalStepOptions } from './goal-step';
 import { postJson } from './post-json';
 
 interface Props {
@@ -83,7 +84,6 @@ export function CartCheckout({ item, options }: Props) {
           day={item.day ?? 1}
           options={options}
           initial={EMPTY_GOAL}
-          where="cart"
           busy={busy}
           error={error}
           onSave={(goal: GoalDraft) => void startSip(goalApiBody(goal), 'saved')}

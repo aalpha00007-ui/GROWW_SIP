@@ -15,19 +15,15 @@ export default async function StartedPage({ params }: { params: Promise<{ id: st
   const visitor = await currentVisitor();
   if (!visitor) redirect(NO_DEMO);
   const today = todayInIndia();
-  const db = getDb();
-  const state = await loadSip(db, visitor.id, await idParam(params), today);
+  const state = await loadSip(getDb(), visitor.id, await idParam(params), today);
   if (!state) notFound();
   const { facts } = state;
-  const [goalRow] = (
-    await db.query<{ target_amount: string | null }>('SELECT g.target_amount::text FROM sips s JOIN goals g ON g.id = s.goal_id WHERE s.id = $1', [facts.sip_id])
-  ).rows;
   const first = state.schedule.firstPaid;
 
   const rows: { label: string; value: string }[] = [
     { label: 'Amount', value: `${inr(facts.amount)} a month` },
     ...(facts.instalments_planned !== null ? [{ label: 'Instalments', value: `About ${facts.instalments_planned}, to ${monthYear(facts.goal!.target_month!)}` }] : []),
-    ...(goalRow?.target_amount ? [{ label: 'Target', value: inr(Number(goalRow.target_amount)) }] : []),
+    ...(facts.goal?.target_amount ? [{ label: 'Target', value: inr(facts.goal.target_amount) }] : []),
     ...(first
       ? [
           {

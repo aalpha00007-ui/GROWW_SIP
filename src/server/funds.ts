@@ -5,11 +5,11 @@ import type { Db } from '../db/client';
 import { dayMonthYear, monthYear, ordinal, percent } from '../pipeline/chunking/format';
 import { inr } from './money';
 import { sipSchedule } from '../pipeline/chunking/schedule';
-import { addMonths, firstDueDate } from '../pipeline/loading/dates';
+import { addMonths, firstDueDate, monthStart } from '../pipeline/loading/dates';
 import { loadMarket } from '../pipeline/loading/raw';
 import { logEvent, tooltipDismissed } from './events';
 import { demoBalance } from './shell';
-import { GOAL_NAME_MAX, goalChoices, goalOptions, insertGoal, oneTimeGoal, parseGoal, TARGET_MAX, TARGET_MIN } from './sip-actions';
+import { GOAL_KINDS, GOAL_NAME_MAX, goalChoices, insertGoal, oneTimeGoal, parseGoal, TARGET_MAX, TARGET_MIN } from './sip-actions';
 import { MAX_AMOUNT } from './sip';
 
 interface FundRow {
@@ -246,16 +246,21 @@ export async function setWatch(
  * What the goal step offers: the 8 chips, the name limit, the years for "By when?", the target amount range, and
  * for a one-time investment the investor's own goals to add the money to.
  */
-export function goalStepOptions(today: string, existing: { id: number; label: string }[] = []) {
+export function goalStepOptions(today: string, existing: { id: number; label: string }[] = [], firstDue?: string) {
   const year = Number(today.slice(0, 4));
+  const nextMonth = addMonths(monthStart(today), 1);
+  // A goal comes after this month, and after the SIP's first instalment when that falls later.
+  const afterFirst = firstDue ? addMonths(monthStart(firstDue), 1) : nextMonth;
+  const late = afterFirst > nextMonth;
   return {
-    kinds: goalOptions(today, null).kinds,
+    kinds: GOAL_KINDS.map((k) => ({ kind: k.key, label: k.label })),
     nameMax: GOAL_NAME_MAX,
     years: Array.from({ length: 51 }, (_, i) => String(year + i)),
     targetMin: TARGET_MIN,
     targetMax: TARGET_MAX,
     existing,
-    firstMonth: addMonths(`${today.slice(0, 7)}-01`, 1).slice(0, 7),
+    firstMonth: (late ? afterFirst : nextMonth).slice(0, 7),
+    firstMonthHint: late ? `Pick a month after your first instalment in ${monthYear(firstDue!)}` : 'Pick a month after this month',
   };
 }
 

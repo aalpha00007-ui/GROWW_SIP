@@ -20,6 +20,7 @@ const DONE: Record<string, string> = {
   pause: 'Done. Your SIP is paused.',
   stop: 'Done. Your SIP is stopped.',
   goal: 'Goal saved.',
+  goal_removed: 'Goal removed. You can add one any time.',
 };
 
 const STATUS_STYLE = { active: 'bg-primary-soft text-gain', paused: 'bg-accent-tint text-accent-ink', stopped: 'bg-page text-muted' } as const;

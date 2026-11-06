@@ -6,7 +6,7 @@ import { inr } from './money';
 import { addMonths, isIsoDate, monthStart } from '../pipeline/loading/dates';
 import { findPii } from '../pipeline/retrieval/pii';
 import { logEvent } from './events';
-import { goalYearChoices, joinAnd, loadSip, MAX_AMOUNT, type SipState } from './sip';
+import { joinAnd, loadSip, MAX_AMOUNT, type SipState } from './sip';
 
 export type ActionResult = { status: 200; message: string } | { status: 400 | 404; error: string };
 
@@ -99,14 +99,18 @@ const MAX_YEARS_AHEAD = 50;
 export const TARGET_MIN = 1_000;
 export const TARGET_MAX = 100_000_000;
 
-/** What the goal chips offer: the kinds, the name limit and the "By when?" years. */
-export function goalOptions(today: string, currentTarget: string | null) {
-  return { kinds: GOAL_KINDS.map((k) => ({ kind: k.key, label: k.label })), nameMax: GOAL_NAME_MAX, ...goalYearChoices(today, currentTarget) };
-}
-
 /** The chip a stored goal shows as: its own kind, or the named chip a custom goal matches. */
 export function goalKey(kind: string, name: string): string {
   return GOAL_KINDS.find((k) => k.kind === kind && (kind !== 'custom' || k.label === name))?.key ?? 'custom';
+}
+
+/** A SIP's saved goal as the goal editor's fields, or null without one: the page fills them all in. */
+export function goalDraft(sip: SipState): { kind: string; name: string; month: string; year: string; targetAmount: string } | null {
+  const goal = sip.facts.goal;
+  if (!goal || !sip.goalKind) return null;
+  const kind = goalKey(sip.goalKind, goal.name);
+  const [year = '', month = ''] = goal.target_month?.split('-') ?? [];
+  return { kind, name: kind === 'custom' ? goal.name : '', month, year, targetAmount: goal.target_amount ? String(goal.target_amount) : '' };
 }
 
 export interface GoalInput {
@@ -146,7 +150,11 @@ export function parseGoal(
     const latest = addMonths(monthStart(ctx.today), MAX_YEARS_AHEAD * 12);
     // The target must come after the first instalment and not be in the past.
     if (!isIsoDate(first) || first <= monthStart(ctx.today) || first <= monthStart(ctx.firstDue) || first > latest) {
-      return { ok: false, error: `Pick a target month from next month up to ${MAX_YEARS_AHEAD} years ahead.` };
+      const afterFirst = first > monthStart(ctx.today) && first <= latest && isIsoDate(first);
+      return {
+        ok: false,
+        error: afterFirst ? `Pick a month after your first instalment in ${monthYear(ctx.firstDue)}.` : `Pick a month after this month, up to ${MAX_YEARS_AHEAD} years ahead.`,
+      };
     }
     target = first;
   }
@@ -162,20 +170,41 @@ export function parseGoal(
   return { ok: true, goal: { kind: choice.kind, name, target, targetAmount } };
 }
 
-/** Set, change or remove the goal. A goal is a new row, so a goal shared with another SIP stays as it is for that SIP. */
+/**
+ * Set, change or remove the goal. A field left out of the request keeps what is saved, so changing the date alone can
+ * never lose the target. A goal only this SIP uses is changed in place, which keeps any one-time money with it; a goal
+ * shared with another SIP becomes a new row, so that SIP's goal stays as it is. goal_saved is logged only here, after
+ * the save: opening the editor counts for nothing.
+ */
 export async function setGoal(db: Db, investorId: string, sipId: number, input: unknown, today: string): Promise<ActionResult> {
   const sip = await loadSip(db, investorId, sipId, today);
   if (!sip) return NOT_FOUND;
-  const keep = sip.goalKind && sip.facts.goal ? { kind: sip.goalKind, name: sip.facts.goal.name } : null;
-  const parsed = parseGoal(input ?? {}, { today, firstDue: sip.schedule.firstPaid?.due ?? sip.facts.next_due_date ?? today, keep });
+  const saved = sip.facts.goal;
+  const keep = sip.goalKind && saved ? { kind: sip.goalKind, name: saved.name } : null;
+  const body = (input ?? {}) as Record<string, unknown>;
+  const merged = {
+    ...body,
+    targetMonth: 'targetMonth' in body ? body.targetMonth : (saved?.target_month?.slice(0, 7) ?? null),
+    targetAmount: 'targetAmount' in body ? body.targetAmount : (saved?.target_amount ?? null),
+  };
+  const parsed = parseGoal(merged, { today, firstDue: sip.schedule.firstPaid?.due ?? sip.facts.next_due_date ?? today, keep });
   if (!parsed.ok) return { status: 400, error: parsed.error };
   const { goal } = parsed;
   const before = (await db.query<{ goal_id: number | null }>('SELECT goal_id FROM sips WHERE id = $1', [sipId])).rows[0].goal_id;
 
   await db.transaction(async (tx) => {
-    const goalId = goal ? await insertGoal(tx, investorId, goal) : null;
+    const shared =
+      before !== null && (await tx.query('SELECT 1 FROM sips WHERE goal_id = $1 AND id <> $2 LIMIT 1', [before, sipId])).rows.length > 0;
+    let goalId: number | null = null;
+    if (goal && before !== null && !shared) {
+      await tx.query('UPDATE goals SET kind = $2, name = $3, target_month = $4, target_amount = $5 WHERE id = $1', [before, goal.kind, goal.name, goal.target, goal.targetAmount ?? null]);
+      goalId = before;
+    } else if (goal) {
+      goalId = await insertGoal(tx, investorId, goal);
+    }
     await tx.query('UPDATE sips SET goal_id = $2 WHERE id = $1', [sipId, goalId]);
     await tx.query("INSERT INTO sip_events (sip_id, kind, detail) VALUES ($1, 'goal_changed', $2)", [sipId, { from_goal_id: before, to_goal_id: goalId }]);
+    if (goal) await logEvent(tx, investorId, 'goal_saved', { sip_id: sipId, where: 'edit', kind: goal.kind });
   });
   if (!goal) return { status: 200, message: 'Goal removed. You can add one any time.' };
   return { status: 200, message: `Saved: this SIP is for ${goal.name}${goal.target ? `, by ${monthYear(goal.target)}` : ''}.` };
