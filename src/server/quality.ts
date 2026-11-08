@@ -12,6 +12,11 @@ import { visitorKind } from './events';
 export const HOLDOUT_FRESHNESS =
   'Its posts were never used to write a rule. But its results were first seen on prompt v11, and prompt v16 later changed the reading prompt (a new "goal reached" field, made for a safety case, not for a holdout miss), so it is no longer fully fresh.';
 
+/** A count with its noun: "1 AI check-in", "2 AI check-ins", "0 AI check-ins". Pass `many` when adding "s" is wrong. */
+export function counted(n: number, one: string, many = `${one}s`): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
 interface RunRow {
   id: number;
   commit_sha: string;

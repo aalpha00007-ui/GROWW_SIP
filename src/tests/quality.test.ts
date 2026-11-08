@@ -8,7 +8,7 @@ import { signUp } from '../server/auth';
 import { setupDatabase } from '../pipeline/loading/seed';
 import { resultsMarkdown } from '../eval/results';
 import type { EvalReport } from '../eval/run';
-import { HOLDOUT_FRESHNESS, qualityView, runSummary } from '../server/quality';
+import { counted, HOLDOUT_FRESHNESS, qualityView, runSummary } from '../server/quality';
 import { pgliteDb } from './pglite-db';
 
 const TODAY = '2026-10-27';
@@ -196,6 +196,22 @@ describe('/quality: the eval result (PRD F11), from the committed files', () => 
     expect(md).toContain('| s14 "Saved enough" | answer, route neutral | answer, route doubt: "Your plan has Rs 14,000 in. This is not investment advice." | route doubt, expected neutral |');
     expect(md).not.toContain('A real public post');
     await expect(runSummary(db, 999_999)).rejects.toThrow('No eval run #999999.');
+  });
+});
+
+describe('/quality: counts read right', () => {
+  it('says each live count in the singular at 1 and the plural otherwise', () => {
+    for (const noun of ['AI check-in', 'dip explainer', 'persona demo visitor', 'QA or test visitor']) {
+      expect(counted(1, noun)).toBe(`1 ${noun}`);
+      expect(counted(0, noun)).toBe(`0 ${noun}s`);
+      expect(counted(2, noun)).toBe(`2 ${noun}s`);
+      expect(counted(11, noun)).toBe(`11 ${noun}s`);
+    }
+  });
+
+  it('takes its own plural when adding "s" is wrong', () => {
+    expect(counted(1, 'reply', 'replies')).toBe('1 reply');
+    expect(counted(3, 'reply', 'replies')).toBe('3 replies');
   });
 });
 

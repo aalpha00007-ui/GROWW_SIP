@@ -999,4 +999,61 @@ test('/quality labels each score, with its prompt version', async ({ page }) => 
   await expect(page.getByText('Holdout: fresh set')).toBeVisible();
   await expect(page.getByText('no longer fully fresh')).toBeVisible();
   await expect(page.getByText(/Prompt v\d+/).first()).toBeVisible();
+  // Each live count says "1 visitor" but "0 visitors" or "2 visitors", whatever the counts are when this runs.
+  const count = (noun: string) => `(?:1 ${noun}|(?:0|[2-9]|[1-9]\\d+) ${noun}s)`;
+  await expect(page.getByText(/from signed-up accounts/)).toHaveText(
+    new RegExp(
+      `^${count('AI check-in')} from signed-up accounts \\(${count('dip explainer')}\\)\\. Left out: ${count('persona demo visitor')} and ${count('QA or test visitor')}\\. `,
+    ),
+  );
+  await expect(
+    page.getByText(
+      'This table counts only Before you stop visits where the investor sent a reason. Choices made without a reason are logged separately and are not shown here.',
+    ),
+  ).toBeVisible();
+});
+
+test.describe('Starting a demo', () => {
+  const card = (page: Page) => page.getByRole('button', { name: /^Riya, 27/ });
+  const waking = (page: Page) => page.getByText('The free server can take up to a minute to wake up.');
+
+  test('a card starts a fresh copy and opens the dashboard', async ({ page }) => {
+    await page.goto('/');
+    await card(page).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByText('Your goals')).toBeVisible();
+  });
+
+  test('a slow start says the server may be waking, gives up only after 30 seconds, and a second try works', async ({ page }) => {
+    const failed = page.locator('#personas').getByRole('alert');
+    await page.clock.install();
+    await page.route('**/api/demo/start', () => new Promise(() => {}));
+    await page.goto('/');
+    await card(page).click();
+    await expect(card(page)).toContainText('Starting…');
+    await expect(waking(page)).toBeHidden();
+    await page.clock.fastForward(4_000);
+    await expect(card(page)).toContainText('Still starting…');
+    await expect(waking(page)).toBeVisible();
+    // About 20 seconds in (the test clock also runs on by itself), well past the old 8-second limit: still waiting.
+    // The page gets a real second to show an error, so a missing one means it really did not give up.
+    await page.clock.fastForward(16_000);
+    await page.waitForTimeout(1_000);
+    await expect(failed).toHaveCount(0);
+    await expect(card(page)).toContainText('Still starting…');
+    await page.clock.fastForward(10_000);
+    await expect(failed).toHaveText("Couldn't start the demo, try again.");
+    await expect(waking(page)).toBeHidden();
+    await expect(card(page)).toContainText('Start as Riya →');
+    await page.unroute('**/api/demo/start');
+    await card(page).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+  });
+
+  test('"Try as Kabir instead" on a calculator still starts the demo', async ({ page }) => {
+    await page.goto('/calculators/sip?auth=signup');
+    await page.getByRole('dialog').getByRole('button', { name: 'Try as Kabir instead' }).click();
+    await expect(page).toHaveURL(/\/fund\/2$/);
+    await expect(page.getByRole('button', { name: 'Add a goal' })).toBeVisible();
+  });
 });

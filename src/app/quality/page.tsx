@@ -5,7 +5,7 @@ import { Logo } from '@/components/logo';
 import { SiteFooter } from '@/components/site-footer';
 import { getDb } from '@/db/pool';
 import { toRupeeSign } from '@/server/money';
-import { HOLDOUT_FRESHNESS, qualityView } from '@/server/quality';
+import { counted, HOLDOUT_FRESHNESS, qualityView } from '@/server/quality';
 
 export const dynamic = 'force-dynamic';
 
@@ -180,8 +180,9 @@ export default async function Quality() {
         <section className="rounded-xl border border-line bg-surface p-4">
           <h2 className="text-lg font-bold">Live use</h2>
           <p className="text-sm text-muted">
-            {live.total} AI check-ins from signed-up accounts ({live.dipExplainers} dip explainers). Left out: {live.leftOut.demo} persona demo visitors and{' '}
-            {live.leftOut.qa} QA or test visitors. These are counts of what the AI did, not evidence of any effect on investors.
+            {counted(live.total, 'AI check-in')} from signed-up accounts ({counted(live.dipExplainers, 'dip explainer')}). Left out:{' '}
+            {counted(live.leftOut.demo, 'persona demo visitor')} and {counted(live.leftOut.qa, 'QA or test visitor')}. These are counts of what the AI
+            did, not evidence of any effect on investors.
           </p>
           <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {live.outcomes.map((o) => (
@@ -218,6 +219,12 @@ export default async function Quality() {
               </tbody>
             </table>
           </div>
+          {/* The table reads ai_checks, so it only holds visits that got an AI card. Choices made without a reason are
+              logged as events (sip_kept, sip_stopped) instead. */}
+          <p className="mt-2 text-xs text-muted">
+            This table counts only Before you stop visits where the investor sent a reason. Choices made without a reason are logged separately and are not
+            shown here.
+          </p>
         </section>
 
         <p className="text-sm text-muted">
