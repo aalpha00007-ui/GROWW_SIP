@@ -1,0 +1,2737 @@
+{
+  "name": "Groww | AI-Powered SIP Discovery Engine (no keys)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Before you run\n1. Upload **Groww_SIP_Discovery_Engine_Sheet.xlsx** to Google Drive and open it as a Google Sheet. It needs the tab **6 Voice Data** (headers in row 1) for the video clips.\n2. **Your keys**: paste the sheet link, your SerpApi key (also used for video transcripts), your YouTube Data API key and your Apify API token.\n3. **Gemini Model** nodes (under the 3 AI steps): add your Google Gemini API credential once, pick it in all three.\n4. Any Google Sheets node: add your Google Sheets login once.\n5. **Settings**: change searches and limits if you want (optional). Target: 1000 analysed posts. Video transcripts: youtube_transcript_videos (0 = off, 1 SerpApi search each), transcript_language, transcript_window_seconds.\n6. Click **Execute workflow**.\n\nClear your keys from **Your keys** before you share or export this workflow.",
+        "height": 440,
+        "width": 820,
+        "color": 7
+      },
+      "id": "33afc3c0-afaf-4a04-a852-eef8b0ef78fb",
+      "name": "Setup Guide",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Groww | AI-Powered SIP Discovery Engine - n8n Workflow\n**Goal:** Find out why first-time mutual fund investors stop, pause or reduce their SIPs within 12 months and identify the best product opportunities to improve retention.\n\n**8 sources:** YouTube comments, YouTube video transcripts (spoken), Play Store, App Store, TradingQ&A, Google Search, Quora, Trustpilot\n\n**One spreadsheet:** 1 Summary - 2 Feedback Analysis (written posts) - 3 Opportunities - 4 AI Evidence Log - 5 Raw Data (written posts) - 6 Voice Data (video clips + their AI labels)",
+        "height": 440,
+        "width": 1000,
+        "color": 6
+      },
+      "id": "2f88b764-a9ca-4867-9773-b9064cbbed82",
+      "name": "Goal",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        304,
+        -240
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "396f669c-df56-4211-9c7d-039f4a2e4ad9",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d208e294-6ba5-4533-8aed-f099a13f6df4",
+              "name": "sheet_url",
+              "value": "PASTE_YOUR_GOOGLE_SHEET_LINK",
+              "type": "string"
+            },
+            {
+              "id": "8b3f59b3-a13b-4ccf-9f2f-bdb7c646950d",
+              "name": "serpapi_api_key",
+              "value": "PASTE_YOUR_SERPAPI_KEY",
+              "type": "string"
+            },
+            {
+              "id": "93d6bedf-696f-4a9b-8d20-2c5d3c518a83",
+              "name": "youtube_api_key",
+              "value": "PASTE_YOUR_YOUTUBE_DATA_API_KEY",
+              "type": "string"
+            },
+            {
+              "id": "f1a8a6fa-9eb9-427c-a170-6d8f43128748",
+              "name": "apify_api_token",
+              "value": "PASTE_YOUR_APIFY_API_TOKEN",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "860df150-a5c6-4647-bd3e-c1601bd6698d",
+      "name": "Your keys",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -256,
+        960
+      ],
+      "notesInFlow": true,
+      "notes": "paste keys + sheet link"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3794fc88-5e9c-4334-bc8e-00ddcd383394",
+              "name": "app_name",
+              "value": "Groww",
+              "type": "string"
+            },
+            {
+              "id": "670bbbcb-894b-4717-b87f-6f881d969410",
+              "name": "play_store_app_id",
+              "value": "com.nextbillion.groww",
+              "type": "string"
+            },
+            {
+              "id": "aff23223-06c2-40df-8062-0cf7d0c51925",
+              "name": "app_store_app_id",
+              "value": "1404871703",
+              "type": "string"
+            },
+            {
+              "id": "00da2d78-7699-4f5a-84e9-d22e73af1e70",
+              "name": "trustpilot_domain",
+              "value": "groww.in",
+              "type": "string"
+            },
+            {
+              "id": "a4cf364b-8741-4e41-8d96-640d6b8933e4",
+              "name": "country",
+              "value": "in",
+              "type": "string"
+            },
+            {
+              "id": "907a6519-fac3-4b54-b98a-919ee4328cef",
+              "name": "research_goal",
+              "value": "Find out why first-time mutual fund investors stop, pause or reduce their SIPs within 12 months and identify the best product opportunities to improve retention.",
+              "type": "string"
+            },
+            {
+              "id": "86294a45-bba9-4bc9-a641-c8dd4a5c49cd",
+              "name": "source_order",
+              "value": "App Store, Play Store, YouTube, YouTube Transcripts, TradingQ&A, Quora, Trustpilot, Google Search",
+              "type": "string"
+            },
+            {
+              "id": "7f479772-be80-44b4-a22c-f658aeff3d44",
+              "name": "target_relevant_posts",
+              "value": 1000,
+              "type": "number"
+            },
+            {
+              "id": "15942c2e-0a35-47ce-9980-22eab48226ed",
+              "name": "lookback_days",
+              "value": 365,
+              "type": "number"
+            },
+            {
+              "id": "690a7b6e-0b1d-4ea5-b8bf-c667b61ff519",
+              "name": "youtube_max_videos",
+              "value": 50,
+              "type": "number"
+            },
+            {
+              "id": "a9563bd6-ec8c-46c3-8859-7dfb2e1a9f4a",
+              "name": "youtube_max_comments_per_video",
+              "value": 100,
+              "type": "number"
+            },
+            {
+              "id": "5d4c9c5d-b948-427d-b088-57750afb3670",
+              "name": "youtube_transcript_videos",
+              "value": 25,
+              "type": "number"
+            },
+            {
+              "id": "94cd2457-a816-4a1a-9e95-31dd13939b75",
+              "name": "transcript_language",
+              "value": "hi",
+              "type": "string"
+            },
+            {
+              "id": "d8144462-3171-419d-b943-0ce561c37675",
+              "name": "transcript_window_seconds",
+              "value": 60,
+              "type": "number"
+            },
+            {
+              "id": "4fe38afc-4282-44e8-bfdd-1041d980c11a",
+              "name": "transcript_max_windows_per_video",
+              "value": 10,
+              "type": "number"
+            },
+            {
+              "id": "0a17455e-95b9-4618-852d-ec2a11ba0d83",
+              "name": "play_store_pages",
+              "value": 8,
+              "type": "number"
+            },
+            {
+              "id": "8221b355-9ae0-413e-9b99-a177f288b0a2",
+              "name": "app_store_pages",
+              "value": 10,
+              "type": "number"
+            },
+            {
+              "id": "bbb28e5b-1c65-48f8-84be-25e3997a0cc2",
+              "name": "tradingqna_max_queries",
+              "value": 15,
+              "type": "number"
+            },
+            {
+              "id": "afa60986-c17a-4fd7-a086-ec42dcc94424",
+              "name": "google_max_queries",
+              "value": 8,
+              "type": "number"
+            },
+            {
+              "id": "9a82353f-bdc2-4acb-abce-ef6c4c05fa9f",
+              "name": "quora_max_queries",
+              "value": 8,
+              "type": "number"
+            },
+            {
+              "id": "94d9c7b6-4163-423d-8417-e0574ac29ce7",
+              "name": "quora_answers_per_query",
+              "value": 100,
+              "type": "number"
+            },
+            {
+              "id": "cb54abe6-3f1f-406d-8979-ba7ca3cd3b20",
+              "name": "quora_time_filter",
+              "value": "Past Year",
+              "type": "string"
+            },
+            {
+              "id": "0aab55a6-3d89-47c7-91f5-7f2fd2d6b272",
+              "name": "trustpilot_max_reviews",
+              "value": 300,
+              "type": "number"
+            },
+            {
+              "id": "0913e2df-07db-4dfd-9220-f2e5426a9c35",
+              "name": "apify_quora_actor",
+              "value": "fatihtahta~quora-scraper",
+              "type": "string"
+            },
+            {
+              "id": "79ecbe34-ab59-479e-8ff8-12ee4ffb00a5",
+              "name": "apify_trustpilot_actor",
+              "value": "nikita-sviridenko~trustpilot-reviews-scraper",
+              "type": "string"
+            },
+            {
+              "id": "f3869fb3-a778-4743-b153-39b79017666e",
+              "name": "relevance_keywords",
+              "value": "sip, sips, systematic investment, mutual fund, mutual funds, mf, mandate, autopay, auto pay, autodebit, auto debit, nav, folio, redeem, redemption, installment, instalment, elss, index fund, step up, step-up, kyc, lumpsum, lump sum, एसआईपी, म्यूचुअल फंड, म्युचुअल फंड, म्यूचुअल फण्ड",
+              "type": "string"
+            },
+            {
+              "id": "91295189-f3a1-496e-83b1-e2c9554d78b6",
+              "name": "theme_list",
+              "value": "Confusion, Returns, KYC & onboarding, Payment & mandate issues, App experience, Charges & fees, Market fear, Need money, Trust & safety, Expectation mismatch, Customer support, Other, Not relevant",
+              "type": "string"
+            },
+            {
+              "id": "6a39bb4d-de39-404a-b4dc-f128b16d80a5",
+              "name": "golden_set_size",
+              "value": 20,
+              "type": "number"
+            },
+            {
+              "id": "b20af2be-8a10-4ca1-a045-6eb4ab4b9f23",
+              "name": "tagging_batch_size",
+              "value": 25,
+              "type": "number"
+            },
+            {
+              "id": "08f3e4d3-034f-4285-9eca-bf807b56d979",
+              "name": "min_text_length",
+              "value": 20,
+              "type": "number"
+            },
+            {
+              "id": "f93cd398-bb0f-43eb-8631-4f5b17021127",
+              "name": "similarity_threshold",
+              "value": 0.85,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a6e8808f-2500-437e-9ac6-2223b922722d",
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -48,
+        960
+      ],
+      "notesInFlow": true,
+      "notes": "searches · limits (optional)"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Your keys').first().json.sheet_url }}",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "5 Raw Data",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "63f9603b-722c-4da3-bd47-8852a6c19a0e",
+      "name": "Check Existing Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        192,
+        960
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Setup & Config Check\n// Reads \"Your keys\" + \"Settings\", checks the sheet can be read, and lists posts already saved\nconst keys = $('Your keys').first().json;\nconst cfg = $('Settings').first().json;\nconst str = (v) => (v === undefined || v === null) ? '' : String(v).trim();\nconst isBlank = (v) => !str(v) || /^PASTE_/i.test(str(v));\n\nconst missingKeys = ['sheet_url', 'serpapi_api_key', 'youtube_api_key', 'apify_api_token'].filter(k => isBlank(keys[k]));\nif (missingKeys.length) throw new Error('Fill these in the \"Your keys\" node: ' + missingKeys.join(', '));\n\nconst required = ['app_name', 'play_store_app_id', 'app_store_app_id', 'trustpilot_domain', 'country', 'research_goal', 'relevance_keywords', 'theme_list'];\nconst missing = required.filter(k => !str(cfg[k]));\nif (missing.length) throw new Error('Fill these in the \"Settings\" node: ' + missing.join(', '));\nconst num = (k, d) => { const n = Number(cfg[k]); return Number.isFinite(n) && n > 0 ? n : d; };\n\n// Sheet check + posts already saved in \"5 Raw Data\"\nconst errText = (e) => (typeof e === 'string' ? e : (e && (e.message || JSON.stringify(e))) || 'unknown error').slice(0, 200);\nconst sheetRows = $('Check Existing Data').all();\nconst sheetErr = sheetRows.find(i => i.json && i.json.error);\nif (sheetErr) {\n  throw new Error('Could not read the Google Sheet. Check sheet_url in \"Your keys\", your Google Sheets login, and that the sheet has a tab named \"5 Raw Data\". Details: ' + errText(sheetErr.json.error));\n}\nconst existingIds = sheetRows\n  .map(i => i.json['Post ID'])\n  .filter(v => v !== undefined && v !== null && String(v).trim() !== '')\n  .map(v => String(v));\n\n// Video clips already saved in \"6 Voice Data\" (needed only when video transcripts are on)\nconst tv = Number(cfg.youtube_transcript_videos);\nconst transcriptVideos = Number.isFinite(tv) && tv >= 0 ? Math.min(Math.floor(tv), 25) : 15;\nlet voiceRows = [];\ntry { voiceRows = $('Check Existing Voice Data').all(); } catch (e) { voiceRows = []; }\nconst voiceErr = voiceRows.find(i => i.json && i.json.error);\nif (voiceErr && transcriptVideos > 0) {\n  throw new Error('Could not read the \"6 Voice Data\" tab. Add a tab with that exact name and its headers in row 1, or set youtube_transcript_videos to 0 in Settings. Details: ' + errText(voiceErr.json.error));\n}\nconst existingVoiceIds = voiceErr ? [] : voiceRows\n  .map(i => i.json['Post ID'])\n  .filter(v => v !== undefined && v !== null && String(v).trim() !== '')\n  .map(v => String(v));\n\nconst now = new Date();\nconst lookback = num('lookback_days', 365);\nconst after = new Date(now.getTime() - lookback * 86400000);\nconst pad = (n) => String(n).padStart(2, '0');\n\nreturn [{\n  json: {\n    run_id: 'run_' + now.toISOString().replace(/[:.]/g, '-').slice(0, 19),\n    run_started_at: now.toISOString(),\n    app_name: str(cfg.app_name),\n    play_store_app_id: str(cfg.play_store_app_id),\n    app_store_app_id: str(cfg.app_store_app_id),\n    trustpilot_domain: str(cfg.trustpilot_domain),\n    country: str(cfg.country).toLowerCase(),\n    research_goal: str(cfg.research_goal),\n    relevance_keywords: str(cfg.relevance_keywords).split(',').map(s => s.trim().toLowerCase()).filter(Boolean),\n    theme_list: str(cfg.theme_list).split(',').map(s => s.trim()).filter(Boolean),\n    source_order: [...new Set([...str(cfg.source_order).split(',').map(x => x.trim()).filter(Boolean),\n      'App Store', 'Play Store', 'YouTube', 'YouTube Transcripts', 'TradingQ&A', 'Quora', 'Trustpilot', 'Google Search'])],\n    lookback_days: lookback,\n    published_after: after.toISOString().replace(/\\.\\d{3}Z$/, 'Z'),\n    after_date: after.toISOString().slice(0, 10),\n    google_tbs: `cdr:1,cd_min:${pad(after.getUTCMonth() + 1)}/${pad(after.getUTCDate())}/${after.getUTCFullYear()}`,\n    youtube_max_videos: Math.min(num('youtube_max_videos', 25), 50),\n    youtube_max_comments_per_video: Math.min(num('youtube_max_comments_per_video', 100), 100),\n    // video transcripts (spoken data): 0 = off\n    youtube_transcript_videos: transcriptVideos,\n    transcript_language: str(cfg.transcript_language) || 'hi',\n    transcript_window_seconds: Math.max(30, Math.min(num('transcript_window_seconds', 60), 180)),\n    transcript_max_windows_per_video: Math.min(num('transcript_max_windows_per_video', 6), 20),\n    play_store_pages: Math.min(num('play_store_pages', 3), 10),\n    app_store_pages: Math.min(num('app_store_pages', 10), 10),\n    tradingqna_max_queries: Math.min(num('tradingqna_max_queries', 8), 15),\n    google_max_queries: Math.min(num('google_max_queries', 4), 10),\n    quora_max_queries: Math.min(num('quora_max_queries', 4), 10),\n    quora_answers_per_query: Math.max(10, Math.min(num('quora_answers_per_query', 50), 200)),\n    quora_time_filter: str(cfg.quora_time_filter) || 'Past Year',\n    trustpilot_max_reviews: Math.min(num('trustpilot_max_reviews', 100), 1000),\n    apify_quora_actor: str(cfg.apify_quora_actor).replace('/', '~') || 'fatihtahta~quora-scraper',\n    apify_trustpilot_actor: str(cfg.apify_trustpilot_actor).replace('/', '~') || 'nikita-sviridenko~trustpilot-reviews-scraper',\n    target_relevant_posts: num('target_relevant_posts', 350),\n    golden_set_size: num('golden_set_size', 20),\n    tagging_batch_size: Math.min(num('tagging_batch_size', 20), 40),\n    min_text_length: num('min_text_length', 20),\n    similarity_threshold: Math.min(Number(cfg.similarity_threshold) || 0.85, 1),\n    existing_post_ids: [...existingIds, ...existingVoiceIds],\n    existing_post_count: existingIds.length + existingVoiceIds.length,\n  },\n}];\n"
+      },
+      "id": "06214fc6-8518-49eb-a44f-9c8b64bbac10",
+      "name": "Setup & Config Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are the Research Agent of an AI-powered SIP discovery engine.\n\nResearch goal: {{ $json.research_goal }}\nApp: {{ $json.app_name }} (India). Focus on first-time mutual fund investors and what they say about starting, continuing, pausing, reducing or stopping SIPs.\n\nWrite search queries for each source below. Each source needs its own kind of query:\n\n1. YouTube (videos, comments and what is said in the videos) - 3 to 5 queries.\n   Find Indian videos where people talk about stopping, pausing, reducing or continuing their SIPs, beginner SIP mistakes, and SIP experiences on {{ $json.app_name }}. Videos with many comments from regular investors, or where people talk through their own SIP experience on camera, are best. English, Hindi or Hinglish.\n\n2. TradingQ&A forum (Zerodha's Discourse forum) - {{ $json.tradingqna_max_queries }} queries.\n   Short keyword queries of 2 to 4 words, because the forum search matches every word. Cover stopping/pausing SIPs, missed or failed SIP instalments and mandates, what new investors check, and SIP doubts.\n\n3. Google Search (news + blogs) - {{ $json.google_max_queries }} queries.\n   About half should find news articles about SIPs being stopped or discontinued in India (for example SIP stoppage data). The other half should find blogs where investors explain why they stopped or paused their SIP.\n\n4. Quora - {{ $json.quora_max_queries }} queries.\n   Natural questions the way people ask them on Quora, e.g. about whether to stop a SIP after losses, why SIP returns are negative, or which app to use for a first SIP. These are searched directly on Quora, so keep each one a short, plain question.\n\nRules:\n- Every query must stay on the research goal.\n- No site: operators, no quotes around the whole query.\n- Return ONLY valid JSON, no markdown, in exactly this shape:\n{\"youtube_queries\": [\"...\"], \"tradingqna_queries\": [\"...\"], \"google_queries\": [\"...\"], \"quora_queries\": [\"...\"]}"
+      },
+      "id": "8dc3fb60-ad61-4454-80a1-0c6581a26003",
+      "name": "Research Agent",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [
+        624,
+        960
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.8-flash",
+        "options": {
+          "maxOutputTokens": 16384,
+          "temperature": 0.4
+        }
+      },
+      "id": "fec74640-1a4c-4b77-91c0-f048204d36b7",
+      "name": "Gemini Model (Research)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        624,
+        1168
+      ],
+      "notesInFlow": true,
+      "notes": "free · 3.8 Flash · 1 call/run"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Research Plan: turns the Research Agent's answer into search inputs for all sources\nconst s = $('Setup & Config Check').first().json;\nconst out = $input.first().json;\nconst raw = String(out.text ?? out.output ?? '');\nif (!raw.trim()) throw new Error('Research Agent returned no text. Check the Gemini Model node and its credential.');\n\nfunction parseJson(t) {\n  const c = t.replace(/```(?:json)?/gi, '').trim();\n  try { return JSON.parse(c); } catch (e) {\n    const m = c.match(/\\{[\\s\\S]*\\}/);\n    if (m) return JSON.parse(m[0]);\n    throw new Error('Research Agent did not return valid JSON. Output was: ' + t.slice(0, 300));\n  }\n}\nconst plan = parseJson(raw);\nconst clean = (a, n) => [...new Set((Array.isArray(a) ? a : [])\n  .map(x => String(x).replace(/site:\\S+/gi, '').trim())\n  .filter(x => x.length >= 3))]\n  .slice(0, n);\n\nconst youtube = clean(plan.youtube_queries, 5);\nconst tradingqna = clean(plan.tradingqna_queries, s.tradingqna_max_queries);\nconst google = clean(plan.google_queries, s.google_max_queries);\nconst quora = clean(plan.quora_queries, s.quora_max_queries);\nconst empty = Object.entries({ youtube, tradingqna, google, quora }).filter(([, v]) => !v.length).map(([k]) => k);\nif (empty.length) throw new Error('Research Agent returned no queries for: ' + empty.join(', ') + '. Output: ' + raw.slice(0, 300));\n\nconst pages = (n) => Array.from({ length: n }, (_, i) => i + 1);\nreturn [{\n  json: {\n    youtube_queries: youtube,\n    youtube_q: youtube.join(' | '),   // YouTube search treats | as OR\n    tradingqna_queries: tradingqna,\n    google_queries: google,\n    quora_queries: quora,\n    app_store_pages: pages(s.app_store_pages),\n  },\n}];\n"
+      },
+      "id": "12226e19-1d79-4bb0-96a8-ccbc540a691e",
+      "name": "Parse Research Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "snippet"
+            },
+            {
+              "name": "type",
+              "value": "video"
+            },
+            {
+              "name": "q",
+              "value": "={{ $json.youtube_q }}"
+            },
+            {
+              "name": "maxResults",
+              "value": "={{ $('Setup & Config Check').first().json.youtube_max_videos }}"
+            },
+            {
+              "name": "order",
+              "value": "relevance"
+            },
+            {
+              "name": "regionCode",
+              "value": "IN"
+            },
+            {
+              "name": "relevanceLanguage",
+              "value": "en"
+            },
+            {
+              "name": "publishedAfter",
+              "value": "={{ $('Setup & Config Check').first().json.published_after }}"
+            },
+            {
+              "name": "key",
+              "value": "={{ $('Your keys').first().json.youtube_api_key }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f7908de2-9f6c-4d58-83fa-d307732ad9bc",
+      "name": "YouTube Search Videos",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1152,
+        496
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "id": "95222f56-f35c-4a68-9455-adb427b950cf",
+      "name": "YouTube Split Videos",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        496
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/commentThreads",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "snippet"
+            },
+            {
+              "name": "videoId",
+              "value": "={{ ($json.id || {}).videoId || 'none' }}"
+            },
+            {
+              "name": "maxResults",
+              "value": "={{ $('Setup & Config Check').first().json.youtube_max_comments_per_video }}"
+            },
+            {
+              "name": "order",
+              "value": "relevance"
+            },
+            {
+              "name": "textFormat",
+              "value": "plainText"
+            },
+            {
+              "name": "key",
+              "value": "={{ $('Your keys').first().json.youtube_api_key }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ab9814ee-3e02-4ba9-987e-fef9b6820d0c",
+      "name": "YouTube Get Comments",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1584,
+        496
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "Videos with comments turned off are skipped."
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "engine",
+              "value": "google_play_product"
+            },
+            {
+              "name": "product_id",
+              "value": "={{ $('Setup & Config Check').first().json.play_store_app_id }}"
+            },
+            {
+              "name": "store",
+              "value": "apps"
+            },
+            {
+              "name": "platform",
+              "value": "phone"
+            },
+            {
+              "name": "all_reviews",
+              "value": "true"
+            },
+            {
+              "name": "sort_by",
+              "value": "2"
+            },
+            {
+              "name": "num",
+              "value": "199"
+            },
+            {
+              "name": "gl",
+              "value": "={{ $('Setup & Config Check').first().json.country }}"
+            },
+            {
+              "name": "hl",
+              "value": "en"
+            },
+            {
+              "name": "api_key",
+              "value": "={{ $('Your keys').first().json.serpapi_api_key }}"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "name": "next_page_token",
+                    "value": "={{ $response.body.serpapi_pagination.next_page_token }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !($response.body.serpapi_pagination || {}).next_page_token }}",
+              "limitPagesFetched": true,
+              "maxRequests": "={{ $('Setup & Config Check').first().json.play_store_pages }}",
+              "requestInterval": 1000
+            }
+          }
+        }
+      },
+      "id": "ff30a721-2a72-45c6-8223-cb7f715efb90",
+      "name": "Play Store Reviews",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        656
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "Newest reviews, 199 per page, play_store_pages pages (1 SerpApi search each)."
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "app_store_pages",
+        "options": {}
+      },
+      "id": "bdd27e93-6b1a-4e67-8786-0136573ae1ac",
+      "name": "App Store Split Pages",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        816
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://itunes.apple.com/{{ $('Setup & Config Check').first().json.country }}/rss/customerreviews/page={{ $json.app_store_pages }}/id={{ $('Setup & Config Check').first().json.app_store_app_id }}/sortby=mostrecent/json",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "5a609aef-f84c-4998-ab45-1a8dad72c04b",
+      "name": "App Store Reviews",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        816
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "Apple's public review feed - no key needed."
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "tradingqna_queries",
+        "options": {}
+      },
+      "id": "7f197017-ee1a-4ece-aa51-d84a13025e05",
+      "name": "TradingQnA Split Queries",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://tradingqna.com/search.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.tradingqna_queries }} after:{{ $('Setup & Config Check').first().json.after_date }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1500
+            }
+          }
+        }
+      },
+      "id": "3b2c5c91-9787-4f0a-8852-12096a1197f7",
+      "name": "TradingQnA Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        976
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "TradingQ&A public forum search - no key needed."
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "google_queries",
+        "options": {}
+      },
+      "id": "4a238711-1bdc-4627-8133-03e4792d519a",
+      "name": "Google Split Queries",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        1136
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "engine",
+              "value": "google"
+            },
+            {
+              "name": "q",
+              "value": "={{ $json.google_queries }}"
+            },
+            {
+              "name": "google_domain",
+              "value": "google.co.in"
+            },
+            {
+              "name": "gl",
+              "value": "={{ $('Setup & Config Check').first().json.country }}"
+            },
+            {
+              "name": "hl",
+              "value": "en"
+            },
+            {
+              "name": "tbs",
+              "value": "={{ $('Setup & Config Check').first().json.google_tbs }}"
+            },
+            {
+              "name": "api_key",
+              "value": "={{ $('Your keys').first().json.serpapi_api_key }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "65be531c-786f-4d9e-a3c0-a67a88951f57",
+      "name": "Google Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        1136
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "News + blogs (1 SerpApi search per query)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.apify.com/v2/acts/{{ $('Setup & Config Check').first().json.apify_quora_actor }}/run-sync-get-dataset-items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{ $('Your keys').first().json.apify_api_token }}"
+            },
+            {
+              "name": "timeout",
+              "value": "280"
+            },
+            {
+              "name": "format",
+              "value": "json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ queries: $json.quora_queries, searchType: 'Answer', timeFilter: $('Setup & Config Check').first().json.quora_time_filter, maxItemsPerQuery: $('Setup & Config Check').first().json.quora_answers_per_query }) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "a0950bc2-bebd-491c-9bb4-5cecb60b8460",
+      "name": "Quora Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        1296
+      ],
+      "notesInFlow": false,
+      "onError": "continueRegularOutput",
+      "notes": "Apify Quora Scraper (fatihtahta): full Quora answers for the Research Agent's Quora questions. Uses apify_api_token from Your keys."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.apify.com/v2/acts/{{ $('Setup & Config Check').first().json.apify_trustpilot_actor }}/run-sync-get-dataset-items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{ $('Your keys').first().json.apify_api_token }}"
+            },
+            {
+              "name": "timeout",
+              "value": "280"
+            },
+            {
+              "name": "format",
+              "value": "json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ companyDomain: $('Setup & Config Check').first().json.trustpilot_domain, count: $('Setup & Config Check').first().json.trustpilot_max_reviews, replies: false }) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "19195dd5-a329-4b38-bf05-16ef927f5e86",
+      "name": "Trustpilot Reviews",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        1456
+      ],
+      "notesInFlow": false,
+      "onError": "continueRegularOutput",
+      "notes": "Apify Trustpilot Reviews Scraper (nikita-sviridenko): newest Trustpilot reviews. Uses apify_api_token from Your keys."
+    },
+    {
+      "parameters": {
+        "numberInputs": 8
+      },
+      "id": "637e9074-9be3-41f8-9ed6-aafa44251948",
+      "name": "Collect All Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        1840,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Standardize Data: common JSON format for all 8 sources, extract key fields, add source metadata\nconst s = $('Setup & Config Check').first().json;\nconst plan = $('Parse Research Plan').first().json;\nconst all = (name) => { try { return $(name).all(); } catch (e) { return []; } };\n\nconst decode = (t) => String(t ?? '')\n  .replace(/&#39;/g, \"'\").replace(/&quot;/g, '\"').replace(/&amp;/g, '&')\n  .replace(/&lt;/g, '<').replace(/&gt;/g, '>')\n  .replace(/&#(\\d+);/g, (m, c) => String.fromCharCode(Number(c)));\nconst iso = (d) => { if (!d) return ''; const t = new Date(d); return isNaN(t.getTime()) ? '' : t.toISOString(); };\nconst hash = (t) => { let h = 0; const x = String(t || ''); for (let i = 0; i < x.length; i++) { h = ((h << 5) - h + x.charCodeAt(i)) | 0; } return Math.abs(h).toString(36); };\nconst host = (u) => { try { return new URL(u).hostname.replace(/^www\\./, ''); } catch (e) { return ''; } };\nconst asJson = (j) => { if (j && typeof j.data === 'string') { try { return JSON.parse(j.data); } catch (e) { return {}; } } return j || {}; };\n\nconst records = [];\nconst add = (r) => records.push({\n  source: r.source,\n  source_type: r.source_type,\n  post_id: String(r.post_id ?? ''),\n  title: decode(r.title).slice(0, 300),\n  text: decode(r.text).slice(0, 5000),\n  author: decode(r.author).slice(0, 120),\n  rating: r.rating ?? '',\n  likes: r.likes ?? '',\n  post_date: iso(r.post_date),\n  url: r.url || '',\n  search_query: r.search_query || '',\n});\n\n// ---- YouTube (videos + comments) ----\nconst vids = all('YouTube Split Videos');\nconst comments = all('YouTube Get Comments');\nvids.forEach((v, i) => {\n  const vid = v.json.id && v.json.id.videoId;\n  if (!vid) return;\n  const sn = v.json.snippet || {};\n  add({\n    source: 'YouTube', source_type: 'video', post_id: 'yt_v_' + vid,\n    title: sn.title, text: [sn.title, sn.description].filter(Boolean).join(' - '),\n    author: sn.channelTitle, post_date: sn.publishedAt,\n    url: 'https://www.youtube.com/watch?v=' + vid, search_query: plan.youtube_q,\n  });\n  const c = comments[i] ? comments[i].json : {};\n  for (const t of (c.items || [])) {\n    const top = t.snippet && t.snippet.topLevelComment;\n    if (!top) continue;\n    const cs = top.snippet || {};\n    add({\n      source: 'YouTube', source_type: 'comment', post_id: 'yt_c_' + top.id,\n      title: sn.title, text: cs.textOriginal || cs.textDisplay,\n      author: cs.authorDisplayName, likes: cs.likeCount, post_date: cs.publishedAt,\n      url: `https://www.youtube.com/watch?v=${vid}&lc=${top.id}`, search_query: plan.youtube_q,\n    });\n  }\n});\n\n// ---- YouTube Transcripts (what is said in the videos, SerpApi) ----\n// Each transcript is cut into ~60-second windows around mentions of a SIP keyword or the app name; one window = one post.\nconst escRe = (k) => k.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\nconst anchorWords = [...new Set([...s.relevance_keywords, String(s.app_name || '').toLowerCase()])].filter(Boolean);\nconst anchorRe = new RegExp('(^|[^a-z0-9])(' + anchorWords.map(escRe).join('|') + ')(?=$|[^a-z0-9])', 'i');\nconst SPONSOR_RE = /sponsor|paid partnership|#ad\\b|affiliate|referral|refer(ral)? code|use my (link|code)|groww\\.app\\.link|app\\.groww\\.in\\/v3/i;\nconst videoMeta = {};\nfor (const v of vids) { const id = v.json.id && v.json.id.videoId; if (id) videoMeta[id] = { ...(v.json.snippet || {}) }; }\nfor (const item of all('YouTube Video Details')) {\n  for (const v of (asJson(item.json).items || [])) if (v && v.id) videoMeta[v.id] = { ...(videoMeta[v.id] || {}), ...(v.snippet || {}) };\n}\nconst winMs = s.transcript_window_seconds * 1000;\nfor (const item of all('YouTube Get Transcripts')) {\n  const d = asJson(item.json);\n  if (!d || d.error) continue;\n  const vid = (d.search_parameters || {}).v;\n  const lines = (Array.isArray(d.transcript) ? d.transcript : [])\n    .map(x => ({ start: Number(x && x.start_ms) || 0, text: String((x && x.snippet) || '').replace(/\\s+/g, ' ').trim() }))\n    .filter(x => x.text)\n    .sort((a, b) => a.start - b.start);\n  if (!vid || !lines.length) continue;\n  const m = videoMeta[vid] || {};\n  const sponsoredVideo = SPONSOR_RE.test([m.title, m.description].filter(Boolean).join(' '));\n  let lastEnd = -1;\n  let made = 0;\n  for (const ln of lines) {\n    if (made >= s.transcript_max_windows_per_video) break;\n    if (ln.start <= lastEnd || !anchorRe.test(ln.text)) continue;\n    const from = Math.max(lastEnd + 1, ln.start - winMs / 3);\n    const to = ln.start + (2 * winMs) / 3;\n    const text = lines.filter(x => x.start >= from && x.start <= to).map(x => x.text).join(' ');\n    lastEnd = to;\n    made++;\n    const sec = Math.floor(from / 1000);\n    const sponsored = sponsoredVideo || /sponsor/i.test(text);\n    add({\n      source: 'YouTube Transcripts', source_type: 'transcript', post_id: `yt_t_${vid}_${sec}`,\n      title: (sponsored ? '[Possible sponsored/referral] ' : '') + (m.title || ''),\n      text, author: m.channelTitle, post_date: m.publishedAt,\n      url: `https://www.youtube.com/watch?v=${vid}&t=${sec}s`, search_query: plan.youtube_q,\n    });\n  }\n}\n\n// ---- Play Store reviews (SerpApi) ----\nfor (const item of all('Play Store Reviews')) {\n  for (const r of (asJson(item.json).reviews || [])) {\n    const id = r.id || hash(r.title + r.snippet + r.date);\n    add({\n      source: 'Play Store', source_type: 'review', post_id: 'gp_' + id,\n      title: '', text: r.snippet, author: r.title, rating: r.rating, likes: r.likes,\n      post_date: r.iso_date || r.date,\n      url: `https://play.google.com/store/apps/details?id=${s.play_store_app_id}&reviewId=${encodeURIComponent(r.id || '')}`,\n      search_query: 'newest reviews',\n    });\n  }\n}\n\n// ---- App Store reviews (Apple public RSS) ----\nfor (const item of all('App Store Reviews')) {\n  const feed = asJson(item.json).feed || {};\n  let entries = feed.entry || [];\n  if (!Array.isArray(entries)) entries = [entries];\n  for (const e of entries) {\n    if (!e['im:rating']) continue; // skip app-info entry\n    const id = (e.id && e.id.label) || hash(JSON.stringify(e));\n    const title = e.title && e.title.label;\n    const body = e.content && e.content.label;\n    add({\n      source: 'App Store', source_type: 'review', post_id: 'as_' + id,\n      title, text: [title, body].filter(Boolean).join('. '),\n      author: e.author && e.author.name && e.author.name.label,\n      rating: Number(e['im:rating'].label),\n      likes: e['im:voteSum'] ? Number(e['im:voteSum'].label) : '',\n      post_date: e.updated && e.updated.label,\n      url: `https://apps.apple.com/${s.country}/app/id${s.app_store_app_id}?see-all=reviews`,\n      search_query: 'most recent reviews',\n    });\n  }\n}\n\n// ---- TradingQ&A forum (Discourse search) ----\nconst tq = all('TradingQnA Search');\nconst tqQueries = all('TradingQnA Split Queries');\ntq.forEach((item, i) => {\n  const d = asJson(item.json);\n  const q = tqQueries[i] ? tqQueries[i].json.tradingqna_queries : '';\n  const topics = {};\n  for (const t of (d.topics || [])) topics[t.id] = t;\n  for (const p of (d.posts || [])) {\n    const t = topics[p.topic_id] || {};\n    add({\n      source: 'TradingQ&A', source_type: 'forum', post_id: 'tq_' + p.id,\n      title: t.title, text: [t.title, p.blurb].filter(Boolean).join(' - '),\n      author: p.username, likes: p.like_count, post_date: p.created_at,\n      url: `https://tradingqna.com/t/${t.slug || 'topic'}/${p.topic_id}/${p.post_number || 1}`,\n      search_query: q,\n    });\n  }\n});\n\n// ---- Google Search (news + blogs, SerpApi) ----\nconst gr = all('Google Search');\nconst gQueries = all('Google Split Queries');\ngr.forEach((item, i) => {\n  const d = asJson(item.json);\n  const q = gQueries[i] ? gQueries[i].json.google_queries : '';\n  for (const r of (d.organic_results || [])) {\n    if (!r.link) continue;\n    add({\n      source: 'Google Search', source_type: 'web', post_id: 'g_' + hash(r.link),\n      title: r.title, text: [r.title, r.snippet].filter(Boolean).join(' - '),\n      author: r.source || host(r.link), post_date: r.date, url: r.link, search_query: q,\n    });\n  }\n});\n\n// ---- Apify helpers: read a field by any of several possible names (actors differ slightly) ----\nconst get = (o, path) => path.split('.').reduce((v, k) => (v && typeof v === 'object') ? v[k] : undefined, o);\nconst pick = (o, paths) => { for (const p of paths) { const v = get(o, p); if (v !== undefined && v !== null && v !== '') return v; } return ''; };\nconst asText = (v) => typeof v === 'string' ? v : (v && typeof v === 'object' ? (v.text || v.name || v.title || '') : String(v || ''));\n\n// ---- Quora (Apify Quora Scraper: full answers to the Research Agent's Quora questions) ----\nconst qaQueries = $('Parse Research Plan').first().json.quora_queries.join(' | ');\nfor (const item of all('Quora Search')) {\n  const r = item.json || {};\n  if (r.error) continue;\n  const answer = pick(r, ['answer.text', 'answer.content', 'answerText', 'answer_text', 'text', 'content']);\n  const question = asText(pick(r, ['question.title', 'question.text', 'questionTitle', 'question', 'title']));\n  if (!answer && !question) continue;\n  const url = pick(r, ['answer.url', 'url', 'question.url', 'link']);\n  add({\n    source: 'Quora', source_type: answer ? 'forum' : 'web',\n    post_id: 'qa_' + (pick(r, ['answer.id', 'id', 'answerId']) || hash(url + answer)),\n    title: question, text: answer ? asText(answer) : question,\n    author: asText(pick(r, ['answer.author.name', 'answer.author', 'author.name', 'author'])) || 'Quora',\n    likes: pick(r, ['answer.metrics.upvotes', 'upvotes', 'answer.upvotes']),\n    post_date: pick(r, ['answer.posted_at', 'posted_at', 'createdAt', 'date', 'question.posted_at']),\n    url, search_query: qaQueries,\n  });\n}\n\n// ---- Trustpilot (Apify Trustpilot Reviews Scraper) ----\nfor (const item of all('Trustpilot Reviews')) {\n  const r = item.json || {};\n  if (r.error) continue;\n  const body = pick(r, ['reviewBody', 'reviewText', 'text', 'content', 'body']);\n  const head = pick(r, ['reviewHeadline', 'reviewTitle', 'title', 'headline']);\n  if (!body && !head) continue;\n  const id = pick(r, ['reviewId', 'id']) || hash(head + body);\n  add({\n    source: 'Trustpilot', source_type: 'review', post_id: 'tp_' + id,\n    title: head, text: [head, body].filter(Boolean).join('. '),\n    author: asText(pick(r, ['authorName', 'reviewerName', 'consumer.displayName', 'author'])),\n    rating: pick(r, ['ratingValue', 'rating', 'stars']), likes: pick(r, ['likes']),\n    post_date: pick(r, ['datePublished', 'reviewDate', 'publishedDate', 'dates.publishedDate', 'date']),\n    url: pick(r, ['reviewUrl', 'url']) || ('https://www.trustpilot.com/reviews/' + id), search_query: 'newest reviews',\n  });\n}\n\nif (!records.length) {\n  throw new Error('No data was collected from any source. Check the source nodes for errors (keys, quota, network).');\n}\n\nreturn records.map(r => ({\n  json: { ...r, run_id: s.run_id, collected_at: s.run_started_at, app_name: s.app_name },\n}));\n"
+      },
+      "id": "1ce2dfc4-42ae-49c3-b465-6795360024b8",
+      "name": "Standardize Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Remove Duplicates: match by content similarity, keep highest quality\nconst s = $('Setup & Config Check').first().json;\nconst threshold = s.similarity_threshold;\nconst existing = new Set(s.existing_post_ids || []);\n\nconst norm = (t) => String(t || '').toLowerCase().normalize('NFKC')\n  .replace(/[^\\p{L}\\p{N}\\s]/gu, ' ').replace(/\\s+/g, ' ').trim();\nconst tokens = (t) => new Set(norm(t).split(' ').filter(w => w.length > 2));\nconst quality = (r) => Math.min(String(r.text || '').length, 1000) / 100\n  + (Number(r.likes) || 0) + (r.rating !== '' && r.rating !== undefined ? 1 : 0);\n\n// 1) Same post fetched twice (same post_id) or already saved in an earlier run\nconst byId = new Map();\nlet alreadySaved = 0;\nfor (const { json: r } of $input.all()) {\n  if (existing.has(r.post_id)) { alreadySaved++; continue; }\n  const prev = byId.get(r.post_id);\n  if (!prev) { byId.set(r.post_id, { ...r, duplicates_merged: 0 }); continue; }\n  if (quality(r) > quality(prev)) byId.set(r.post_id, { ...r, duplicates_merged: prev.duplicates_merged + 1 });\n  else prev.duplicates_merged += 1;\n}\n\n// 2) Near-duplicate content (reposts, same text under different ids)\nconst list = [...byId.values()].sort((a, b) => quality(b) - quality(a)); // best first, so the kept copy is the highest quality\nconst kept = [];\nfor (const r of list) {\n  const n = norm(r.text);\n  const tk = tokens(r.text);\n  let dupOf = null;\n  for (const k of kept) {\n    if (n && k._n === n && (n.length >= 40 || k.author === r.author)) { dupOf = k; break; }\n    if (tk.size >= 8 && k._tk.size >= 8) {\n      let inter = 0;\n      for (const w of tk) if (k._tk.has(w)) inter++;\n      const jaccard = inter / (tk.size + k._tk.size - inter);\n      if (jaccard >= threshold) { dupOf = k; break; }\n    }\n  }\n  if (dupOf) { dupOf.duplicates_merged += 1 + r.duplicates_merged; continue; }\n  r._n = n; r._tk = tk;\n  kept.push(r);\n}\n\nif (!kept.length) {\n  throw new Error(`No new posts: all ${alreadySaved} collected posts are already in Posts Data.`);\n}\nreturn kept.map(({ _n, _tk, ...r }) => ({ json: r }));\n"
+      },
+      "id": "85a54c3d-695a-434d-bb93-f92376360ae1",
+      "name": "Remove Duplicates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2304,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate & Enrich: check required fields, enrich with context, add tags (source, date, etc.)\n// Output columns = the \"5 Raw Data\" tab\nconst s = $('Setup & Config Check').first().json;\nconst lookbackStart = new Date(s.published_after).getTime();\nconst REQUIRED = ['post_id', 'source', 'text', 'url'];\n\n// save rows grouped by source, in the order set in Settings > source_order\nconst rank = (src) => { const i = s.source_order.indexOf(src); return i < 0 ? 99 : i; };\nconst ordered = $input.all().map((x, i) => ({ ...x, i })).sort((a, b) => (rank(a.json.source) - rank(b.json.source)) || (a.i - b.i));\n\nreturn ordered.map(({ json: r }) => {\n  const missing = REQUIRED.filter(k => !String(r[k] ?? '').trim());\n  const textLen = String(r.text || '').trim().length;\n  const d = r.post_date ? new Date(r.post_date) : null;\n  const hasDate = d && !isNaN(d.getTime());\n\n  let status = 'Valid';\n  if (missing.length) status = 'Invalid: missing required field';\n  else if (textLen < s.min_text_length) status = 'Invalid: text too short';\n  else if (hasDate && d.getTime() < lookbackStart) status = 'Invalid: older than lookback';\n\n  const notes = [...missing];\n  if (!hasDate) notes.push('date (optional)');\n\n  return {\n    json: {\n      'Run ID': s.run_id,\n      'Collected At': s.run_started_at,\n      'Post ID': r.post_id,\n      'Source': r.source,\n      'Type': r.source_type,\n      'Title / Context': r.title,\n      'Text': r.text,\n      'Author': r.author,\n      'Rating': r.rating,\n      'Likes': r.likes,\n      'Post Date': hasDate ? r.post_date.slice(0, 10) : '',\n      'Link': r.url,\n      'Found By (search)': r.search_query,\n      'Duplicates Merged': r.duplicates_merged || 0,\n      'Status': status,\n      'Missing Fields': notes.join(', '),\n    },\n  };\n});\n"
+      },
+      "id": "fc0dcfa7-6af3-4bb2-974a-2eabd74d037e",
+      "name": "Validate & Enrich",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2528,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Your keys').first().json.sheet_url }}",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "5 Raw Data",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "id": "61199536-18e0-47b7-b3c3-a9a2e88395b5",
+      "name": "Save Raw Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2976,
+        976
+      ],
+      "notesInFlow": true,
+      "notes": "tab: 5 Raw Data"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Your keys').first().json.sheet_url }}",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "5 Raw Data",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "6991b5ee-e4f9-4f16-baf2-fd98cbf79086",
+      "name": "Read Saved Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -480,
+        2016
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clean & Prepare: get this run's new records, remove noise, filter invalid posts, normalize text,\n// keep up to <target_relevant_posts> SIP-related posts (balanced across sources) for AI tagging\nconst s = $('Setup & Config Check').first().json;\n// written posts are read back from \"5 Raw Data\"; this run's video clips go to \"6 Voice Data\", so they are taken from Validate & Enrich\nconst clipRows = (() => { try { return $('Validate & Enrich').all().map(i => i.json).filter(r => r['Type'] === 'transcript' && String(r['Run ID']) === s.run_id); } catch (e) { return []; } })();\nconst rows = [...$input.all().map(i => i.json).filter(r => String(r['Run ID']) === s.run_id && r['Type'] !== 'transcript'), ...clipRows];\nif (!rows.length) throw new Error('No posts for ' + s.run_id + ' in \"5 Raw Data\" and no video clips from this run.');\n\nconst esc = (k) => k.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\nconst kwRe = new RegExp('(^|[^a-z0-9])(' + s.relevance_keywords.map(esc).join('|') + ')(?=$|[^a-z0-9])', 'i');\n\nconst clean = (t) => String(t || '')\n  .normalize('NFKC')\n  .replace(/<[^>]+>/g, ' ')                                    // html\n  .replace(/https?:\\/\\/\\S+|www\\.\\S+/g, ' ')                     // links\n  .replace(/[\\p{Extended_Pictographic}️‍]/gu, ' ')    // emojis\n  .replace(/(.)\\1{4,}/g, '$1$1$1')                              // \"soooooo\" -> \"sooo\"\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nconst stats = { saved_rows: rows.length, invalid: 0, too_short_after_cleaning: 0, not_sip_related: 0, relevant_found: 0, analysed: 0 };\nconst relevant = [];\nfor (const r of rows) {\n  if (r['Status'] !== 'Valid') { stats.invalid++; continue; }\n  const text = clean(r['Text']);\n  if (text.length < s.min_text_length) { stats.too_short_after_cleaning++; continue; }\n  const context = (r['Type'] === 'comment' || r['Type'] === 'transcript') ? clean(r['Title / Context']).slice(0, 150) : '';\n  if (!kwRe.test(text + ' ' + context)) { stats.not_sip_related++; continue; }\n  relevant.push({\n    post_id: String(r['Post ID']), source: r['Source'], source_type: r['Type'],\n    url: r['Link'], post_date: r['Post Date'], rating: r['Rating'], likes: Number(r['Likes']) || 0,\n    context, text: text.slice(0, 1500),\n  });\n}\nstats.relevant_found = relevant.length;\nif (!relevant.length) {\n  throw new Error('No SIP-related posts left after cleaning. Stats: ' + JSON.stringify(stats) + '. Widen relevance_keywords in Settings.');\n}\n\n// Keep up to the target, taking sources in turn so no single source dominates.\n// Inside each source, richer posts first (people's own words over search snippets, longer, more liked).\nconst typeWeight = { review: 3, comment: 3, forum: 3, transcript: 2, video: 1, web: 1 };\n// windows from videos that look sponsored go to the back of their source's queue\nconst quality = (p) => (typeWeight[p.source_type] || 1) * 1000 + Math.min(p.text.length, 600) + p.likes * 5\n  - (/^\\[possible sponsored/i.test(p.context) ? 500 : 0);\nconst bySource = {};\nfor (const p of relevant) (bySource[p.source] = bySource[p.source] || []).push(p);\nObject.values(bySource).forEach(list => list.sort((a, b) => quality(b) - quality(a)));\nconst queues = Object.values(bySource);\nconst picked = [];\nwhile (picked.length < s.target_relevant_posts && queues.some(q => q.length)) {\n  for (const q of queues) {\n    if (q.length && picked.length < s.target_relevant_posts) picked.push(q.shift());\n  }\n}\nstats.analysed = picked.length;\n\nconst size = s.tagging_batch_size;\nconst count = Math.ceil(picked.length / size);\nconst out = [];\nfor (let i = 0; i < picked.length; i += size) {\n  out.push({ json: { batch_no: out.length + 1, batch_count: count, posts: picked.slice(i, i + size), stats } });\n}\nreturn out;\n"
+      },
+      "id": "3eec265d-b5b3-4abd-9340-b57bca79ab8c",
+      "name": "Clean & Prepare",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        2016
+      ],
+      "notesInFlow": true,
+      "notes": "keeps up to 1000 SIP-related posts"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are the AI Tagging Agent of an SIP discovery engine for {{ $('Setup & Config Check').first().json.app_name }}.\nResearch goal: {{ $('Setup & Config Check').first().json.research_goal }}\n\nLabel EVERY post below. For each post return one object with these keys. Use \"\" for any field the post does not speak to. Never guess.\n\nPosts with type \"transcript\" are about 60 seconds of speech from a YouTube video, taken from its captions. Auto-captions can mishear words, and Hindi may be written in Devanagari. The speaker is usually the video creator: fill the q-fields only with experiences the speaker says they or their viewers actually had, not with general advice. If video_title starts with \"[Possible sponsored/referral]\", the creator may be paid by the app, so do not treat their praise of the app as a user experience.\n\n- \"post_id\": copied exactly from the input.\n- \"theme\": a list of 1 to 3 themes chosen ONLY from: {{ $('Setup & Config Check').first().json.theme_list.join(', ') }}. Use \"Not relevant\" if the post says nothing about SIPs or mutual fund investing.\n- \"behaviour\": one of \"Started\", \"Continuing\", \"Paused\", \"Reduced\", \"Stopped\", \"Not stated\".\n- \"q1_why_started\": why they started a SIP and what they expected to happen.\n- \"q2_change_after_start\": what changed in their behaviour in the months after starting.\n- \"q3_why_paused_reduced_stopped\": what led them to pause, reduce or stop.\n- \"q4_what_they_check\": what they check (returns, NAV, portfolio value, news...) and how often.\n- \"q5_in_app_confusion\": what confuses or worries them inside the app.\n- \"q6_outside_app_action\": what they do outside the app when unsure (ask friends, YouTube, Google, advisor...).\n- \"q7_continue_or_dropoff_signal\": what in this post suggests they will keep going or quietly drop off.\n- \"q8_income_stability\": e.g. \"salaried\", \"freelancer\", \"student\", \"lost job\" - only if stated.\n- \"q8_age\": age or age band - only if stated.\n- \"q8_source_of_money\": e.g. \"salary\", \"pocket money\", \"bonus\", \"savings\" - only if stated.\n- \"q8_influenced_by\": who pushed them to start (friend, family, YouTuber, finfluencer, ad, employer) - only if stated.\n- \"q9_unmet_need\": the need the app or product does not meet for them.\n- \"explicit\": true if the author states it directly, false if you inferred it.\n- \"quote\": an exact word-for-word excerpt (max 25 words) copied from the post's text that best supports your labels. Never paraphrase, translate or fix spelling. Keep the original script (Devanagari stays Devanagari).\n\nWrite the q-fields as short phrases in your own words (max 20 words each).\nReturn ONLY a JSON array with one object per post, no markdown.\n\nPosts (batch {{ $json.batch_no }} of {{ $json.batch_count }}):\n{{ JSON.stringify($json.posts.map(p => ({ post_id: p.post_id, source: p.source, type: p.source_type, rating: p.rating, video_title: p.context, text: p.text }))) }}"
+      },
+      "id": "6eb24078-cce6-4832-8c73-333e585e2ba6",
+      "name": "AI Tagging Agent",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [
+        -16,
+        2016
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.8-flash",
+        "options": {
+          "maxOutputTokens": 16384,
+          "temperature": 0.1
+        }
+      },
+      "id": "c890a109-d771-4a8d-9726-0e36238cf900",
+      "name": "Gemini Model (Tagging)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        2224
+      ],
+      "notesInFlow": true,
+      "notes": "free · 3.8 Flash · ~40 calls/run"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Tags: one row per post for \"2 Feedback Analysis\".\n// Source, link and date come from the data (never from the AI); every evidence quote is checked word-for-word.\nconst s = $('Setup & Config Check').first().json;\nconst batches = $('Clean & Prepare').all();\nconst themeCase = {};\nfor (const t of s.theme_list) themeCase[t.toLowerCase()] = t;\nconst BEHAVIOURS = ['Started', 'Continuing', 'Paused', 'Reduced', 'Stopped', 'Not stated'];\nconst norm = (t) => String(t || '').toLowerCase().normalize('NFKC')\n  .replace(/[‘’]/g, \"'\").replace(/[“”]/g, '\"')\n  .replace(/[^\\p{L}\\p{N}]+/gu, ' ').trim();\n\nfunction parseArr(t) {\n  const c = String(t || '').replace(/```(?:json)?/gi, '').trim();\n  try { return JSON.parse(c); } catch (e) {\n    const m = c.match(/\\[[\\s\\S]*\\]/);\n    if (m) return JSON.parse(m[0]);\n    throw new Error('unreadable AI output');\n  }\n}\nconst txt = (v, n = 300) => {\n  const t = String(v ?? '').trim();\n  return /^(n\\/?a|none|null|not stated|not mentioned|unknown|-)$/i.test(t) ? '' : t.slice(0, n);\n};\n\nconst rows = [];\nconst problems = [];\nconst taggedAt = new Date().toISOString();\n$input.all().forEach((item, i) => {\n  const batch = batches[i] ? batches[i].json.posts : [];\n  const byId = {};\n  for (const p of batch) byId[p.post_id] = p;\n  if (item.json.error) { problems.push({ batch: i + 1, why: 'AI call failed: ' + String(item.json.error.message || item.json.error).slice(0, 150), dropped: batch.length }); return; }\n  let arr;\n  try { arr = parseArr(item.json.text ?? item.json.output); } catch (e) { problems.push({ batch: i + 1, why: 'AI answer was not valid JSON', dropped: batch.length }); return; }\n  if (!Array.isArray(arr)) { problems.push({ batch: i + 1, why: 'AI answer was not a list', dropped: batch.length }); return; }\n  const seen = new Set();\n  let unknownIds = 0;\n  for (const t of arr) {\n    const p = byId[String(t && t.post_id)];\n    if (!p) { unknownIds++; continue; }\n    if (seen.has(p.post_id)) continue;\n    seen.add(p.post_id);\n    const rawThemes = (Array.isArray(t.theme) ? t.theme : [t.theme]).map(x => String(x || '').trim()).filter(Boolean);\n    let themes = rawThemes.map(x => themeCase[x.toLowerCase()]).filter(Boolean);\n    const offList = rawThemes.filter(x => !themeCase[x.toLowerCase()]);\n    themes = [...new Set(themes)].slice(0, 3);\n    if (!themes.length) themes = [themeCase['other'] || 'Other'];\n    const behaviour = BEHAVIOURS.find(b => b.toLowerCase() === String(t.behaviour || '').trim().toLowerCase()) || 'Not stated';\n    const quote = txt(t.quote, 400);\n    const quoteOk = !!quote && norm(p.text).includes(norm(quote));\n    const explicit = t.explicit === true || String(t.explicit).toLowerCase() === 'true';\n    const theme = themes.join(', ');\n    rows.push({\n      json: {\n        // ---- columns of \"2 Feedback Analysis\" ----\n        'Run ID': s.run_id,\n        'Post ID': p.post_id,\n        'Source': p.source,\n        'Post Date': p.post_date,\n        'Link': p.url,\n        'Post (cleaned)': p.text,\n        'Theme(s)': theme,\n        'Behaviour': behaviour,\n        'Q1 Why they started & what they expected': txt(t.q1_why_started),\n        'Q2 What changed after starting': txt(t.q2_change_after_start),\n        'Q3 Why they paused, reduced or stopped': txt(t.q3_why_paused_reduced_stopped),\n        'Q4 What they check & how often': txt(t.q4_what_they_check),\n        'Q5 What confuses or worries them in the app': txt(t.q5_in_app_confusion),\n        'Q6 What they do outside the app when unsure': txt(t.q6_outside_app_action),\n        'Q7 Continue vs drop-off signal': txt(t.q7_continue_or_dropoff_signal),\n        'Q8 Income stability': txt(t.q8_income_stability, 80),\n        'Q8 Age': txt(t.q8_age, 40),\n        'Q8 Source of money': txt(t.q8_source_of_money, 80),\n        'Q8 Influenced by': txt(t.q8_influenced_by, 80),\n        'Q9 Unmet need': txt(t.q9_unmet_need),\n        'Evidence Quote': quote,\n        'Stated or Inferred': explicit ? 'Stated' : 'Inferred',\n        'Quote Verified': quoteOk ? 'Yes' : 'No',\n        // ---- internal fields for the next steps (not saved to the sheet) ----\n        run_id: s.run_id, post_id: p.post_id, source: p.source, source_type: p.source_type,\n        url: p.url, post_date: p.post_date, text: p.text, theme, behaviour,\n        reason: txt(t.q3_why_paused_reduced_stopped) || txt(t.q1_why_started) || txt(t.q5_in_app_confusion) || txt(t.q9_unmet_need),\n        explicit, quote, quote_ok: quoteOk, off_list_themes: offList.join(', '), tagged_at: taggedAt,\n        segments: {\n          income_stability: txt(t.q8_income_stability, 80), age: txt(t.q8_age, 40),\n          source_of_money: txt(t.q8_source_of_money, 80), influenced_by: txt(t.q8_influenced_by, 80),\n        },\n      },\n    });\n  }\n  const skipped = batch.length - seen.size;\n  if (skipped > 0) problems.push({ batch: i + 1, why: 'AI did not return a label for some posts', dropped: skipped });\n  if (unknownIds > 0) problems.push({ batch: i + 1, why: 'AI returned post IDs that were not in the batch (ignored)', dropped: 0, count: unknownIds });\n});\n\nif (!rows.length) throw new Error('AI Tagging Agent returned no usable labels. ' + JSON.stringify(problems).slice(0, 400));\n// save rows grouped by source, in the order set in Settings > source_order\nconst rank = (src) => { const i = s.source_order.indexOf(src); return i < 0 ? 99 : i; };\nconst ordered = rows.map((r, i) => ({ r, i })).sort((a, b) => (rank(a.r.json.source) - rank(b.r.json.source)) || (a.i - b.i)).map(x => x.r);\nordered[0].json.tagging_problems = problems; // read later by the AI Evidence Log\nreturn ordered;\n"
+      },
+      "id": "f1ac8836-2b45-44ce-adc3-0038516c7157",
+      "name": "Parse Tags",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        2016
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Your keys').first().json.sheet_url }}",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "2 Feedback Analysis",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Run ID",
+              "displayName": "Run ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Post ID",
+              "displayName": "Post ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Post Date",
+              "displayName": "Post Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Post (cleaned)",
+              "displayName": "Post (cleaned)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Theme(s)",
+              "displayName": "Theme(s)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Behaviour",
+              "displayName": "Behaviour",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Q1 Why they started & what they expected",
+              "displayName": "Q1 Why they started & what they expected",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Q2 What changed after starting",
+              "displayName": "Q2 What changed after starting",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Q3 Why they paused, reduced or stopped",
+              "displayName": "Q3 Why they paused, reduced or stopped",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Q4 What they check & how often",
+              "displayName": "Q4 What they check & how often",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Q5 What confuses or worries them in the app",
+              "displayName": "Q5 What confuses or worries them in the app",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Q6 What they do outside the app when unsure",
+              "displayName": "Q6 What they do outside the app when unsure",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Q7 Continue vs drop-off signal",
+              "displayName": "Q7 Continue vs drop-off signal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Q8 Income stability",
+              "displayName": "Q8 Income stability",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Q8 Age",
+              "displayName": "Q8 Age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Q8 Source of money",
+              "displayName": "Q8 Source of money",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Q8 Influenced by",
+              "displayName": "Q8 Influenced by",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Q9 Unmet need",
+              "displayName": "Q9 Unmet need",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Evidence Quote",
+              "displayName": "Evidence Quote",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Stated or Inferred",
+              "displayName": "Stated or Inferred",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Quote Verified",
+              "displayName": "Quote Verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "id": "25b696c3-d4ef-48dc-9f69-651fefa9df8e",
+      "name": "Save Tagged Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        672,
+        2016
+      ],
+      "notesInFlow": true,
+      "notes": "tab: 2 Feedback Analysis"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Group by Themes: cluster similar issues, build theme summary\nconst rows = $('Parse Tags').all().map(i => i.json);\n\nconst groups = {};\nfor (const r of rows) {\n  for (const th of String(r.theme).split(', ')) {\n    if (!th || th.toLowerCase() === 'not relevant') continue;\n    if (!groups[th]) groups[th] = { theme: th, posts: [] };\n    groups[th].posts.push(r);\n  }\n}\n\n// cluster similar issues inside each theme by the wording of the tagged reason\nconst tok = (t) => new Set(String(t || '').toLowerCase().replace(/[^\\p{L}\\p{N}\\s]/gu, ' ').split(/\\s+/).filter(w => w.length > 3));\nconst sim = (a, b) => { let i = 0; for (const w of a) if (b.has(w)) i++; const u = a.size + b.size - i; return u ? i / u : 0; };\n\nconst summaries = Object.values(groups).map(g => {\n  const clusters = [];\n  for (const p of g.posts) {\n    const tk = tok(p.reason);\n    if (!tk.size) continue;\n    let c = clusters.find(x => sim(x.tk, tk) >= 0.4);\n    if (!c) { c = { issue: p.reason, tk, post_ids: [] }; clusters.push(c); }\n    c.post_ids.push(p.post_id);\n  }\n  clusters.sort((a, b) => b.post_ids.length - a.post_ids.length);\n  return {\n    theme: g.theme,\n    posts: g.posts,\n    top_issues: clusters.slice(0, 5).map(c => ({ issue: c.issue, posts: c.post_ids.length })),\n  };\n});\n\nif (!summaries.length) throw new Error('All tagged posts were \"Not relevant\" - no themes to analyse.');\nreturn summaries.map(x => ({ json: x }));\n"
+      },
+      "id": "c544bc74-577e-4478-ae5d-4ca4a80bb339",
+      "name": "Group by Themes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        2016
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Count Unique Evidence: count unique posts per theme, track source distribution\nconst groups = $input.all().map(i => i.json);\nconst textById = {};\nfor (const b of $('Clean & Prepare').all()) for (const p of b.json.posts) textById[p.post_id] = p.text;\n\nconst norm = (t) => String(t || '').toLowerCase().replace(/[^\\p{L}\\p{N}]+/gu, ' ').trim();\nconst tally = (arr, key) => arr.reduce((m, p) => { m[p[key]] = (m[p[key]] || 0) + 1; return m; }, {});\nconst DROP = new Set(['Paused', 'Reduced', 'Stopped']);\nconst isExplicit = (p) => p.explicit === true || String(p.explicit).toLowerCase() === 'true';\n\nconst allUnique = new Set();\nconst themes = groups.map(g => {\n  const ids = new Set();\n  const quotes = new Set();\n  const unique = [];\n  for (const p of g.posts) {\n    const q = norm(p.quote);\n    if (ids.has(p.post_id) || (q.length > 20 && quotes.has(q))) continue; // same post or same quote = one piece of evidence\n    ids.add(p.post_id);\n    if (q) quotes.add(q);\n    unique.push(p);\n    allUnique.add(p.post_id);\n  }\n  // evidence sample for the insight step: stated first, then paused/reduced/stopped first\n  const sample = [...unique].sort((a, b) =>\n    (isExplicit(b) - isExplicit(a)) || (DROP.has(b.behaviour) - DROP.has(a.behaviour)));\n  return {\n    theme: g.theme,\n    unique_posts: unique.length,\n    source_distribution: tally(unique, 'source'),\n    behaviour_counts: tally(unique, 'behaviour'),\n    explicit_count: unique.filter(isExplicit).length,\n    inferred_count: unique.filter(p => !isExplicit(p)).length,\n    top_issues: g.top_issues,\n    evidence: sample.slice(0, 15).map(p => ({\n      post_id: p.post_id, source: p.source, behaviour: p.behaviour, reason: p.reason,\n      quote: p.quote, text: String(textById[p.post_id] || '').slice(0, 400),\n    })),\n  };\n}).sort((a, b) => b.unique_posts - a.unique_posts);\n\n// Research questions: how many posts speak to each one + a sample for the AI to summarise\nconst tags = $('Parse Tags').all().map(i => i.json);\nconst QUESTIONS = [\n  ['Q1', 'Why do people start a SIP, and what do they expect to happen?', 'Q1 Why they started & what they expected'],\n  ['Q2', 'What changes in their behaviour in the months after starting?', 'Q2 What changed after starting'],\n  ['Q3', 'What leads investors to pause, reduce or stop a SIP?', 'Q3 Why they paused, reduced or stopped'],\n  ['Q4', 'What do investors check, and how often, once they have started?', 'Q4 What they check & how often'],\n  ['Q5', 'What confuses or worries them inside the app?', 'Q5 What confuses or worries them in the app'],\n  ['Q6', 'What do they do outside the app when they feel unsure?', 'Q6 What they do outside the app when unsure'],\n  ['Q7', 'What separates investors who continue from those who quietly drop off?', 'Q7 Continue vs drop-off signal'],\n  ['Q8', 'How do these patterns differ across user segments (income stability, age, source of money, who influenced them)?', null],\n  ['Q9', 'What unmet needs emerge consistently across conversations?', 'Q9 Unmet need'],\n];\nconst segKeys = ['income_stability', 'age', 'source_of_money', 'influenced_by'];\nconst questions = QUESTIONS.map(([id, question, col]) => {\n  const hits = col\n    ? tags.filter(t => t[col])\n    : tags.filter(t => segKeys.some(k => t.segments && t.segments[k]));\n  const sample = [...hits].sort((a, b) => (b.quote_ok - a.quote_ok) || (isExplicit(b) - isExplicit(a))).slice(0, 12)\n    .map(t => ({\n      post_id: t.post_id, source: t.source, behaviour: t.behaviour,\n      answer: col ? t[col] : segKeys.map(k => t.segments[k] ? `${k}: ${t.segments[k]}` : '').filter(Boolean).join('; '),\n      quote: t.quote, text: String(textById[t.post_id] || '').slice(0, 300),\n    }));\n  return { id, question, posts_answering: hits.length, sample };\n});\n\n// Segment comparison (Q8): continuing vs dropping off, by each segment value\nconst segments = segKeys.map(k => {\n  const groups = {};\n  for (const t of tags) {\n    const v = String((t.segments || {})[k] || '').trim().toLowerCase();\n    if (!v) continue;\n    const g = groups[v] = groups[v] || { value: v, posts: 0, continuing: 0, dropping_off: 0 };\n    g.posts++;\n    if (t.behaviour === 'Continuing' || t.behaviour === 'Started') g.continuing++;\n    if (DROP.has(t.behaviour)) g.dropping_off++;\n  }\n  return { segment: k, values: Object.values(groups).sort((a, b) => b.posts - a.posts).slice(0, 6) };\n});\n\nreturn [{ json: { themes, questions, segments, total_unique_relevant_posts: allUnique.size, total_tagged_posts: tags.length } }];\n"
+      },
+      "id": "869a0d27-56ae-4ffb-a0c5-9ccd1c5bed98",
+      "name": "Count Unique Evidence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        2016
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are the insight analyst of an SIP discovery engine for {{ $('Setup & Config Check').first().json.app_name }}.\nResearch goal: {{ $('Setup & Config Check').first().json.research_goal }}\n\nYou get three things, all computed by code from {{ $json.total_tagged_posts }} labelled user posts. All counts are correct: use them as given and never invent other numbers.\n1. THEMES with counts and evidence posts.\n2. RESEARCH QUESTIONS with how many posts speak to each and a sample of what those posts say.\n3. SEGMENTS: for each segment value, how many posts are continuing vs pausing/reducing/stopping.\n\nReturn ONE JSON object with two lists:\n\n\"themes\": one object per theme with\n- \"theme\": copied exactly\n- \"insight\": 1-2 sentences on what users experience\n- \"what_it_means\": 1-2 sentences on what this means for SIP retention on {{ $('Setup & Config Check').first().json.app_name }}\n- \"evidence\": 2 to 4 items like {\"post_id\": \"...\", \"quote\": \"...\"}; each quote copied word-for-word from that post's \"quote\" or \"text\", and the post_id must be listed under that theme\n- \"severity\": 1-5, how much it hurts users or pushes them to stop (5 = makes them stop)\n- \"severity_reason\": one sentence\n- \"addressability\": 1-5, can {{ $('Setup & Config Check').first().json.app_name }} realistically solve it with product changes (5 = fully in its control)\n- \"addressability_reason\": one sentence\n- \"uncertainty\": 1-5, how unclear the picture still is (5 = very unclear, thin or conflicting evidence)\n- \"uncertainty_note\": what is still unclear and should be checked with real users\n- \"opportunity\": the product opportunity as one \"How might we ...\" question\n\n\"research_questions\": one object per question (Q1 to Q9) with\n- \"id\": \"Q1\" ... \"Q9\"\n- \"answer\": 2-3 sentences answering the question from the sample only. For Q8 use the SEGMENTS numbers. If fewer than 5 posts speak to it, say the evidence is thin.\n- \"evidence\": 1 to 3 items {\"post_id\": \"...\", \"quote\": \"...\"} copied word-for-word from that question's sample\n- \"confidence\": \"High\", \"Medium\" or \"Low\"\n\nReturn ONLY the JSON object, no markdown.\n\nTHEMES:\n{{ JSON.stringify($json.themes.map(t => ({ ...t, evidence: t.evidence.slice(0, 10).map(e => ({ ...e, text: String(e.text).slice(0, 300) })) }))) }}\n\nRESEARCH QUESTIONS:\n{{ JSON.stringify($json.questions) }}\n\nSEGMENTS:\n{{ JSON.stringify($json.segments) }}"
+      },
+      "id": "e8570eee-35d1-4837-a44b-cf3796a96296",
+      "name": "Generate Insights",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [
+        1344,
+        2016
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.8-flash",
+        "options": {
+          "maxOutputTokens": 32768,
+          "temperature": 0.2
+        }
+      },
+      "id": "b1ad4249-8dd5-4774-a993-b67264a24022",
+      "name": "Gemini Model (Insights)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        2224
+      ],
+      "notesInFlow": true,
+      "notes": "free · 3.8 Flash · 1 call/run"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Evidence Validation: verify quotes & sources, check classification, flag inconsistencies\nconst s = $('Setup & Config Check').first().json;\nconst cue = $('Count Unique Evidence').first().json;\nconst tags = $('Parse Tags').all().map(i => i.json);\nconst tagById = {};\nfor (const t of tags) tagById[t.post_id] = t;\n\n// source text for every post in this run (cleaned text + original saved text)\nconst textById = {};\nfor (const b of $('Clean & Prepare').all()) for (const p of b.json.posts) textById[p.post_id] = p.text;\nfor (const r of $('Read Saved Data').all()) {\n  const j = r.json;\n  if (String(j['Run ID']) !== s.run_id) continue;\n  const id = String(j['Post ID']);\n  textById[id] = (textById[id] || '') + ' ' + String(j['Text'] || '');\n}\nconst norm = (t) => String(t || '').toLowerCase().normalize('NFKC')\n  .replace(/[‘’]/g, \"'\").replace(/[“”]/g, '\"')\n  .replace(/[^\\p{L}\\p{N}]+/gu, ' ').trim();\n\nconst out = $input.first().json;\nconst raw = String(out.text ?? out.output ?? '');\nlet parsed;\ntry {\n  const c = raw.replace(/```(?:json)?/gi, '').trim();\n  try { parsed = JSON.parse(c); } catch (e) { parsed = JSON.parse((c.match(/\\{[\\s\\S]*\\}/) || [''])[0]); }\n} catch (e) {\n  throw new Error('Generate Insights did not return valid JSON. Output was: ' + raw.slice(0, 300));\n}\nconst themeAnswers = Array.isArray(parsed.themes) ? parsed.themes : [];\nconst qAnswers = Array.isArray(parsed.research_questions) ? parsed.research_questions : [];\nif (!themeAnswers.length) throw new Error('Generate Insights returned no themes.');\n\nconst statsByTheme = {};\nfor (const t of cue.themes) statsByTheme[t.theme] = t;\nconst qById = {};\nfor (const q of cue.questions) qById[q.id] = q;\n\nconst checks = []; // every quote the AI used, checked against the original post\nfunction checkQuote(itemLabel, ev, expectTheme, allowedIds) {\n  const pid = String(ev.post_id || '');\n  const quote = String(ev.quote || '');\n  const tag = tagById[pid];\n  const text = textById[pid];\n  const nq = norm(quote);\n  const quoteFound = !!(text && nq.length >= 3 && norm(text).includes(nq));\n  let result = 'Accepted';\n  let why = 'Quote found word-for-word in the post' + (expectTheme ? ' and the post carries this theme' : '');\n  if (!tag && !text) { result = 'Rejected'; why = 'Post ID is not in this run - the AI made it up'; }\n  else if (allowedIds && !allowedIds.has(pid)) { result = 'Flagged'; why = 'Post was not in the evidence given for this item'; }\n  else if (!quoteFound) { result = 'Rejected'; why = 'Quote is not word-for-word in the post (AI paraphrased or invented it)'; }\n  else if (expectTheme && !String(tag.theme).split(', ').includes(expectTheme)) { result = 'Flagged'; why = 'Post was labelled with a different theme: ' + tag.theme; }\n  checks.push({\n    item: itemLabel, post_id: pid, source: tag ? tag.source : '', quote,\n    ai_theme: tag ? tag.theme : '', ai_behaviour: tag ? tag.behaviour : '',\n    result, why, url: tag ? tag.url : '',\n  });\n  return result === 'Accepted';\n}\n\nconst insights = themeAnswers.map((ins, idx) => {\n  const theme = String(ins.theme || '').trim();\n  const st = statsByTheme[theme];\n  const insightId = 'INS-' + String(idx + 1).padStart(2, '0');\n  const flags = [];\n  if (!st) flags.push('theme not found in labelled data');\n  const allowed = st ? new Set(st.evidence.map(e => e.post_id)) : null;\n  const evs = Array.isArray(ins.evidence) ? ins.evidence : [];\n  let verified = 0;\n  const verifiedIds = [];\n  for (const ev of evs) {\n    if (checkQuote(`${insightId} ${theme}`, ev, theme, allowed)) { verified++; verifiedIds.push(String(ev.post_id)); }\n  }\n  if (!evs.length) flags.push('no evidence cited');\n  if (evs.length && verified < evs.length) flags.push(`${evs.length - verified} of ${evs.length} quotes rejected or flagged`);\n  if (st && st.unique_posts < 3) flags.push(`thin evidence: only ${st.unique_posts} unique posts`);\n  for (const k of ['severity', 'addressability', 'uncertainty']) {\n    const v = Number(ins[k]);\n    if (!(v >= 1 && v <= 5)) flags.push(`${k} score missing or out of range`);\n  }\n  return {\n    insight_id: insightId, theme,\n    insight: String(ins.insight || ''), what_it_means: String(ins.what_it_means || ''),\n    opportunity: String(ins.opportunity || ''),\n    severity: ins.severity, severity_reason: String(ins.severity_reason || ''),\n    addressability: ins.addressability, addressability_reason: String(ins.addressability_reason || ''),\n    uncertainty: ins.uncertainty, uncertainty_note: String(ins.uncertainty_note || ''),\n    unique_posts: st ? st.unique_posts : 0,\n    source_distribution: st ? st.source_distribution : {},\n    behaviour_counts: st ? st.behaviour_counts : {},\n    evidence_post_ids: verifiedIds,\n    cited_evidence: evs.length, verified_evidence: verified,\n    validation_status: verified === 0 ? 'Unverified' : (flags.length ? 'Partially verified' : 'Verified'),\n    validation_flags: flags,\n  };\n});\n\nconst questionAnswers = cue.questions.map(q => {\n  const a = qAnswers.find(x => String(x.id || '').toUpperCase() === q.id) || {};\n  const allowed = new Set(q.sample.map(e => e.post_id));\n  const evs = Array.isArray(a.evidence) ? a.evidence : [];\n  let verified = 0;\n  for (const ev of evs) if (checkQuote(`${q.id} research question`, ev, null, allowed)) verified++;\n  return {\n    id: q.id, question: q.question, posts_answering: q.posts_answering,\n    answer: q.posts_answering ? String(a.answer || 'AI gave no answer') : 'No posts in this run spoke to this question',\n    confidence: q.posts_answering ? String(a.confidence || 'Low') : 'None',\n    verified_quotes: verified, cited_quotes: evs.length,\n    example_quote: (evs.find(ev => checks.some(c => c.post_id === String(ev.post_id) && c.quote === String(ev.quote) && c.result === 'Accepted')) || {}).quote || '',\n  };\n});\n\nconst tagQuotesOk = tags.filter(t => t.quote_ok).length;\n\nreturn [{\n  json: {\n    insights,\n    question_answers: questionAnswers,\n    quote_checks: checks,\n    themes: cue.themes,\n    segments: cue.segments,\n    total_unique_relevant_posts: cue.total_unique_relevant_posts,\n    tagging_quote_check: { verbatim: tagQuotesOk, total: tags.length },\n    themes_without_insight: cue.themes.filter(t => !insights.some(o => o.theme === t.theme)).map(t => t.theme),\n  },\n}];\n"
+      },
+      "id": "b98d23b6-96f4-4fcd-8c06-bb1482ec9b36",
+      "name": "Evidence Validation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        2016
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compare Opportunities: score using criteria (frequency, severity, evidence, addressability, uncertainty)\nconst d = $input.first().json;\nconst clamp = (v) => Math.min(5, Math.max(1, Math.round(Number(v))));\nconst valid = (v) => Number(v) >= 1 && Number(v) <= 5;\nconst maxPosts = Math.max(1, ...d.insights.map(i => i.unique_posts || 0));\n\nconst opportunities = d.insights.map(i => {\n  const sources = Object.keys(i.source_distribution || {}).length;\n  const frequency = clamp(Math.ceil(5 * (i.unique_posts || 0) / maxPosts) || 1);\n  const evidence = i.verified_evidence === 0\n    ? 1\n    : clamp((Math.min(i.verified_evidence, 4) / 4) * 3 + (Math.min(sources, 3) / 3) * 2);\n  // missing AI scores are treated conservatively\n  const severity = valid(i.severity) ? clamp(i.severity) : 1;\n  const addressability = valid(i.addressability) ? clamp(i.addressability) : 1;\n  const uncertainty = valid(i.uncertainty) ? clamp(i.uncertainty) : 5;\n  return {\n    insight_id: i.insight_id,\n    theme: i.theme,\n    opportunity: i.opportunity,\n    unique_posts: i.unique_posts,\n    sources,\n    verified_evidence: i.verified_evidence,\n    cited_evidence: i.cited_evidence,\n    validation_status: i.validation_status,\n    frequency,\n    severity,\n    evidence_strength: evidence,\n    addressability,\n    uncertainty,\n    // higher uncertainty lowers the score (6 - uncertainty); max total = 25\n    total_score: frequency + severity + evidence + addressability + (6 - uncertainty),\n    severity_reason: i.severity_reason,\n    addressability_reason: i.addressability_reason,\n    uncertainty_note: i.uncertainty_note,\n  };\n});\n\nreturn [{ json: { ...d, opportunities } }];\n"
+      },
+      "id": "336dc608-4681-493b-ba99-546cc5c92d01",
+      "name": "Compare Opportunities",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1824,
+        2016
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rank & Prioritize: top opportunities with the reasoning for each rank\nconst d = $input.first().json;\nconst ranked = [...d.opportunities].sort((a, b) =>\n  (b.total_score - a.total_score) || (b.frequency - a.frequency) || (b.evidence_strength - a.evidence_strength));\nconst n = ranked.length;\n\nconst opportunities = ranked.map((o, idx) => {\n  const rank = idx + 1;\n  const reasoning = `#${rank} of ${n}, total ${o.total_score}/25. ` +\n    `Frequency ${o.frequency}/5 (${o.unique_posts} unique post${o.unique_posts === 1 ? '' : 's'} from ${o.sources} source${o.sources === 1 ? '' : 's'}); ` +\n    `severity ${o.severity}/5 (${o.severity_reason}); ` +\n    `evidence ${o.evidence_strength}/5 (${o.verified_evidence} of ${o.cited_evidence} quotes verified, ${o.validation_status}); ` +\n    `addressability ${o.addressability}/5 (${o.addressability_reason}); ` +\n    `uncertainty ${o.uncertainty}/5 (${o.uncertainty_note}).`;\n  return { rank, top_pick: rank <= 3, ...o, reasoning };\n});\n\nreturn [{ json: { ...d, opportunities } }];\n"
+      },
+      "id": "1afe7a94-2a20-4e8f-8ac7-19c992b5d3aa",
+      "name": "Rank & Prioritize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2048,
+        2016
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create Final Report: builds the rows for \"1 Summary\", \"3 Opportunities\" and \"4 AI Evidence Log\"\nconst s = $('Setup & Config Check').first().json;\nconst d = $input.first().json;\nconst all = (name) => { try { return $(name).all(); } catch (e) { return []; } };\nconst fmt = (o) => Object.entries(o || {}).map(([k, v]) => `${k}: ${v}`).join(', ');\nconst plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;\nconst tags = all('Parse Tags').map(i => i.json);\n\n// ---------- volume per source ----------\nconst SOURCES = s.source_order;\nconst countBy = (arr, get) => arr.reduce((m, x) => { const k = get(x); m[k] = (m[k] || 0) + 1; return m; }, {});\nconst collected = countBy(all('Standardize Data'), i => i.json.source);\nconst newPosts = countBy(all('Remove Duplicates'), i => i.json.source);\nconst valid = countBy(all('Validate & Enrich').filter(i => i.json['Status'] === 'Valid'), i => i.json['Source']);\nconst analysed = {};\nconst cleanStats = (all('Clean & Prepare')[0] || { json: { stats: {} } }).json.stats;\nfor (const b of all('Clean & Prepare')) for (const p of b.json.posts) analysed[p.source] = (analysed[p.source] || 0) + 1;\nconst labelled = countBy(tags, t => t.source);\nconst fetchNodes = {\n  'YouTube': ['YouTube Search Videos', 'YouTube Get Comments'], 'YouTube Transcripts': ['YouTube Get Transcripts', 'YouTube Video Details'],\n  'Play Store': ['Play Store Reviews'],\n  'App Store': ['App Store Reviews'], 'TradingQ&A': ['TradingQnA Search'], 'Google Search': ['Google Search'],\n  'Quora': ['Quora Search'], 'Trustpilot': ['Trustpilot Reviews'],\n};\nconst fetchErrors = {};\nfor (const [src, nodes] of Object.entries(fetchNodes)) {\n  // comments turned off, a video with no captions, or a review page past the last one, are normal - not failures\n  const n = nodes.reduce((c, name) => c + all(name).filter(i => i.json && i.json.error && !/disabled|404|not found|hasn't returned any results|no transcript|transcript (is )?(not available|disabled)/i.test(JSON.stringify(i.json.error))).length, 0);\n  if (n) fetchErrors[src] = n;\n}\nconst sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);\n\n// ---------- 3 Opportunities ----------\nconst insByTheme = {};\nfor (const i of d.insights) insByTheme[i.theme] = i;\nconst opportunity_rows = d.opportunities.map(o => {\n  const i = insByTheme[o.theme] || {};\n  return {\n    'Run ID': s.run_id,\n    'Rank': o.rank,\n    'Theme': o.theme,\n    'Insight': i.insight || '',\n    'What It Means': i.what_it_means || '',\n    'Opportunity (How might we)': o.opportunity,\n    'Unique Posts': o.unique_posts,\n    'Sources': fmt(i.source_distribution),\n    'Behaviour Split': fmt(i.behaviour_counts),\n    'Frequency (1-5)': o.frequency,\n    'Severity (1-5)': o.severity,\n    'Evidence Strength (1-5)': o.evidence_strength,\n    'Addressability (1-5)': o.addressability,\n    'Uncertainty (1-5)': o.uncertainty,\n    'Total Score (/25)': o.total_score,\n    'Why This Rank': o.reasoning,\n    'Still Unclear': o.uncertainty_note,\n    'Evidence Post IDs': (i.evidence_post_ids || []).join(', '),\n    'Validation': i.validation_status + (i.validation_flags && i.validation_flags.length ? ' - ' + i.validation_flags.join('; ') : ''),\n  };\n});\n\n// ---------- 4 AI Evidence Log ----------\nconst evidence_rows = [];\nconst log = (part, item, x = {}) => evidence_rows.push({\n  'Run ID': s.run_id, 'Part': part, 'Item': item,\n  'Post ID': x.post_id || '', 'Source': x.source || '', 'Text or Quote': x.text || '',\n  'AI Theme': x.ai_theme || '', 'AI Behaviour': x.ai_behaviour || '',\n  'Your Theme (hand label)': '', 'Your Behaviour (hand label)': '', 'Agree? (Yes/No)': '',\n  'Check Result': x.result || '', 'Why': x.why || '', 'Link': x.url || '',\n});\n\n// Part A - sources and volume analysed\nSOURCES.forEach(src => log('A. Sources & volume', src, {\n  source: src,\n  result: `collected ${collected[src] || 0} -> new ${newPosts[src] || 0} -> valid ${valid[src] || 0} -> analysed ${analysed[src] || 0} -> labelled ${labelled[src] || 0}`,\n  why: fetchErrors[src] ? `${plural(fetchErrors[src], 'request')} failed` : 'OK',\n}));\nlog('A. Sources & volume', 'Total', {\n  result: `collected ${sum(collected)} -> new ${sum(newPosts)} -> valid ${sum(valid)} -> SIP-related ${cleanStats.relevant_found || 0} -> analysed ${cleanStats.analysed || 0} (target ${s.target_relevant_posts}) -> labelled ${tags.length}`,\n  why: `Lookback ${s.lookback_days} days (since ${s.after_date}). Removed: ${cleanStats.invalid || 0} invalid, ${cleanStats.too_short_after_cleaning || 0} too short, ${cleanStats.not_sip_related || 0} not about SIPs.`,\n});\n\n// spoken (video transcripts) vs written posts\nconst trVideos = all('Pick Transcript Videos').filter(i => i.json && i.json.video_id).length;\nconst trWithText = all('YouTube Get Transcripts').filter(i => i.json && !i.json.error && Array.isArray(i.json.transcript) && i.json.transcript.length).length;\nconst trWindows = all('Standardize Data').filter(i => i.json.source_type === 'transcript');\nconst trSponsored = trWindows.filter(i => /^\\[possible sponsored/i.test(String(i.json.title || ''))).length;\nconst spoken = analysed['YouTube Transcripts'] || 0;\nconst written = (cleanStats.analysed || 0) - spoken;\nlog('A. Sources & volume', 'Spoken vs written', {\n  result: `spoken ${spoken} + written ${written} = ${cleanStats.analysed || 0} analysed`,\n  why: `${trWithText} of ${trVideos} videos had captions; ${trWindows.length} windows of ~${s.transcript_window_seconds}s cut around SIP/${s.app_name} mentions; ${trSponsored} of them from videos that look sponsored or carry referral links. All clips and their labels are in 6 Voice Data.`,\n});\n\n// Part B - golden set: posts to label by hand, picked across sources and behaviours\nconst hash = (t) => { let h = 7; for (const c of String(t)) h = (h * 31 + c.charCodeAt(0)) | 0; return h; };\nconst pool = {};\nfor (const t of tags) (pool[t.source] = pool[t.source] || []).push(t);\nfor (const list of Object.values(pool)) {\n  list.sort((a, b) => hash(a.post_id) - hash(b.post_id));\n  // spread behaviours: interleave by behaviour inside each source\n  const byB = {};\n  for (const t of list) (byB[t.behaviour] = byB[t.behaviour] || []).push(t);\n  const mixed = [];\n  const qs = Object.values(byB);\n  while (qs.some(q => q.length)) for (const q of qs) if (q.length) mixed.push(q.shift());\n  list.splice(0, list.length, ...mixed);\n}\nconst golden = [];\nconst queues = Object.values(pool);\nwhile (golden.length < s.golden_set_size && queues.some(q => q.length)) {\n  for (const q of queues) if (q.length && golden.length < s.golden_set_size) golden.push(q.shift());\n}\ngolden.forEach((t, i) => log('B. Golden set (label by hand)', `G${String(i + 1).padStart(2, '0')}`, {\n  post_id: t.post_id, source: t.source, text: String(t.text).slice(0, 600),\n  ai_theme: t.theme, ai_behaviour: t.behaviour, url: t.url,\n  result: 'Waiting for your label', why: 'Fill Your Theme + Your Behaviour, then Agree? = Yes if both match the AI',\n}));\n\n// Part C - automatic quality checks: where AI output was accepted, rejected or corrected\nfor (const c of d.quote_checks) {\n  log('C. Quality checks', 'Insight quote check - ' + c.item, {\n    post_id: c.post_id, source: c.source, text: c.quote, ai_theme: c.ai_theme, ai_behaviour: c.ai_behaviour,\n    result: c.result, why: c.why, url: c.url,\n  });\n}\nfor (const t of tags.filter(t => !t.quote_ok)) {\n  log('C. Quality checks', 'Label quote check', {\n    post_id: t.post_id, source: t.source, text: t.quote || '(no quote given)', ai_theme: t.theme, ai_behaviour: t.behaviour,\n    result: 'Rejected', why: 'Evidence quote is not word-for-word in the post, so it is marked \"Quote Verified = No\" in ' + (t.source_type === 'transcript' ? '6 Voice Data' : '2 Feedback Analysis'), url: t.url,\n  });\n}\nfor (const t of tags.filter(t => t.off_list_themes)) {\n  log('C. Quality checks', 'Theme outside the allowed list', {\n    post_id: t.post_id, source: t.source, text: t.off_list_themes, ai_theme: t.theme, ai_behaviour: t.behaviour,\n    result: 'Corrected', why: `AI used \"${t.off_list_themes}\", which is not in theme_list; it was dropped and the post kept: ${t.theme}`, url: t.url,\n  });\n}\nfor (const p of ((tags[0] || {}).tagging_problems || [])) {\n  log('C. Quality checks', `Labelling batch ${p.batch}`, {\n    result: p.dropped ? 'Rejected' : 'Corrected',\n    why: p.why + (p.dropped ? ` (${plural(p.dropped, 'post')} not labelled)` : (p.count ? ` (${p.count} ignored)` : '')),\n  });\n}\nfor (const i of d.insights.filter(i => i.validation_flags.length)) {\n  log('C. Quality checks', `Insight check - ${i.insight_id} ${i.theme}`, {\n    result: i.validation_status === 'Unverified' ? 'Rejected' : 'Flagged', why: i.validation_flags.join('; '),\n  });\n}\nconst tq = d.tagging_quote_check;\nlog('C. Quality checks', 'Label quotes word-for-word (all posts)', {\n  result: `${tq.verbatim} of ${tq.total} (${tq.total ? Math.round(100 * tq.verbatim / tq.total) : 0}%)`,\n  why: 'Share of AI evidence quotes found exactly in the original post',\n});\n\n// ---------- 1 Summary ----------\nconst summary_rows = [];\nconst add = (section, item, detail) => summary_rows.push({ 'Run ID': s.run_id, 'Section': section, 'Item': item, 'Detail': String(detail) });\n\nadd('Run', 'Research goal', s.research_goal);\nadd('Run', 'Data analysed', `${cleanStats.analysed || 0} SIP-related posts (target ${s.target_relevant_posts}) from ${Object.keys(analysed).length} sources, out of ${sum(collected)} collected. Lookback ${s.lookback_days} days.`);\nadd('Run', 'Posts per source (analysed)', SOURCES.map(src => `${src}: ${analysed[src] || 0}`).join(' | '));\nadd('Run', 'Spoken vs written (analysed)', `${spoken} video clips (tab 6 Voice Data), ${written} written posts (tabs 2 and 5)`);\n\nfor (const q of d.question_answers) {\n  add('Research questions', `${q.id} ${q.question}`,\n    `${q.answer} [${plural(q.posts_answering, 'post')}; confidence ${q.confidence}]` + (q.example_quote ? ` e.g. \"${q.example_quote}\"` : ''));\n}\n\nd.opportunities.filter(o => o.top_pick).forEach(o =>\n  add('Top opportunities', `#${o.rank} ${o.theme} (${o.total_score}/25)`, o.opportunity));\n\nconst segName = { income_stability: 'Income stability', age: 'Age', source_of_money: 'Source of money', influenced_by: 'Influenced by' };\nfor (const seg of d.segments) {\n  const detail = seg.values.length\n    ? seg.values.map(v => `${v.value}: ${plural(v.posts, 'post')} (${v.continuing} continuing, ${v.dropping_off} paused/reduced/stopped)`).join(' | ')\n    : 'Not enough posts state this';\n  add('Segment comparison', segName[seg.segment] || seg.segment, detail);\n}\n\nconst ev = d.quote_checks;\nconst cnt = (r) => ev.filter(c => c.result === r).length;\nadd('AI quality', 'Insight quotes', `${cnt('Accepted')} accepted, ${cnt('Flagged')} flagged, ${cnt('Rejected')} rejected of ${ev.length} (details in 4 AI Evidence Log, part C)`);\nadd('AI quality', 'Label quotes word-for-word', `${tq.verbatim} of ${tq.total}`);\nadd('AI quality', 'Golden set', `${golden.length} posts ready to label by hand in 4 AI Evidence Log, part B`);\n\nd.opportunities.filter(o => o.top_pick && o.uncertainty_note).forEach(o =>\n  add('Next steps', `Check for #${o.rank} ${o.theme}`, o.uncertainty_note));\nadd('Next steps', 'Label the golden set', 'Fill the hand-label columns in 4 AI Evidence Log part B and count Agree? = Yes to get the agreement rate.');\nif (Object.keys(fetchErrors).length) add('Next steps', 'Fix sources', `Requests failed for: ${Object.keys(fetchErrors).join(', ')}. Check keys/quota and re-run.`);\n\nreturn [{ json: { opportunity_rows, evidence_rows, summary_rows } }];\n"
+      },
+      "id": "080997d3-54d7-4b49-9196-abae32a8a18b",
+      "name": "Create Final Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2272,
+        2016
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "summary_rows",
+        "options": {}
+      },
+      "id": "ce566f24-752d-4579-8c24-afee8cffe926",
+      "name": "Split Summary",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        2528,
+        1840
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Your keys').first().json.sheet_url }}",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "1 Summary",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Run ID",
+              "displayName": "Run ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Section",
+              "displayName": "Section",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Item",
+              "displayName": "Item",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Detail",
+              "displayName": "Detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "id": "929f08e5-1555-4c04-9c37-010612cc91a2",
+      "name": "Save Summary",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2768,
+        1840
+      ],
+      "notesInFlow": true,
+      "notes": "tab: 1 Summary"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "opportunity_rows",
+        "options": {}
+      },
+      "id": "a990684f-4dca-46a8-87e2-2e262ef0de47",
+      "name": "Split Opportunities",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        2528,
+        2048
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Your keys').first().json.sheet_url }}",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "3 Opportunities",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Run ID",
+              "displayName": "Run ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Rank",
+              "displayName": "Rank",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Theme",
+              "displayName": "Theme",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Insight",
+              "displayName": "Insight",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "What It Means",
+              "displayName": "What It Means",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Opportunity (How might we)",
+              "displayName": "Opportunity (How might we)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Unique Posts",
+              "displayName": "Unique Posts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Sources",
+              "displayName": "Sources",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Behaviour Split",
+              "displayName": "Behaviour Split",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Frequency (1-5)",
+              "displayName": "Frequency (1-5)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Severity (1-5)",
+              "displayName": "Severity (1-5)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Evidence Strength (1-5)",
+              "displayName": "Evidence Strength (1-5)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Addressability (1-5)",
+              "displayName": "Addressability (1-5)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Uncertainty (1-5)",
+              "displayName": "Uncertainty (1-5)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Total Score (/25)",
+              "displayName": "Total Score (/25)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Why This Rank",
+              "displayName": "Why This Rank",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Still Unclear",
+              "displayName": "Still Unclear",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Evidence Post IDs",
+              "displayName": "Evidence Post IDs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Validation",
+              "displayName": "Validation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "id": "6aea9725-3a28-4635-8a0a-6aa4e8935d01",
+      "name": "Save Opportunities",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2768,
+        2048
+      ],
+      "notesInFlow": true,
+      "notes": "tab: 3 Opportunities"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "evidence_rows",
+        "options": {}
+      },
+      "id": "beef436a-31ea-4279-9113-68f6208904e9",
+      "name": "Split Evidence Log",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        2528,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Your keys').first().json.sheet_url }}",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "4 AI Evidence Log",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Run ID",
+              "displayName": "Run ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Part",
+              "displayName": "Part",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Item",
+              "displayName": "Item",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Post ID",
+              "displayName": "Post ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Text or Quote",
+              "displayName": "Text or Quote",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "AI Theme",
+              "displayName": "AI Theme",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "AI Behaviour",
+              "displayName": "AI Behaviour",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Your Theme (hand label)",
+              "displayName": "Your Theme (hand label)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Your Behaviour (hand label)",
+              "displayName": "Your Behaviour (hand label)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Agree? (Yes/No)",
+              "displayName": "Agree? (Yes/No)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Check Result",
+              "displayName": "Check Result",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Why",
+              "displayName": "Why",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "id": "a06bb28c-ac8f-4336-8589-50e6ee63b1ec",
+      "name": "Save Evidence Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2768,
+        2240
+      ],
+      "notesInFlow": true,
+      "notes": "tab: 4 AI Evidence Log"
+    },
+    {
+      "parameters": {
+        "content": "## 1  Research & Collect\nMulti-source data collection and preparation (written posts + spoken video transcripts)",
+        "height": 1460,
+        "width": 3800,
+        "color": 4
+      },
+      "id": "05515be5-3cc9-4b0c-8e0c-6d94c0e27aa8",
+      "name": "1 Research & Collect",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2  Analyze & Discover\nAI tagging, insight generation and opportunity comparison",
+        "height": 1100,
+        "width": 3800,
+        "color": 5
+      },
+      "id": "fde960d9-1056-4a7d-9e2f-acf1f333aee2",
+      "name": "2 Analyze & Discover",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        1728
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pick Transcript Videos: the first <youtube_transcript_videos> videos from the YouTube search (Settings; 0 = off)\nconst s = $('Setup & Config Check').first().json;\nconst seen = new Set();\nconst out = [];\nfor (const v of $input.all()) {\n  if (out.length >= s.youtube_transcript_videos) break;\n  const id = v.json.id && v.json.id.videoId;\n  if (!id || seen.has(id)) continue;\n  seen.add(id);\n  out.push({ json: { video_id: id } });\n}\nreturn out;\n"
+      },
+      "id": "51b15da0-435b-470b-8efb-f357bdc16b4b",
+      "name": "Pick Transcript Videos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        336
+      ],
+      "alwaysOutputData": true,
+      "notesInFlow": true,
+      "notes": "first N videos (Settings)"
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "engine",
+              "value": "youtube_video_transcript"
+            },
+            {
+              "name": "v",
+              "value": "={{ $json.video_id || 'none' }}"
+            },
+            {
+              "name": "language_code",
+              "value": "={{ $('Setup & Config Check').first().json.transcript_language }}"
+            },
+            {
+              "name": "api_key",
+              "value": "={{ $('Your keys').first().json.serpapi_api_key }}"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 500
+            }
+          }
+        }
+      },
+      "id": "b80d8eac-d7d1-4ab2-984f-7e8354c31614",
+      "name": "YouTube Get Transcripts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1584,
+        336
+      ],
+      "alwaysOutputData": true,
+      "notesInFlow": true,
+      "onError": "continueRegularOutput",
+      "notes": "1 SerpApi search per video · no captions = skipped"
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/videos",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "snippet"
+            },
+            {
+              "name": "id",
+              "value": "={{ $('Pick Transcript Videos').all().map(i => i.json.video_id).filter(Boolean).join(',') || 'none' }}"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            },
+            {
+              "name": "key",
+              "value": "={{ $('Your keys').first().json.youtube_api_key }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fabc4f3b-769c-4a77-a0c4-85f5ef65ee8c",
+      "name": "YouTube Video Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1808,
+        336
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "notesInFlow": true,
+      "onError": "continueRegularOutput",
+      "notes": "full descriptions for the sponsored check · 1 call"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Your keys').first().json.sheet_url }}",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "6 Voice Data",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "84f84fc7-f82f-4f4b-be44-da9584321614",
+      "name": "Check Existing Voice Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        304,
+        1136
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "notesInFlow": true,
+      "onError": "continueRegularOutput",
+      "notes": "tab: 6 Voice Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Written Posts Only: video clips are saved to \"6 Voice Data\" (see Save Voice Data), everything else to \"5 Raw Data\"\nreturn $input.all().filter(i => i.json['Type'] !== 'transcript');\n"
+      },
+      "id": "a068c7de-6c58-41b0-8693-5a081c02e9c0",
+      "name": "Written Posts Only",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2752,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Written Tags Only: labels for video clips are saved with the clips in \"6 Voice Data\"\nreturn $input.all().filter(i => i.json.source_type !== 'transcript');\n"
+      },
+      "id": "0dde84db-5049-4d95-87b2-ed4b1ec79be1",
+      "name": "Written Tags Only",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        2016
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Voice Rows: every video clip from this run with its AI labels, one row each, for the \"6 Voice Data\" tab\nconst s = $('Setup & Config Check').first().json;\nconst all = (name) => { try { return $(name).all(); } catch (e) { return []; } };\nconst tagById = {};\nfor (const t of all('Parse Tags')) tagById[t.json.post_id] = t.json;\nconst sentToAI = new Set();\nfor (const b of all('Clean & Prepare')) for (const p of b.json.posts) sentToAI.add(p.post_id);\nconst SPONSORED = /^\\[possible sponsored\\/referral\\]\\s*/i;\nconst TAG_COLS = ['Theme(s)', 'Behaviour',\n  'Q1 Why they started & what they expected', 'Q2 What changed after starting', 'Q3 Why they paused, reduced or stopped',\n  'Q4 What they check & how often', 'Q5 What confuses or worries them in the app', 'Q6 What they do outside the app when unsure',\n  'Q7 Continue vs drop-off signal', 'Q8 Income stability', 'Q8 Age', 'Q8 Source of money', 'Q8 Influenced by', 'Q9 Unmet need',\n  'Evidence Quote', 'Stated or Inferred', 'Quote Verified'];\n\nreturn all('Validate & Enrich')\n  .map(i => i.json)\n  .filter(r => r['Type'] === 'transcript' && String(r['Run ID']) === s.run_id)\n  .map(r => {\n    const sec = Number((String(r['Link'] || '').match(/[?&]t=(\\d+)s/) || [])[1] || 0);\n    const title = String(r['Title / Context'] || '');\n    const tag = tagById[r['Post ID']];\n    let aiStatus = 'Labelled';\n    if (!tag) {\n      if (r['Status'] !== 'Valid') aiStatus = 'Not labelled (' + r['Status'] + ')';\n      else if (sentToAI.has(r['Post ID'])) aiStatus = 'Not labelled (AI gave no label)';\n      else aiStatus = 'Not labelled (not SIP-related, too short or over the target)';\n    }\n    const row = {\n      'Run ID': r['Run ID'],\n      'Post ID': r['Post ID'],\n      'Collected At': r['Collected At'],\n      'Video Title': title.replace(SPONSORED, ''),\n      'Channel': r['Author'],\n      'Video Date': r['Post Date'],\n      'Clip Start': `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`,\n      'Clip Link': r['Link'],\n      'Transcript Clip': r['Text'],\n      'Possibly Sponsored': SPONSORED.test(title) ? 'Yes' : 'No',\n      'Status': r['Status'],\n      'AI Status': aiStatus,\n    };\n    for (const c of TAG_COLS) row[c] = tag ? (tag[c] ?? '') : '';\n    return { json: row };\n  });\n"
+      },
+      "id": "248d7c1d-1985-4237-837e-05fa6c1e836a",
+      "name": "Build Voice Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        1840
+      ],
+      "notesInFlow": true,
+      "notes": "clips + their AI labels"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Your keys').first().json.sheet_url }}",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "6 Voice Data",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "id": "11e8861b-cd09-446b-99ee-6919dfeeb110",
+      "name": "Save Voice Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        672,
+        1840
+      ],
+      "notesInFlow": true,
+      "notes": "tab: 6 Voice Data"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gemini Model (Research)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Your keys",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Your keys": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Check Existing Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Existing Data": {
+      "main": [
+        [
+          {
+            "node": "Check Existing Voice Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Setup & Config Check": {
+      "main": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse Research Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Research Plan": {
+      "main": [
+        [
+          {
+            "node": "YouTube Search Videos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Play Store Reviews",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "App Store Split Pages",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "TradingQnA Split Queries",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Split Queries",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Quora Search",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Trustpilot Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube Search Videos": {
+      "main": [
+        [
+          {
+            "node": "YouTube Split Videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube Split Videos": {
+      "main": [
+        [
+          {
+            "node": "YouTube Get Comments",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Pick Transcript Videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "App Store Split Pages": {
+      "main": [
+        [
+          {
+            "node": "App Store Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TradingQnA Split Queries": {
+      "main": [
+        [
+          {
+            "node": "TradingQnA Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Split Queries": {
+      "main": [
+        [
+          {
+            "node": "Google Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube Get Comments": {
+      "main": [
+        [
+          {
+            "node": "Collect All Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Play Store Reviews": {
+      "main": [
+        [
+          {
+            "node": "Collect All Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "App Store Reviews": {
+      "main": [
+        [
+          {
+            "node": "Collect All Sources",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "TradingQnA Search": {
+      "main": [
+        [
+          {
+            "node": "Collect All Sources",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Google Search": {
+      "main": [
+        [
+          {
+            "node": "Collect All Sources",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Quora Search": {
+      "main": [
+        [
+          {
+            "node": "Collect All Sources",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Trustpilot Reviews": {
+      "main": [
+        [
+          {
+            "node": "Collect All Sources",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Collect All Sources": {
+      "main": [
+        [
+          {
+            "node": "Standardize Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Standardize Data": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates": {
+      "main": [
+        [
+          {
+            "node": "Validate & Enrich",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Enrich": {
+      "main": [
+        [
+          {
+            "node": "Written Posts Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Model (Tagging)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Tagging Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Model (Insights)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate Insights",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Raw Data": {
+      "main": [
+        [
+          {
+            "node": "Read Saved Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Saved Data": {
+      "main": [
+        [
+          {
+            "node": "Clean & Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean & Prepare": {
+      "main": [
+        [
+          {
+            "node": "AI Tagging Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Tagging Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse Tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Tags": {
+      "main": [
+        [
+          {
+            "node": "Build Voice Rows",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Written Tags Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Tagged Data": {
+      "main": [
+        [
+          {
+            "node": "Group by Themes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group by Themes": {
+      "main": [
+        [
+          {
+            "node": "Count Unique Evidence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Unique Evidence": {
+      "main": [
+        [
+          {
+            "node": "Generate Insights",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Insights": {
+      "main": [
+        [
+          {
+            "node": "Evidence Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evidence Validation": {
+      "main": [
+        [
+          {
+            "node": "Compare Opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare Opportunities": {
+      "main": [
+        [
+          {
+            "node": "Rank & Prioritize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rank & Prioritize": {
+      "main": [
+        [
+          {
+            "node": "Create Final Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Final Report": {
+      "main": [
+        [
+          {
+            "node": "Split Summary",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Split Opportunities",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Split Evidence Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Summary": {
+      "main": [
+        [
+          {
+            "node": "Save Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Opportunities": {
+      "main": [
+        [
+          {
+            "node": "Save Opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Evidence Log": {
+      "main": [
+        [
+          {
+            "node": "Save Evidence Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Transcript Videos": {
+      "main": [
+        [
+          {
+            "node": "YouTube Get Transcripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube Get Transcripts": {
+      "main": [
+        [
+          {
+            "node": "YouTube Video Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube Video Details": {
+      "main": [
+        [
+          {
+            "node": "Collect All Sources",
+            "type": "main",
+            "index": 7
+          }
+        ]
+      ]
+    },
+    "Check Existing Voice Data": {
+      "main": [
+        [
+          {
+            "node": "Setup & Config Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Written Posts Only": {
+      "main": [
+        [
+          {
+            "node": "Save Raw Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Voice Rows": {
+      "main": [
+        [
+          {
+            "node": "Save Voice Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Written Tags Only": {
+      "main": [
+        [
+          {
+            "node": "Save Tagged Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
